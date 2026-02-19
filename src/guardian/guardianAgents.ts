@@ -2,6 +2,16 @@ import { createLogger, nowISO } from '../shared/utils';
 import { GuardianDocument } from './emailListener';
 import { InterTransaction } from './interConnector';
 
+export interface ImportedDocument {
+    id: string;
+    name: string;
+    type: 'pdf' | 'xml' | 'ofx' | 'csv';
+    source: 'manual_import';
+    contentUrl: string;
+    size: number;
+    uploadedAt: string;
+}
+
 const logger = createLogger('GuardianAgents');
 
 export interface AnalysisResult {
@@ -16,12 +26,20 @@ export interface AnalysisResult {
 }
 
 export class GuardianAgents {
-    async extractData(doc: GuardianDocument): Promise<AnalysisResult[]> {
-        logger.info(`Extracting data from document: ${doc.subject}`);
-        return doc.attachments.map(att => ({
+    async extractData(doc: GuardianDocument | ImportedDocument): Promise<AnalysisResult[]> {
+        const isEmail = (doc as GuardianDocument).subject !== undefined;
+        const name = isEmail ? (doc as GuardianDocument).subject : (doc as ImportedDocument).name;
+
+        logger.info(`Extracting data from ${isEmail ? 'email' : 'imported'} document: ${name}`);
+
+        const attachments = isEmail
+            ? (doc as GuardianDocument).attachments
+            : [{ name: (doc as ImportedDocument).name, type: (doc as ImportedDocument).type, blobUrl: (doc as ImportedDocument).contentUrl, size: (doc as ImportedDocument).size }];
+
+        return attachments.map(att => ({
             id: 'EXT_' + Math.random().toString(36).substring(7),
             type: 'document',
-            classification: 'Infraestrutura / AWS',
+            classification: att.type.includes('xml') ? 'Nota Fiscal Servico' : 'Infraestrutura / AWS',
             confidence: 0.985,
             value: 924.10,
             needsReview: false,

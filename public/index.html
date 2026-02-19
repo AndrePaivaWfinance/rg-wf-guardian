@@ -70,7 +70,10 @@
         <div style="font-size: 12px; color: var(--c-emerald);">92% Autonomous Mode</div>
     </header>
     <div class="card">
-        <h2>Decision Inbox</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Decision Inbox</h2>
+            <button class="btn-gold" onclick="importManual()">IMPORTAR MANUAL</button>
+        </div>
         <div id="inbox" style="margin-top: 20px;"></div>
     </div>
     <script>
@@ -78,16 +81,33 @@
             const res = await fetch('/api/guardianStatus');
             const data = await res.json();
             const container = document.getElementById('inbox');
-            container.innerHTML = data.items.map(i => `
+            container.innerHTML = items.map(i => `
                 <div class="inbox-item">
                     <div>
                         <div style="font-weight: 600;">${i.classificacao}</div>
-                        <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()}</div>
+                        <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()} ${i.origem === 'import_manual' ? ' (Importado)' : ''}</div>
                     </div>
                     <button class="btn-gold">APROVAR</button>
                 </div>
             `).join('');
             lucide.createIcons();
+        }
+
+        async function importManual() {
+            const url = prompt("Cole a URL do documento (PDF/XML/OFX):");
+            if (!url) return;
+
+            try {
+                const res = await fetch('/api/guardianImport', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url })
+                });
+                const data = await res.json();
+                alert(data.message);
+                load();
+            } catch (e) {
+                alert("Erro ao importar documento.");
+            }
         }
         load();
     </script>
