@@ -391,6 +391,44 @@
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- Entrance Animations ---- */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes countUp { from { opacity: 0; } to { opacity: 1; } }
+        .kpi-card { animation: fadeUp 0.5s ease both; }
+        .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+        .kpi-card:nth-child(2) { animation-delay: 0.10s; }
+        .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+        .kpi-card:nth-child(4) { animation-delay: 0.20s; }
+        .kpi-card:nth-child(5) { animation-delay: 0.25s; }
+        .kpi-card:nth-child(6) { animation-delay: 0.30s; }
+        .card { animation: scaleIn 0.4s ease both; }
+        .g2 .card:nth-child(1) { animation-delay: 0.1s; }
+        .g2 .card:nth-child(2) { animation-delay: 0.2s; }
+
+        /* ---- Enhanced KPI hover ---- */
+        .kpi-card { transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+        .kpi-card.purple:hover { border-color: rgba(87,70,175,0.3); box-shadow: 0 6px 16px rgba(87,70,175,0.12); }
+        .kpi-card.green:hover { border-color: rgba(13,150,104,0.3); box-shadow: 0 6px 16px rgba(13,150,104,0.12); }
+        .kpi-card.blue:hover { border-color: rgba(45,127,249,0.3); box-shadow: 0 6px 16px rgba(45,127,249,0.12); }
+        .kpi-card.red:hover { border-color: rgba(217,48,54,0.3); box-shadow: 0 6px 16px rgba(217,48,54,0.12); }
+
+        /* ---- Demo banner ---- */
+        .demo-banner {
+            background: linear-gradient(90deg, var(--primary-dim), rgba(45,127,249,0.06));
+            border: 1px solid rgba(87,70,175,0.15);
+            border-radius: var(--radius);
+            padding: 10px 18px;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 12px; color: var(--primary);
+            margin-bottom: 16px;
+            animation: fadeUp 0.3s ease both;
+        }
+        .demo-banner strong { font-weight: 600; }
+        .demo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
         .margin-summary {
             display: flex; gap: 16px; padding: 10px 12px; margin-top: 8px;
             background: var(--bg); border-radius: 8px; font-size: 11px; color: var(--t3);
@@ -488,10 +526,10 @@
     <section id="kpi-section" class="kpi-grid">
         <div class="kpi-card purple"><div class="kpi-label">EBITDA</div><div id="k-ebitda" class="kpi-value">--</div><div class="kpi-sub">Resultado operacional</div></div>
         <div class="kpi-card green"><div class="kpi-label">Lucro Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
-        <div class="kpi-card"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Lucro / Receita</div></div>
-        <div class="kpi-card"><div class="kpi-label">Margem Bruta</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Bruto / Receita</div></div>
+        <div class="kpi-card purple"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Lucro / Receita</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Margem Bruta</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Bruto / Receita</div></div>
         <div class="kpi-card blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional</div></div>
-        <div class="kpi-card"><div class="kpi-label">Caixa</div><div id="k-caixa" class="kpi-value">--</div><div id="k-caixa-sub" class="kpi-sub">Saldo consolidado</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Caixa</div><div id="k-caixa" class="kpi-value">--</div><div id="k-caixa-sub" class="kpi-sub">Saldo consolidado</div></div>
     </section>
 
     <!-- DRE + DFC -->
@@ -578,11 +616,116 @@
 const API=window.__GUARDIAN_API_BASE__||'https://func-guardian-sovereign.azurewebsites.net';
 const KEY=window.__GUARDIAN_API_KEY__||'';
 let forecastChart=null;
+let useMock=false;
 
 function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
 function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
 function navTo(id){const el=document.getElementById(id);if(el){el.scrollIntoView({behavior:'smooth',block:'start'})}}
+
+// ---- Mock Data ----
+function getMockReport(){
+    const months=['Jan','Fev','Mar','Abr','Mai','Jun'];
+    return {
+        success:true,
+        report:{
+            indicators:{
+                ebitda:187450.00,
+                lucroLiquido:124380.50,
+                margemLiquida:'18.7%',
+                margemBruta:'42.3%',
+                fluxoCaixa:156720.00
+            },
+            treasury:{
+                caixaAtual:892340.75,
+                previsao30Dias:945000.00
+            },
+            dre:{
+                receitaBruta:665000.00,
+                deducoes:59850.00,
+                receitaLiquida:605150.00,
+                custosServicos:349173.50,
+                lucroBruto:255976.50,
+                despesasOperacionais:{
+                    administrativas:38500.00,
+                    imobiliarias:12800.00,
+                    utilidades:17226.50
+                },
+                ebitda:187450.00,
+                depreciacaoAmortizacao:8500.00,
+                ebit:178950.00,
+                resultadoFinanceiro:12400.00,
+                lucroAntesIR:166550.00,
+                irCSLL:42169.50,
+                lucroLiquido:124380.50,
+                margemBruta:'42.3%',
+                margemEbitda:'28.2%',
+                margemLiquida:'18.7%'
+            },
+            dfc:{
+                operacional:{
+                    recebimentosClientes:598500.00,
+                    pagamentosFornecedores:-285300.00,
+                    pagamentosDespesas:-156480.00,
+                    total:156720.00
+                },
+                investimento:{
+                    aquisicaoAtivos:-24500.00
+                },
+                financiamento:{
+                    total:-8200.00
+                },
+                variacaoLiquida:124020.00,
+                caixaInicial:768320.75,
+                caixaFinal:892340.75
+            },
+            forecast:months.map((m,i)=>({
+                month:m+'/26',
+                receita:580000+Math.round(Math.random()*120000),
+                despesas:380000+Math.round(Math.random()*80000),
+                caixaAcumulado:892340+((i+1)*85000)+Math.round(Math.random()*40000)
+            })),
+            entradas:[
+                {classificacao:'Receita de Consultoria',tipo:'PIX',valor:85000.00,confianca:0.97,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Receita Gestao Patrimonial',tipo:'TED',valor:62500.00,confianca:0.95,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Receita Planej. Tributario',tipo:'PIX',valor:47800.00,confianca:0.93,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Receita Assessoria M&A',tipo:'TED',valor:125000.00,confianca:0.98,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Receita Due Diligence',tipo:'BOLETO',valor:38200.00,confianca:0.91,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Receita Holding Familiar',tipo:'PIX',valor:54300.00,confianca:0.94,audit:{alert:null,withinBudget:true}}
+            ],
+            saidas:[
+                {classificacao:'Folha de Pagamento',tipo:'DEBITO',valor:98500.00,confianca:0.99,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Aluguel Escritorio',tipo:'BOLETO',valor:12800.00,confianca:0.98,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Software & Licencas',tipo:'DEBITO',valor:8750.00,confianca:0.96,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Marketing Digital',tipo:'PIX',valor:15400.00,confianca:0.88,audit:{alert:'critical',withinBudget:false}},
+                {classificacao:'Honorarios Contabeis',tipo:'BOLETO',valor:6200.00,confianca:0.97,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Energia + Telecom',tipo:'DEBITO',valor:4850.00,confianca:0.95,audit:{alert:null,withinBudget:true}},
+                {classificacao:'Material de Escritorio',tipo:'PIX',valor:2340.00,confianca:0.92,audit:{alert:null,withinBudget:true}}
+            ],
+            categorized:[
+                {category:'Folha & Beneficios',total:98500,count:12},
+                {category:'Consultoria & Assessoria',total:85000,count:8},
+                {category:'Gestao Patrimonial',total:62500,count:5},
+                {category:'Marketing & Comercial',total:15400,count:7},
+                {category:'Infraestrutura',total:12800,count:3},
+                {category:'Tecnologia',total:8750,count:4},
+                {category:'Administrativo',total:6200,count:6}
+            ]
+        }
+    };
+}
+
+function getMockInbox(){
+    return {
+        items:[
+            {classificacao:'Receita Consultoria - Empresa ABC',tipo:'transaction',valor:45000.00,confianca:0.96,audit:{alert:null,withinBudget:true},needsReview:false,origem:'sync'},
+            {classificacao:'Pagamento Fornecedor - TechCorp',tipo:'transaction',valor:18500.00,confianca:0.72,audit:{alert:null,withinBudget:true},needsReview:true,origem:'sync'},
+            {classificacao:'Nota Fiscal #4521',tipo:'document',valor:32000.00,confianca:0.89,audit:{alert:null,withinBudget:true},needsReview:false,origem:'upload'},
+            {classificacao:'Marketing - Campanha Q1',tipo:'transaction',valor:22000.00,confianca:0.85,audit:{alert:'critical',withinBudget:false},needsReview:true,origem:'sync'},
+            {classificacao:'Receita Due Diligence - XYZ',tipo:'transaction',valor:67000.00,confianca:0.94,audit:{alert:null,withinBudget:true},needsReview:false,origem:'sync'}
+        ]
+    };
+}
 
 // Sidebar click delegation
 document.querySelector('.sidebar').addEventListener('click',function(e){
@@ -745,8 +888,11 @@ function renderCats(cats){
 // ---- Data Loading ----
 async function loadInbox(){
     const el=document.getElementById('inbox');
-    try{const r=await fetch(api('/api/guardianStatus'));if(!r.ok)throw new Error('Status '+r.status);
-        const d=await r.json();const items=d.items||[];
+    try{
+        let d;
+        if(useMock){d=getMockInbox()}
+        else{const r=await fetch(api('/api/guardianStatus'),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('Status '+r.status);d=await r.json()}
+        const items=d.items||[];
         // Inbox badge
         const badge=document.getElementById('inbox-badge');
         if(items.length>0){badge.style.display='';badge.textContent=items.length}else{badge.style.display='none'}
@@ -778,12 +924,18 @@ async function loadInbox(){
             '</div>';
         document.getElementById('last-sync').textContent='Atualizado em '+new Date().toLocaleString('pt-BR');
         lucide.createIcons();
-    }catch(e){el.innerHTML='<div class="empty-state" style="color:var(--danger)">Erro: '+esc(e.message)+'</div>'}
+    }catch(e){
+        if(!useMock){useMock=true;console.info('Guardian: APIs indisponiveis, usando dados demonstrativos.');loadInbox();return}
+        el.innerHTML='<div class="empty-state" style="color:var(--danger)">Erro: '+esc(e.message)+'</div>'
+    }
 }
 
 async function loadReport(){
-    try{const r=await fetch(api('/api/guardianReports'));if(!r.ok)throw new Error('Status '+r.status);
-        const d=await r.json();if(!d.success)throw new Error(d.error||'Erro');
+    try{
+        let d;
+        if(useMock){d=getMockReport()}
+        else{const r=await fetch(api('/api/guardianReports'),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('Status '+r.status);d=await r.json()}
+        if(!d.success)throw new Error(d.error||'Erro');
         const rp=d.report;
         document.getElementById('k-ebitda').textContent=brl(rp.indicators.ebitda);
         document.getElementById('k-lucro').textContent=brl(rp.indicators.lucroLiquido);
@@ -796,10 +948,25 @@ async function loadReport(){
         renderTxList(document.getElementById('entradas-list'),rp.entradas,'in');
         renderTxList(document.getElementById('saidas-list'),rp.saidas,'out');
         renderCats(rp.categorized);
-        document.getElementById('dot-inter').classList.add('live');
-        document.getElementById('dot-ai').classList.add('live');
-        document.getElementById('dot-graph').classList.add('live');
-    }catch(e){console.warn('Report:',e)}
+        if(useMock){
+            document.getElementById('last-sync').textContent='Dados demonstrativos — Conecte as APIs para dados reais';
+            document.getElementById('dot-inter').classList.remove('live');
+            document.getElementById('dot-graph').classList.remove('live');
+            document.getElementById('dot-ai').classList.remove('live');
+            if(!document.getElementById('demo-banner')){
+                const banner=document.createElement('div');banner.id='demo-banner';banner.className='demo-banner';
+                banner.innerHTML='<div class="demo-dot"></div><span><strong>Modo Demonstracao</strong> — Exibindo dados simulados. Conecte as APIs do Azure para dados em tempo real.</span>';
+                document.querySelector('.topbar').after(banner);
+            }
+        }else{
+            document.getElementById('dot-inter').classList.add('live');
+            document.getElementById('dot-ai').classList.add('live');
+            document.getElementById('dot-graph').classList.add('live');
+        }
+    }catch(e){
+        if(!useMock){useMock=true;console.info('Guardian: APIs indisponiveis, usando dados demonstrativos.');loadReport();return}
+        console.warn('Report:',e)
+    }
 }
 
 function loadAll(){loadInbox();loadReport()}
