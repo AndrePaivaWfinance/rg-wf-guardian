@@ -8,7 +8,7 @@
     "watch": "tsc -w",
     "prestart": "npm run build",
     "start": "func start",
-    "test": "echo \"No tests yet\""
+    "test": "npx ts-node test_guardian.ts"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
