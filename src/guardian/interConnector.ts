@@ -35,17 +35,27 @@ export class InterConnector {
     constructor(
         private readonly clientId: string = process.env.INTER_CLIENT_ID || '',
         private readonly clientSecret: string = process.env.INTER_CLIENT_SECRET || '',
+        private readonly certBase64: string = process.env.INTER_CERT_BASE64 || '',
+        private readonly keyBase64: string = process.env.INTER_KEY_BASE64 || '',
         private readonly certPath: string = process.env.INTER_CERT_PATH || '',
         private readonly keyPath: string = process.env.INTER_KEY_PATH || ''
     ) { }
 
     /** Returns true when real Inter API credentials are configured */
     private isConfigured(): boolean {
-        return !!(this.clientId && this.clientSecret && this.certPath && this.keyPath);
+        const hasCreds = !!(this.clientId && this.clientSecret);
+        const hasCerts = !!(this.certBase64 && this.keyBase64) || !!(this.certPath && this.keyPath);
+        return hasCreds && hasCerts;
     }
 
-    /** Loads mTLS cert and key for mutual TLS authentication */
+    /** Loads mTLS cert and key — supports base64 env vars or file paths */
     private loadCertificates(): { cert: Buffer; key: Buffer } {
+        if (this.certBase64 && this.keyBase64) {
+            return {
+                cert: Buffer.from(this.certBase64, 'base64'),
+                key: Buffer.from(this.keyBase64, 'base64'),
+            };
+        }
         return {
             cert: fs.readFileSync(this.certPath),
             key: fs.readFileSync(this.keyPath),
