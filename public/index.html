@@ -1,655 +1,820 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wfinance | Guardian Sovereign Cockpit</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.426.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
         :root {
-            --bg: #F3F4F6;
-            --bg-white: #FFFFFF;
-            --bg-hover: #F9FAFB;
-            --purple: #4B2D8E;
-            --purple-light: #6B4FB0;
-            --purple-dim: rgba(75,45,142,0.08);
-            --purple-border: rgba(75,45,142,0.15);
-            --emerald: #059669;
-            --emerald-dim: rgba(5,150,105,0.08);
-            --red: #DC2626;
-            --red-dim: rgba(220,38,38,0.08);
-            --blue: #2563EB;
-            --blue-dim: rgba(37,99,235,0.08);
-            --gold: #D97706;
-            --gold-dim: rgba(217,119,6,0.08);
-            --border: #E5E7EB;
-            --border-hover: #D1D5DB;
-            --text-1: #111827;
-            --text-2: #6B7280;
-            --text-3: #9CA3AF;
-            --radius: 14px;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --sidebar-w: 232px;
+            --bg: #F8F9FB;
+            --bg-sidebar: #1A1631;
+            --bg-sidebar-hover: rgba(255,255,255,0.06);
+            --bg-sidebar-active: rgba(255,255,255,0.10);
+            --white: #FFFFFF;
+            --hover: #F4F5F7;
+            --pressed: #EDEEF1;
+            --primary: #5746AF;
+            --primary-hover: #6B5BC4;
+            --primary-dim: rgba(87,70,175,0.06);
+            --primary-soft: rgba(87,70,175,0.10);
+            --success: #0D9668;
+            --success-dim: rgba(13,150,104,0.07);
+            --danger: #D93036;
+            --danger-dim: rgba(217,48,54,0.07);
+            --info: #2D7FF9;
+            --info-dim: rgba(45,127,249,0.07);
+            --warn: #CF8A12;
+            --warn-dim: rgba(207,138,18,0.07);
+            --border: #E8EAF0;
+            --border-strong: #D4D7DE;
+            --t1: #1A1D26;
+            --t2: #5E6370;
+            --t3: #9096A2;
+            --t4: #B4B9C5;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --shadow-xs: 0 1px 2px rgba(16,24,40,0.04);
+            --shadow-sm: 0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04);
+            --shadow-md: 0 4px 8px -2px rgba(16,24,40,0.06),0 2px 4px -2px rgba(16,24,40,0.04);
         }
 
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
-            color: var(--text-1);
+            color: var(--t1);
             min-height: 100vh;
-        }
-
-        .shell {
-            max-width: 1360px;
-            margin: 0 auto;
-            padding: 28px 36px 60px;
-        }
-
-        /* ---- Topbar ---- */
-        .topbar {
             display: flex;
-            justify-content: space-between;
+            font-size: 13px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-height: 100vh;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 12px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 50;
+        }
+        .sidebar-brand {
+            display: flex;
             align-items: center;
-            padding-bottom: 24px;
+            gap: 10px;
+            padding: 0 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
         }
-        .brand {
-            display: flex; align-items: center; gap: 12px;
-        }
-        .brand-icon {
-            width: 38px; height: 38px;
-            background: linear-gradient(135deg, var(--purple), var(--purple-light));
-            border-radius: 10px;
+        .sidebar-logo {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #7C6AE8, #5746AF);
+            border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
-            font-family: 'Outfit'; font-weight: 700; font-size: 17px; color: #fff;
+            font-weight: 700; font-size: 14px; color: #fff;
+            box-shadow: 0 2px 8px rgba(87,70,175,0.4);
         }
-        .brand h1 {
-            font-family: 'Outfit'; font-weight: 600; font-size: 20px;
-            color: var(--purple); letter-spacing: -0.3px;
+        .sidebar-title {
+            font-size: 14px; font-weight: 600; color: #fff; letter-spacing: -0.2px;
         }
-        .brand-sub {
-            font-size: 11px; color: var(--text-3); margin-top: 1px;
-            letter-spacing: 0.5px;
+        .sidebar-subtitle {
+            font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.3px;
+        }
+        .sidebar-section {
+            font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.30);
+            text-transform: uppercase; letter-spacing: 1px;
+            padding: 16px 10px 8px;
+        }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: 8px; cursor: pointer;
+            color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 450;
+            transition: all 0.15s;
+        }
+        .sidebar-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: rgba(255,255,255,0.80);
+        }
+        .sidebar-item.active {
+            background: var(--bg-sidebar-active);
+            color: #fff;
+        }
+        .sidebar-item i { width: 18px; height: 18px; opacity: 0.7; }
+        .sidebar-item.active i { opacity: 1; }
+        .sidebar-badge {
+            margin-left: auto;
+            font-size: 10px; font-weight: 600;
+            background: rgba(217,48,54,0.25); color: #FF6B6B;
+            padding: 1px 7px; border-radius: 10px;
+        }
+        .sidebar-spacer { flex: 1; }
+        .sidebar-footer {
+            padding: 12px 10px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: 12px;
+        }
+        .sidebar-user {
+            display: flex; align-items: center; gap: 10px;
+            color: rgba(255,255,255,0.60); font-size: 12px; cursor: pointer;
+        }
+        .sidebar-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, #7C6AE8, #5746AF);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600; color: #fff;
+        }
+        .sidebar-status-row {
+            display: flex; gap: 6px; padding: 0 10px; margin-top: 4px;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--t4); transition: all 0.3s;
+        }
+        .status-dot.live {
+            background: var(--success);
+            box-shadow: 0 0 6px rgba(13,150,104,0.5);
+        }
+
+        /* ============ MAIN ============ */
+        .main {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            padding: 28px 36px 60px;
+            max-width: calc(100% - var(--sidebar-w));
+        }
+
+        /* ---- Top bar ---- */
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px;
+        }
+        .topbar-left h1 {
+            font-size: 20px; font-weight: 600; letter-spacing: -0.3px; color: var(--t1);
+        }
+        .topbar-left p {
+            font-size: 12px; color: var(--t3); margin-top: 2px;
         }
         .topbar-right {
-            display: flex; align-items: center; gap: 14px;
+            display: flex; align-items: center; gap: 10px;
         }
-        .badge-row { display: flex; gap: 6px; }
-        .badge {
-            font-size: 10px; padding: 4px 10px; border-radius: 20px;
-            border: 1px solid var(--border); color: var(--text-3);
-            font-weight: 500; transition: all 0.3s;
-            display: flex; align-items: center; gap: 5px;
-            background: var(--bg-white);
-        }
-        .badge .dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--text-3); transition: all 0.3s;
-        }
-        .badge.live { border-color: var(--emerald); color: var(--emerald); }
-        .badge.live .dot { background: var(--emerald); box-shadow: 0 0 6px rgba(5,150,105,0.4); }
-        .badge.error { border-color: var(--red); color: var(--red); }
-        .badge.error .dot { background: var(--red); }
-
-        .auto-pill {
+        .pill {
             font-size: 11px; padding: 5px 14px; border-radius: 20px;
-            background: var(--purple-dim); color: var(--purple);
-            font-weight: 600; font-family: 'JetBrains Mono';
+            font-weight: 600; font-family: 'JetBrains Mono', monospace;
         }
-        .user-chip { font-size: 11px; color: var(--text-2); }
-        .btn-ghost {
-            background: var(--bg-white); border: 1px solid var(--border);
-            color: var(--text-2); padding: 6px 16px; border-radius: 8px;
-            font-size: 11px; cursor: pointer; transition: all 0.2s;
-            font-family: 'Inter';
-        }
-        .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
-
-        /* ---- KPI Strip ---- */
-        .kpi-strip {
-            display: grid; grid-template-columns: repeat(5, 1fr);
-            gap: 14px; margin-top: 4px;
-        }
-        .kpi {
-            background: var(--bg-white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 18px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
-        }
-        .kpi:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
-        .kpi-label {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-            color: var(--text-3); margin-bottom: 8px; font-weight: 600;
-        }
-        .kpi-value {
-            font-family: 'Outfit'; font-size: 22px; font-weight: 600;
-            color: var(--text-1); letter-spacing: -0.5px;
-        }
-        .kpi-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
-        .kpi.accent { border-left: 3px solid var(--purple); }
-        .kpi.accent .kpi-value { color: var(--purple); }
-        .kpi.emerald { border-left: 3px solid var(--emerald); }
-        .kpi.emerald .kpi-value { color: var(--emerald); }
-        .kpi.blue { border-left: 3px solid var(--blue); }
-        .kpi.blue .kpi-value { color: var(--blue); }
+        .pill-primary { background: var(--primary-dim); color: var(--primary); }
+        .pill-success { background: var(--success-dim); color: var(--success); }
 
         /* ---- Cards ---- */
-        .grid-2 {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;
-        }
         .card {
-            background: var(--bg-white);
+            background: var(--white);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: var(--radius-lg);
             padding: 22px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
+            box-shadow: var(--shadow-xs);
+            transition: box-shadow 0.15s, border-color 0.15s;
         }
-        .card:hover { box-shadow: var(--shadow); }
+        .card:hover {
+            box-shadow: var(--shadow-sm);
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px;
+        }
         .card-title {
-            font-size: 12px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.6px; color: var(--text-2); margin-bottom: 16px;
+            font-size: 12px; font-weight: 600; color: var(--t2);
+            text-transform: uppercase; letter-spacing: 0.5px;
             display: flex; align-items: center; gap: 8px;
         }
-        .card-title i { width: 15px; height: 15px; color: var(--purple-light); }
+        .card-title i { width: 15px; height: 15px; color: var(--primary); opacity: 0.6; }
 
-        /* ---- Inbox ---- */
-        .inbox-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-top: 20px; margin-bottom: 14px;
+        /* ---- KPI Grid ---- */
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
         }
-        .inbox-header h2 {
-            font-family: 'Outfit'; font-size: 17px; font-weight: 500;
-            color: var(--text-1);
-        }
-        .inbox-actions { display: flex; gap: 8px; }
-        .btn {
-            padding: 8px 18px; border-radius: 8px; border: none;
-            font-weight: 600; font-size: 11px; cursor: pointer;
-            font-family: 'Inter'; transition: all 0.2s;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-primary {
-            background: var(--purple); color: #fff;
-        }
-        .btn-primary:hover:not(:disabled) { background: var(--purple-light); }
-        .btn-secondary {
-            background: var(--bg-white); border: 1px solid var(--border);
-            color: var(--text-2);
-        }
-        .btn-secondary:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
-        .btn-accent {
-            background: var(--emerald); color: #fff;
-        }
-        .btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
-
-        .inbox-card {
-            background: var(--bg-white);
+        .kpi-card {
+            background: var(--white);
             border: 1px solid var(--border);
             border-radius: var(--radius);
+            padding: 18px 16px;
+            box-shadow: var(--shadow-xs);
+            position: relative;
             overflow: hidden;
-            box-shadow: var(--shadow-sm);
         }
-        .inbox-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 20px;
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--border);
+            border-radius: 0 2px 2px 0;
+        }
+        .kpi-card.purple::before { background: var(--primary); }
+        .kpi-card.green::before { background: var(--success); }
+        .kpi-card.blue::before { background: var(--info); }
+        .kpi-card.red::before { background: var(--danger); }
+        .kpi-label {
+            font-size: 10px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--t3); margin-bottom: 8px;
+        }
+        .kpi-value {
+            font-size: 22px; font-weight: 700; color: var(--t1);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+        }
+        .kpi-card.purple .kpi-value { color: var(--primary); }
+        .kpi-card.green .kpi-value { color: var(--success); }
+        .kpi-card.blue .kpi-value { color: var(--info); }
+        .kpi-sub { font-size: 11px; color: var(--t4); margin-top: 4px; }
+
+        /* ---- Layout grids ---- */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .mt { margin-top: 16px; }
+
+        /* ---- Section ---- */
+        .section-title {
+            font-size: 15px; font-weight: 600; color: var(--t1);
+            margin-top: 28px; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-title i { width: 18px; height: 18px; color: var(--primary); opacity: 0.5; }
+
+        /* ---- Buttons ---- */
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px; border: none;
+            font-weight: 600; font-size: 12px; cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.12s;
+            line-height: 1;
+        }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn-primary {
+            background: var(--primary); color: #fff;
+            box-shadow: 0 1px 2px rgba(87,70,175,0.3);
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-outline {
+            background: var(--white); color: var(--t2);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+        .btn-success { background: var(--success); color: #fff; }
+
+        /* ---- Tables ---- */
+        .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .tbl th {
+            text-align: left; font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--t3); padding: 10px 12px;
             border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+        .tbl th:last-child { text-align: right; }
+        .tbl td {
+            padding: 9px 12px; border-bottom: 1px solid var(--border);
+            color: var(--t1); vertical-align: middle;
+        }
+        .tbl tr:last-child td { border-bottom: none; }
+        .tbl tr:hover td { background: var(--hover); }
+        .tbl .sub td { padding-left: 28px; color: var(--t2); font-size: 12px; }
+        .tbl .total td { font-weight: 700; border-top: 2px solid var(--border-strong); padding-top: 12px; color: var(--primary); }
+        .tbl .section-row td { font-weight: 600; color: var(--t3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; padding-top: 14px; }
+        .tbl .num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+        .tbl .positive { color: var(--success); }
+        .tbl .negative { color: var(--danger); }
+
+        /* ---- Transaction rows ---- */
+        .tx-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 11px 16px; border-bottom: 1px solid var(--border);
             transition: background 0.1s;
         }
-        .inbox-item:last-child { border-bottom: none; }
-        .inbox-item:hover { background: var(--bg-hover); }
-        .inbox-item-left { display: flex; align-items: center; gap: 12px; }
-        .inbox-icon {
-            width: 34px; height: 34px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
+        .tx-row:last-child { border-bottom: none; }
+        .tx-row:hover { background: var(--hover); }
+        .tx-left { display: flex; align-items: center; gap: 12px; }
+        .tx-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
         }
-        .inbox-icon.credit { background: var(--emerald-dim); color: var(--emerald); }
-        .inbox-icon.debit { background: var(--red-dim); color: var(--red); }
-        .inbox-icon.doc { background: var(--blue-dim); color: var(--blue); }
-        .inbox-label { font-size: 13px; font-weight: 500; color: var(--text-1); }
-        .inbox-meta {
-            font-size: 11px; color: var(--text-3); margin-top: 2px;
-            display: flex; align-items: center; gap: 8px;
+        .tx-dot.in { background: var(--success); }
+        .tx-dot.out { background: var(--danger); }
+        .tx-dot.doc { background: var(--info); }
+        .tx-name { font-size: 13px; font-weight: 500; }
+        .tx-meta { font-size: 11px; color: var(--t3); margin-top: 1px; display: flex; gap: 6px; align-items: center; }
+        .tx-amount { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; text-align: right; }
+        .tx-conf { font-size: 10px; color: var(--t4); text-align: right; margin-top: 1px; }
+        .tag { font-size: 9px; padding: 2px 7px; border-radius: 4px; font-weight: 600; letter-spacing: 0.2px; }
+        .tag-auto { background: var(--success-dim); color: var(--success); }
+        .tag-alert { background: var(--danger-dim); color: var(--danger); }
+        .tag-review { background: var(--warn-dim); color: var(--warn); }
+
+        /* ---- Category bars ---- */
+        .cat-row { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .cat-row:last-child { border-bottom: none; }
+        .cat-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .cat-name { font-size: 13px; font-weight: 500; }
+        .cat-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: var(--t2); }
+        .cat-bar-bg { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+        .cat-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--primary), var(--primary-hover)); transition: width 0.6s ease; }
+        .cat-count { font-size: 10px; color: var(--t4); margin-top: 4px; }
+
+        /* ---- Upload ---- */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 36px; text-align: center;
+            cursor: pointer; transition: all 0.15s;
         }
-        .inbox-value {
-            font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 500;
-            text-align: right; color: var(--text-1);
+        .upload-zone:hover, .upload-zone.drag {
+            border-color: var(--primary);
+            background: var(--primary-dim);
         }
-        .inbox-confidence {
-            font-size: 10px; color: var(--text-3); margin-top: 2px;
-            text-align: right;
-        }
-        .tag {
-            font-size: 9px; padding: 2px 7px; border-radius: 5px; font-weight: 600;
-        }
-        .tag-ok { background: var(--emerald-dim); color: var(--emerald); }
-        .tag-alert { background: var(--red-dim); color: var(--red); }
-        .tag-review { background: var(--gold-dim); color: var(--gold); }
+        .upload-zone p { font-size: 13px; color: var(--t2); margin-top: 10px; }
+        .upload-zone small { font-size: 11px; color: var(--t4); }
+        .upload-zone input { display: none; }
+
+        /* ---- Chart ---- */
+        .chart-wrap { position: relative; height: 280px; }
 
         /* ---- Toast ---- */
-        .toast-container {
-            position: fixed; bottom: 24px; right: 24px;
-            display: flex; flex-direction: column; gap: 8px; z-index: 1000;
-        }
+        .toast-c { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
         .toast {
-            padding: 12px 18px; border-radius: 10px;
+            padding: 12px 18px; border-radius: var(--radius);
             font-size: 13px; font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            animation: slideIn 0.3s ease;
-            max-width: 380px;
+            background: var(--white);
+            box-shadow: var(--shadow-md);
+            border-left: 3px solid var(--t4);
+            animation: slideIn 0.25s ease; max-width: 380px;
         }
-        .toast-success { background: #fff; border-left: 3px solid var(--emerald); color: var(--text-1); }
-        .toast-error { background: #fff; border-left: 3px solid var(--red); color: var(--text-1); }
-        .toast-info { background: #fff; border-left: 3px solid var(--blue); color: var(--text-1); }
-        @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } }
+        .toast-ok { border-left-color: var(--success); }
+        .toast-err { border-left-color: var(--danger); }
+        .toast-info { border-left-color: var(--info); }
+        @keyframes slideIn { from { transform: translateX(60px); opacity: 0; } }
 
         /* ---- Modal ---- */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(3px);
+        .modal-bg {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
             display: none; align-items: center; justify-content: center; z-index: 999;
         }
-        .modal-overlay.open { display: flex; }
+        .modal-bg.open { display: flex; }
         .modal {
-            background: #fff; border: 1px solid var(--border);
+            background: var(--white); border: 1px solid var(--border);
             border-radius: 16px; padding: 28px; width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.16);
         }
-        .modal h3 {
-            font-family: 'Outfit'; font-size: 17px; color: var(--purple);
-            margin-bottom: 6px;
-        }
-        .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
+        .modal h3 { font-size: 16px; font-weight: 600; color: var(--t1); margin-bottom: 4px; }
+        .modal p { font-size: 13px; color: var(--t2); margin-bottom: 16px; }
         .modal input {
             width: 100%; padding: 10px 14px; border-radius: 8px;
             border: 1px solid var(--border); background: var(--bg);
-            color: var(--text-1); font-size: 13px; font-family: 'Inter';
-            outline: none; transition: border-color 0.2s;
+            color: var(--t1); font-size: 13px; font-family: 'Inter', sans-serif;
+            outline: none; transition: border-color 0.15s;
         }
-        .modal input:focus { border-color: var(--purple); }
-        .modal-actions {
-            display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
-        }
+        .modal input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+        .modal-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
-        /* ---- Loading ---- */
-        .empty-state {
-            text-align: center; padding: 44px 20px; color: var(--text-3);
-        }
-        .empty-state p { font-size: 13px; margin-top: 8px; }
-        .spinner {
-            width: 18px; height: 18px; border: 2px solid var(--border);
-            border-top-color: var(--purple); border-radius: 50%;
-            animation: spin 0.6s linear infinite; display: inline-block;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .skeleton {
-            background: linear-gradient(90deg, var(--bg) 25%, #E5E7EB 50%, var(--bg) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 6px; height: 18px;
-        }
+        /* ---- Utilities ---- */
+        .empty-state { text-align: center; padding: 40px 16px; color: var(--t3); font-size: 13px; }
+        .skeleton { background: linear-gradient(90deg, var(--bg) 25%, var(--border) 50%, var(--bg) 75%); background-size: 200%; animation: shimmer 1.5s infinite; border-radius: 6px; height: 16px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-        .last-sync { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+        .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .margin-summary {
+            display: flex; gap: 16px; padding: 10px 12px; margin-top: 8px;
+            background: var(--bg); border-radius: 8px; font-size: 11px; color: var(--t3);
+        }
+        .margin-summary span { display: flex; align-items: center; gap: 4px; }
+        .margin-summary strong { color: var(--t2); font-weight: 600; }
 
         /* ---- Responsive ---- */
-        @media (max-width: 1200px) {
-            .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 1024px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; max-width: 100%; }
         }
         @media (max-width: 768px) {
-            .shell { padding: 16px; }
-            .kpi-strip { grid-template-columns: repeat(2, 1fr); }
-            .grid-2 { grid-template-columns: 1fr; }
-            .topbar { flex-direction: column; gap: 14px; align-items: flex-start; }
-            .inbox-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+            .main { padding: 16px; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .g2 { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; gap: 12px; align-items: flex-start; }
         }
     </style>
 </head>
-
 <body>
-    <div class="shell">
-        <!-- Topbar -->
-        <header class="topbar">
-            <div class="brand">
-                <div class="brand-icon">G</div>
-                <div>
-                    <h1>Guardian</h1>
-                    <div class="brand-sub">Sovereign Financial Cockpit</div>
-                </div>
-            </div>
-            <div class="topbar-right">
-                <div class="badge-row">
-                    <span id="badge-inter" class="badge"><span class="dot"></span> Inter</span>
-                    <span id="badge-graph" class="badge"><span class="dot"></span> Graph</span>
-                    <span id="badge-ai" class="badge"><span class="dot"></span> OCR</span>
-                </div>
-                <div id="auto-pill" class="auto-pill">-- %</div>
-                <span id="user-display" class="user-chip"></span>
-                <button id="auth-btn" class="btn-ghost" onclick="handleAuth()">Login</button>
-            </div>
-        </header>
 
-        <!-- KPI Strip -->
-        <section class="kpi-strip">
-            <div class="kpi accent">
-                <div class="kpi-label">EBITDA</div>
-                <div id="kpi-ebitda" class="kpi-value">--</div>
-                <div class="kpi-sub">Resultado operacional</div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-label">Caixa Atual</div>
-                <div id="kpi-caixa" class="kpi-value">--</div>
-                <div id="kpi-caixa-sub" class="kpi-sub">Saldo consolidado</div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-label">Margem Liquida</div>
-                <div id="kpi-margin" class="kpi-value">--</div>
-                <div class="kpi-sub">Receita x Despesas</div>
-            </div>
-            <div class="kpi emerald">
-                <div class="kpi-label">Eficiencia</div>
-                <div id="kpi-eff" class="kpi-value">--</div>
-                <div class="kpi-sub">Indice operacional</div>
-            </div>
-            <div class="kpi blue">
-                <div class="kpi-label">Soberania</div>
-                <div id="kpi-sov" class="kpi-value">--</div>
-                <div class="kpi-sub">Grau de automacao</div>
-            </div>
-        </section>
-
-        <!-- Cards -->
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-title"><i data-lucide="shield-check"></i> Controladoria</div>
-                <div id="audit-panel">
-                    <div class="skeleton" style="width:70%; margin-bottom:8px;"></div>
-                    <div class="skeleton" style="width:50%;"></div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-title"><i data-lucide="trending-up"></i> Tesouraria</div>
-                <div id="treasury-panel">
-                    <div class="skeleton" style="width:60%; margin-bottom:8px;"></div>
-                    <div class="skeleton" style="width:80%;"></div>
-                </div>
-            </div>
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+    <div class="sidebar-brand">
+        <div class="sidebar-logo">G</div>
+        <div>
+            <div class="sidebar-title">Guardian</div>
+            <div class="sidebar-subtitle">Wfinance Gestao</div>
         </div>
+    </div>
 
-        <!-- Inbox -->
-        <div class="inbox-header">
+    <div class="sidebar-section">Visao Geral</div>
+    <div class="sidebar-item active" onclick="scrollTo('#kpi-section')"><i data-lucide="layout-dashboard"></i> Dashboard</div>
+    <div class="sidebar-item" onclick="scrollTo('#dre-section')"><i data-lucide="file-spreadsheet"></i> DRE</div>
+    <div class="sidebar-item" onclick="scrollTo('#dfc-section')"><i data-lucide="wallet"></i> DFC</div>
+    <div class="sidebar-item" onclick="scrollTo('#forecast-section')"><i data-lucide="trending-up"></i> Previsibilidade</div>
+
+    <div class="sidebar-section">Operacional</div>
+    <div class="sidebar-item" onclick="scrollTo('#tx-section')"><i data-lucide="repeat"></i> Transacoes</div>
+    <div class="sidebar-item" onclick="scrollTo('#cat-section')"><i data-lucide="layers"></i> Categorias</div>
+    <div class="sidebar-item" onclick="scrollTo('#inbox-section')">
+        <i data-lucide="inbox"></i> Inbox
+        <span id="inbox-badge" class="sidebar-badge" style="display:none">0</span>
+    </div>
+
+    <div class="sidebar-section">Acoes</div>
+    <div class="sidebar-item" onclick="runSync()"><i data-lucide="refresh-cw"></i> Sincronizar</div>
+    <div class="sidebar-item" onclick="document.getElementById('file-input').click()"><i data-lucide="upload-cloud"></i> Upload OCR</div>
+    <div class="sidebar-item" onclick="openImportModal()"><i data-lucide="link"></i> Importar URL</div>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-status-row">
+        <div id="dot-inter" class="status-dot" title="Inter API"></div>
+        <div id="dot-graph" class="status-dot" title="MS Graph"></div>
+        <div id="dot-ai" class="status-dot" title="AI/OCR"></div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="handleAuth()">
+            <div class="sidebar-avatar" id="user-avatar">?</div>
             <div>
-                <h2>Decision Inbox</h2>
-                <div id="last-sync" class="last-sync"></div>
-            </div>
-            <div class="inbox-actions">
-                <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
-                    <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar
-                </button>
-                <button class="btn btn-secondary" onclick="generateReport()">
-                    <i data-lucide="bar-chart-3" style="width:13px;height:13px;"></i> Relatorio
-                </button>
-                <button class="btn btn-accent" onclick="openImportModal()">
-                    <i data-lucide="upload" style="width:13px;height:13px;"></i> Importar
-                </button>
+                <div id="user-name" style="font-size:12px;color:rgba(255,255,255,0.75)">Entrar</div>
+                <div id="user-role" style="font-size:10px;color:rgba(255,255,255,0.30)">Clique para login</div>
             </div>
         </div>
-        <div id="inbox" class="inbox-card">
-            <div class="empty-state">
-                <div class="spinner"></div>
-                <p>Carregando dados...</p>
+    </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<div class="main">
+    <!-- Hidden file input for upload -->
+    <input id="file-input" type="file" accept=".pdf,.xml,.ofx,.csv" style="display:none" onchange="handleFileSelect(event)">
+
+    <!-- Top bar -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <h1>Financial Overview</h1>
+            <p id="last-sync">Carregando dados...</p>
+        </div>
+        <div class="topbar-right">
+            <span id="auto-pill" class="pill pill-primary">-- %</span>
+            <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
+                <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Sincronizar
+            </button>
+            <button class="btn btn-outline" onclick="generateReport()">
+                <i data-lucide="bar-chart-3" style="width:14px;height:14px"></i> Relatorio
+            </button>
+        </div>
+    </header>
+
+    <!-- KPIs -->
+    <section id="kpi-section" class="kpi-grid">
+        <div class="kpi-card purple"><div class="kpi-label">EBITDA</div><div id="k-ebitda" class="kpi-value">--</div><div class="kpi-sub">Resultado operacional</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Lucro Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
+        <div class="kpi-card"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Lucro / Receita</div></div>
+        <div class="kpi-card"><div class="kpi-label">Margem Bruta</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Bruto / Receita</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional</div></div>
+        <div class="kpi-card"><div class="kpi-label">Caixa</div><div id="k-caixa" class="kpi-value">--</div><div id="k-caixa-sub" class="kpi-sub">Saldo consolidado</div></div>
+    </section>
+
+    <!-- DRE + DFC -->
+    <div class="g2">
+        <div class="card" id="dre-section">
+            <div class="card-header">
+                <div class="card-title"><i data-lucide="file-spreadsheet"></i> DRE — Demonstracao do Resultado</div>
+            </div>
+            <div id="dre-body"><div class="skeleton" style="width:80%;margin-bottom:8px"></div><div class="skeleton" style="width:60%"></div></div>
+        </div>
+        <div class="card" id="dfc-section">
+            <div class="card-header">
+                <div class="card-title"><i data-lucide="wallet"></i> DFC — Fluxo de Caixa</div>
+            </div>
+            <div id="dfc-body"><div class="skeleton" style="width:70%;margin-bottom:8px"></div><div class="skeleton" style="width:55%"></div></div>
+        </div>
+    </div>
+
+    <!-- Forecast -->
+    <div class="card mt" id="forecast-section">
+        <div class="card-header">
+            <div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div>
+        </div>
+        <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="section-title" id="tx-section"><i data-lucide="repeat"></i> Transacoes</div>
+    <div class="g2">
+        <div class="card">
+            <div class="card-header"><div class="card-title" style="color:var(--success)"><i data-lucide="arrow-up-right" style="color:var(--success)"></i> Entradas</div></div>
+            <div id="entradas-list"><div class="empty-state"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><div class="card-title" style="color:var(--danger)"><i data-lucide="arrow-down-left" style="color:var(--danger)"></i> Saidas</div></div>
+            <div id="saidas-list"><div class="empty-state"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+
+    <!-- Categories + Audit -->
+    <div class="g2" id="cat-section">
+        <div class="card">
+            <div class="card-header"><div class="card-title"><i data-lucide="layers"></i> Categorias</div></div>
+            <div id="cat-list"><div class="skeleton" style="width:70%;margin-bottom:8px"></div><div class="skeleton" style="width:50%"></div></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><div class="card-title"><i data-lucide="shield-check"></i> Controladoria</div></div>
+            <div id="audit-panel"><div class="skeleton" style="width:60%;margin-bottom:8px"></div><div class="skeleton" style="width:40%"></div></div>
+            <div style="margin-top:20px">
+                <div class="card-title" style="margin-bottom:10px"><i data-lucide="upload-cloud"></i> Upload Documento</div>
+                <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+                    <i data-lucide="file-plus" style="width:24px;height:24px;color:var(--primary);opacity:0.5"></i>
+                    <p>Arraste ou clique para enviar</p>
+                    <small>PDF, XML, OFX, CSV — OCR automatico</small>
+                </div>
+                <div id="upload-status" style="margin-top:8px"></div>
             </div>
         </div>
     </div>
 
-    <!-- Import Modal -->
-    <div id="import-modal" class="modal-overlay" onclick="if(event.target===this)closeImportModal()">
-        <div class="modal">
-            <h3>Importar Documento</h3>
-            <p>Cole a URL do arquivo (PDF, XML ou OFX) para processamento pelo Guardian.</p>
-            <input id="import-url" type="url" placeholder="https://exemplo.com/nota-fiscal.pdf" />
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="submitImport()">Importar</button>
-            </div>
+    <!-- Decision Inbox -->
+    <div class="section-title" id="inbox-section"><i data-lucide="inbox"></i> Decision Inbox</div>
+    <div class="card" id="inbox" style="padding:0;overflow:hidden">
+        <div class="empty-state"><div class="spinner"></div><p style="margin-top:8px">Carregando...</p></div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div id="import-modal" class="modal-bg" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <h3>Importar Documento</h3>
+        <p>Informe a URL do arquivo para processamento via OCR.</p>
+        <input id="import-url" type="url" placeholder="https://exemplo.com/nota-fiscal.pdf">
+        <div class="modal-acts">
+            <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitImport()">Importar</button>
         </div>
     </div>
+</div>
 
-    <!-- Toast Container -->
-    <div id="toasts" class="toast-container"></div>
+<div id="toasts" class="toast-c"></div>
 
-    <script>
-        const API_BASE = window.__GUARDIAN_API_BASE__ || 'https://func-guardian-sovereign.azurewebsites.net';
-        const API_KEY = window.__GUARDIAN_API_KEY__ || '';
+<script>
+const API=window.__GUARDIAN_API_BASE__||'https://func-guardian-sovereign.azurewebsites.net';
+const KEY=window.__GUARDIAN_API_KEY__||'';
+let forecastChart=null;
 
-        function apiUrl(path) {
-            const base = API_BASE + path;
-            return API_KEY ? base + (base.includes('?') ? '&' : '?') + 'code=' + API_KEY : base;
+function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
+function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
+function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
+function scrollTo(sel){document.querySelector(sel)?.scrollIntoView({behavior:'smooth',block:'start'})}
+
+// Toast
+function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
+function openImportModal(){document.getElementById('import-modal').classList.add('open')}
+function closeModal(){document.getElementById('import-modal').classList.remove('open')}
+
+// Auth
+let user=null;
+async function checkAuth(){
+    try{const r=await fetch('/.auth/me');const d=await r.json();
+        if(d.clientPrincipal){
+            user=d.clientPrincipal;
+            document.getElementById('user-name').textContent=user.userDetails;
+            document.getElementById('user-role').textContent='Autenticado';
+            document.getElementById('user-avatar').textContent=user.userDetails.charAt(0).toUpperCase();
         }
+    }catch{
+        document.getElementById('user-name').textContent='Desenvolvimento';
+        document.getElementById('user-role').textContent='Ambiente local';
+        document.getElementById('user-avatar').textContent='D';
+    }
+}
+function handleAuth(){user?window.location.href='/.auth/logout':window.location.href='/.auth/login/aad'}
 
-        function esc(s) {
-            const d = document.createElement('div');
-            d.appendChild(document.createTextNode(s));
-            return d.innerHTML;
-        }
+// Sync
+async function runSync(){
+    const btn=document.getElementById('btn-sync');btn.disabled=true;
+    btn.innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Sincronizando...';
+    try{const r=await fetch(api('/api/guardianSync'),{method:'POST'});
+        if(r.status===401){toast('Login necessario.','err');return}
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        if(d.success){toast(d.summary.transactions+' transacoes e '+d.summary.documents+' documentos sincronizados.','ok');loadAll()}
+    }catch(e){toast('Erro ao sincronizar: '+e.message,'err')}
+    finally{btn.disabled=false;btn.innerHTML='<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Sincronizar';lucide.createIcons()}
+}
 
-        function brl(v) {
-            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-        }
+// File upload
+function handleDrop(e){e.preventDefault();document.querySelectorAll('.upload-zone').forEach(z=>z.classList.remove('drag'));if(e.dataTransfer.files.length)uploadFile(e.dataTransfer.files[0])}
+function handleFileSelect(e){if(e.target.files.length)uploadFile(e.target.files[0])}
+async function uploadFile(file){
+    const s=document.getElementById('upload-status');
+    s.innerHTML='<div style="display:flex;align-items:center;gap:8px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span><span style="font-size:12px;color:var(--t2)">Processando <strong>'+esc(file.name)+'</strong> via OCR...</span></div>';
+    try{
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+        const r=await fetch(api('/api/guardianUpload'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,contentBase64:b64})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        s.innerHTML='<div style="font-size:12px;color:var(--success);padding:8px 0">'+esc(d.message)+'</div>';
+        toast(d.message,'ok');loadAll();
+    }catch(e){s.innerHTML='<div style="font-size:12px;color:var(--danger)">Erro: '+esc(e.message)+'</div>';toast('Upload falhou: '+e.message,'err')}
+}
 
-        // ---- Toast ----
-        function toast(msg, type) {
-            const el = document.createElement('div');
-            el.className = 'toast toast-' + (type || 'info');
-            el.textContent = msg;
-            document.getElementById('toasts').appendChild(el);
-            setTimeout(() => el.remove(), 5000);
-        }
+// Import URL
+async function submitImport(){
+    const url=document.getElementById('import-url').value.trim();if(!url){toast('Informe uma URL.','err');return}
+    closeModal();
+    try{const r=await fetch(api('/api/guardianImport'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Documento',type:'pdf',url})});
+        if(!r.ok)throw new Error('Status '+r.status);const d=await r.json();toast(d.message||'Importado com sucesso.','ok');loadAll()
+    }catch(e){toast('Erro: '+e.message,'err')}
+}
 
-        // ---- Modal ----
-        function openImportModal() {
-            document.getElementById('import-modal').classList.add('open');
-            setTimeout(() => document.getElementById('import-url').focus(), 100);
-        }
-        function closeImportModal() {
-            document.getElementById('import-modal').classList.remove('open');
-        }
+// ---- Renders ----
+function renderDRE(dre){
+    const r=(l,v,c)=>'<tr class="'+(c||'')+'"><td>'+l+'</td><td class="num '+(typeof v==='number'&&v<0?'negative':'')+'">'+
+        (typeof v==='number'?brl(v):v)+'</td></tr>';
+    document.getElementById('dre-body').innerHTML='<table class="tbl"><thead><tr><th>Conta</th><th>Valor</th></tr></thead><tbody>'+
+        r('Receita Bruta',dre.receitaBruta,'')+
+        r('(-) Deducoes PIS/COFINS/ISS',-dre.deducoes,'sub')+
+        r('= Receita Liquida',dre.receitaLiquida,'')+
+        r('(-) Custos dos Servicos',-dre.custosServicos,'sub')+
+        r('= Lucro Bruto',dre.lucroBruto,'')+
+        r('(-) Administrativas',-dre.despesasOperacionais.administrativas,'sub')+
+        r('(-) Imobiliarias',-dre.despesasOperacionais.imobiliarias,'sub')+
+        r('(-) Utilidades',-dre.despesasOperacionais.utilidades,'sub')+
+        r('= EBITDA',dre.ebitda,'')+
+        r('(-) Depreciacao / Amort.',-dre.depreciacaoAmortizacao,'sub')+
+        r('= EBIT',dre.ebit,'')+
+        r('(-) Resultado Financeiro',-dre.resultadoFinanceiro,'sub')+
+        r('= Lucro Antes IR',dre.lucroAntesIR,'')+
+        r('(-) IR / CSLL',-dre.irCSLL,'sub')+
+        r('= Lucro Liquido',dre.lucroLiquido,'total')+
+        '</tbody></table>'+
+        '<div class="margin-summary"><span>M. Bruta: <strong>'+dre.margemBruta+'</strong></span><span>M. EBITDA: <strong>'+dre.margemEbitda+'</strong></span><span>M. Liquida: <strong>'+dre.margemLiquida+'</strong></span></div>';
+}
 
-        // ---- Auth ----
-        let currentUser = null;
-        async function checkAuth() {
-            try {
-                const res = await fetch('/.auth/me');
-                const data = await res.json();
-                if (data.clientPrincipal) {
-                    currentUser = data.clientPrincipal;
-                    document.getElementById('user-display').textContent = currentUser.userDetails;
-                    document.getElementById('auth-btn').textContent = 'Logout';
-                } else {
-                    document.getElementById('auth-btn').textContent = 'Login';
-                }
-            } catch {
-                document.getElementById('user-display').textContent = 'dev';
-            }
-        }
+function renderDFC(dfc){
+    const r=(l,v,c)=>'<tr class="'+(c||'')+'"><td>'+l+'</td><td class="num '+(typeof v==='number'&&v<0?'negative':typeof v==='number'&&v>0?'positive':'')+'">'+
+        (typeof v==='number'?brl(v):v)+'</td></tr>';
+    document.getElementById('dfc-body').innerHTML='<table class="tbl"><thead><tr><th>Fluxo</th><th>Valor</th></tr></thead><tbody>'+
+        '<tr class="section-row"><td colspan="2">Atividades Operacionais</td></tr>'+
+        r('Recebimentos de Clientes',dfc.operacional.recebimentosClientes,'sub')+
+        r('Pagamentos a Fornecedores',dfc.operacional.pagamentosFornecedores,'sub')+
+        r('Pagamentos de Despesas',dfc.operacional.pagamentosDespesas,'sub')+
+        r('Caixa Operacional',dfc.operacional.total,'')+
+        '<tr class="section-row"><td colspan="2">Atividades de Investimento</td></tr>'+
+        r('Aquisicao de Ativos',dfc.investimento.aquisicaoAtivos,'sub')+
+        '<tr class="section-row"><td colspan="2">Atividades de Financiamento</td></tr>'+
+        r('Caixa Financiamento',dfc.financiamento.total,'sub')+
+        r('Variacao Liquida',dfc.variacaoLiquida,'total')+
+        r('Caixa Inicial',dfc.caixaInicial,'')+
+        r('Caixa Final',dfc.caixaFinal,'')+
+        '</tbody></table>';
+}
 
-        function handleAuth() {
-            if (currentUser) window.location.href = '/.auth/logout';
-            else window.location.href = '/.auth/login/aad';
-        }
+function renderForecast(fc){
+    const ctx=document.getElementById('forecast-chart').getContext('2d');
+    if(forecastChart)forecastChart.destroy();
+    const gridColor='rgba(0,0,0,0.04)';
+    forecastChart=new Chart(ctx,{
+        type:'line',
+        data:{labels:fc.map(f=>f.month),
+            datasets:[
+                {label:'Receita',data:fc.map(f=>f.receita),borderColor:'#0D9668',backgroundColor:'rgba(13,150,104,0.06)',fill:true,tension:0.35,borderWidth:2,pointRadius:4,pointBackgroundColor:'#fff',pointBorderColor:'#0D9668',pointBorderWidth:2},
+                {label:'Despesas',data:fc.map(f=>f.despesas),borderColor:'#D93036',backgroundColor:'rgba(217,48,54,0.04)',fill:true,tension:0.35,borderWidth:2,pointRadius:4,pointBackgroundColor:'#fff',pointBorderColor:'#D93036',pointBorderWidth:2},
+                {label:'Caixa Acumulado',data:fc.map(f=>f.caixaAcumulado),borderColor:'#5746AF',backgroundColor:'rgba(87,70,175,0.04)',fill:true,tension:0.35,borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#fff',pointBorderColor:'#5746AF',pointBorderWidth:2,yAxisID:'y1'}
+            ]},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+            plugins:{legend:{position:'top',labels:{font:{size:11,family:'Inter',weight:'500'},usePointStyle:true,pointStyle:'circle',padding:20}},
+                tooltip:{backgroundColor:'#1A1D26',titleFont:{size:12,family:'Inter'},bodyFont:{size:12,family:'JetBrains Mono'},padding:12,cornerRadius:8,
+                    callbacks:{label:function(c){return ' '+c.dataset.label+': '+brl(c.raw)}}}},
+            scales:{
+                y:{position:'left',ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k',font:{size:10,family:'Inter'},color:'#9096A2'},grid:{color:gridColor},border:{display:false}},
+                y1:{position:'right',ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k',font:{size:10,family:'Inter'},color:'#9096A2'},grid:{display:false},border:{display:false}},
+                x:{ticks:{font:{size:11,family:'Inter'},color:'#9096A2'},grid:{display:false},border:{display:false}}
+            }}
+    });
+}
 
-        // ---- Sync ----
-        async function runSync() {
-            const btn = document.getElementById('btn-sync');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Sincronizando...';
+function renderTxList(el,items,type){
+    if(!items.length){el.innerHTML='<div class="empty-state">Nenhuma transacao registrada.</div>';return}
+    el.innerHTML=items.map(i=>{
+        const cls=esc(i.classificacao||'');const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+        let tag='';if(i.audit&&i.audit.alert==='critical')tag='<span class="tag tag-alert">ALERTA</span>';else if(conf>=90)tag='<span class="tag tag-auto">AUTO</span>';
+        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+type+'"></div><div><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo)+'</span>'+tag+'</div></div></div><div><div class="tx-amount" style="color:'+(type==='in'?'var(--success)':'var(--t1)')+'">'+brl(i.valor)+'</div><div class="tx-conf">'+conf+'% conf.</div></div></div>'
+    }).join('');
+}
 
-            try {
-                const res = await fetch(apiUrl('/api/guardianSync'), { method: 'POST' });
-                if (res.status === 401) { toast('Faca login primeiro.', 'error'); return; }
-                if (!res.ok) throw new Error('Status ' + res.status);
+function renderCats(cats){
+    if(!cats.length){document.getElementById('cat-list').innerHTML='<div class="empty-state">Sem dados.</div>';return}
+    const max=cats[0].total;
+    document.getElementById('cat-list').innerHTML=cats.map(c=>{
+        const pct=max>0?Math.round((c.total/max)*100):0;
+        return '<div class="cat-row"><div class="cat-top"><span class="cat-name">'+esc(c.category)+'</span><span class="cat-val">'+brl(c.total)+'</span></div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:'+pct+'%"></div></div><div class="cat-count">'+c.count+' item(ns)</div></div>'
+    }).join('');
+}
 
-                const data = await res.json();
-                if (data.success) {
-                    const s = data.summary;
-                    toast(s.transactions + ' transacoes e ' + s.documents + ' docs sincronizados.', 'success');
-                    load();
-                    generateReport();
-                }
-            } catch (e) {
-                toast('Erro: ' + e.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar';
-                lucide.createIcons();
-            }
-        }
-
-        // ---- Load Inbox ----
-        async function load() {
-            const container = document.getElementById('inbox');
-            try {
-                const res = await fetch(apiUrl('/api/guardianStatus'));
-                if (!res.ok) throw new Error('Status ' + res.status);
-
-                const data = await res.json();
-                const items = data.items || [];
-
-                if (items.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>Nenhum item. Execute uma sincronizacao.</p></div>';
-                    return;
-                }
-
-                container.innerHTML = items.map(i => {
-                    const cls = esc(String(i.classificacao || 'Sem classificacao'));
-                    const val = typeof i.valor === 'number' ? brl(i.valor) : '--';
-                    const isCredit = i.classificacao && i.classificacao.includes('Receita');
-                    const isDoc = i.tipo === 'document';
-                    const iconCls = isDoc ? 'doc' : (isCredit ? 'credit' : 'debit');
-                    const iconSymbol = isDoc ? 'file-text' : (isCredit ? 'arrow-up-right' : 'arrow-down-left');
-                    const overBudget = i.audit && i.audit.alert === 'critical';
-                    const conf = typeof i.confianca === 'number' ? Math.round(i.confianca * 100) : 0;
-
-                    let tag = '';
-                    if (overBudget) tag = '<span class="tag tag-alert">OVER BUDGET</span>';
-                    else if (i.needsReview) tag = '<span class="tag tag-review">REVISAR</span>';
-                    else if (conf >= 90) tag = '<span class="tag tag-ok">AUTO</span>';
-
-                    return '<div class="inbox-item">' +
-                        '<div class="inbox-item-left">' +
-                            '<div class="inbox-icon ' + iconCls + '"><i data-lucide="' + iconSymbol + '" style="width:15px;height:15px;"></i></div>' +
-                            '<div>' +
-                                '<div class="inbox-label">' + cls + '</div>' +
-                                '<div class="inbox-meta">' +
-                                    '<span>' + esc(i.tipo || '') + '</span>' +
-                                    (i.origem === 'import_manual' ? '<span>importado</span>' : '') +
-                                    tag +
-                                '</div>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div>' +
-                            '<div class="inbox-value" style="color:' + (isCredit ? 'var(--emerald)' : 'var(--text-1)') + ';">' +
-                                (isCredit ? '+' : '') + val +
-                            '</div>' +
-                            '<div class="inbox-confidence">' + conf + '%</div>' +
-                        '</div>' +
-                    '</div>';
-                }).join('');
-
-                const auto = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
-                const rate = items.length > 0 ? Math.round((auto / items.length) * 100) : 0;
-                document.getElementById('auto-pill').textContent = rate + '% auto';
-
-                const sovEl = document.getElementById('kpi-sov');
-                sovEl.textContent = rate >= 90 ? 'Grade 10' : rate >= 70 ? 'Grade 7' : 'Grade ' + Math.floor(rate / 10);
-
-                const alerts = items.filter(i => i.audit && i.audit.alert === 'critical');
-                const withinBudget = items.filter(i => i.audit && i.audit.withinBudget);
-                document.getElementById('audit-panel').innerHTML =
-                    (alerts.length > 0
-                        ? '<div style="color:var(--red);font-size:18px;font-family:Outfit;font-weight:600;">' + alerts.length + ' alerta' + (alerts.length > 1 ? 's' : '') + '</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Itens acima do orcamento</div>'
-                        : '<div style="color:var(--emerald);font-size:18px;font-family:Outfit;font-weight:600;">Tudo OK</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Orcamento dentro dos limites</div>'
-                    ) +
-                    '<div style="font-size:11px;color:var(--text-3);margin-top:12px;">' + withinBudget.length + '/' + items.length + ' itens auditados</div>';
-
-                document.getElementById('last-sync').textContent = 'Atualizado: ' + new Date().toLocaleString('pt-BR');
-                lucide.createIcons();
-            } catch (e) {
-                container.innerHTML = '<div class="empty-state" style="color:var(--red);"><p>Erro: ' + esc(e.message) + '</p></div>';
-            }
-        }
-
-        // ---- Report ----
-        async function generateReport() {
-            try {
-                const res = await fetch(apiUrl('/api/guardianReports'));
-                if (!res.ok) throw new Error('Status ' + res.status);
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || 'Erro');
-
-                const r = data.report;
-                document.getElementById('kpi-ebitda').textContent = brl(r.indicators.ebitda);
-                document.getElementById('kpi-margin').textContent = r.indicators.margemLiquida;
-                document.getElementById('kpi-eff').textContent = r.indicators.indiceEficiencia;
-                document.getElementById('kpi-caixa').textContent = brl(r.treasury.caixaAtual);
-                document.getElementById('kpi-caixa-sub').textContent = 'Proj. 30d: ' + brl(r.treasury.previsao30Dias);
-
-                document.getElementById('treasury-panel').innerHTML =
-                    '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-                        '<div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Caixa</div><div style="font-family:Outfit;font-size:20px;font-weight:600;margin-top:2px;">' + brl(r.treasury.caixaAtual) + '</div></div>' +
-                        '<div style="text-align:right;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Projecao 30d</div><div style="font-family:Outfit;font-size:20px;font-weight:600;color:var(--emerald);margin-top:2px;">' + brl(r.treasury.previsao30Dias) + '</div></div>' +
-                    '</div>' +
-                    '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">' +
-                        '<span>Automacao: ' + esc(r.summary.taxaAutomacao) + '</span>' +
-                        '<span>Alertas: ' + r.summary.alertasControladoria + '</span>' +
-                    '</div>';
-
-                document.getElementById('badge-inter').classList.add('live');
-                document.getElementById('badge-ai').classList.add('live');
-                document.getElementById('badge-graph').classList.add('live');
-            } catch (e) {
-                console.warn('Report:', e);
-                document.getElementById('treasury-panel').innerHTML = '<div style="color:var(--text-3);font-size:12px;">Dados indisponiveis</div>';
-            }
-        }
-
-        // ---- Import ----
-        async function submitImport() {
-            const url = document.getElementById('import-url').value.trim();
-            if (!url) { toast('Informe uma URL.', 'error'); return; }
-            closeImportModal();
-            try {
-                const res = await fetch(apiUrl('/api/guardianImport'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url })
-                });
-                if (res.status === 401) { toast('Login necessario.', 'error'); return; }
-                if (!res.ok) throw new Error('Status ' + res.status);
-                const data = await res.json();
-                toast(data.message || 'Importado com sucesso.', 'success');
-                load();
-            } catch (e) {
-                toast('Erro: ' + e.message, 'error');
-            }
-        }
-
-        // ---- Init ----
-        checkAuth();
-        load();
-        generateReport();
+// ---- Data Loading ----
+async function loadInbox(){
+    const el=document.getElementById('inbox');
+    try{const r=await fetch(api('/api/guardianStatus'));if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();const items=d.items||[];
+        // Inbox badge
+        const badge=document.getElementById('inbox-badge');
+        if(items.length>0){badge.style.display='';badge.textContent=items.length}else{badge.style.display='none'}
+        if(!items.length){el.innerHTML='<div class="empty-state">Nenhum item pendente de decisao.</div>';return}
+        el.innerHTML=items.map(i=>{
+            const cls=esc(String(i.classificacao||''));const val=typeof i.valor==='number'?brl(i.valor):'--';
+            const isCredit=i.classificacao&&i.classificacao.includes('Receita');const isDoc=i.tipo==='document';
+            const dotCls=isDoc?'doc':(isCredit?'in':'out');
+            const over=i.audit&&i.audit.alert==='critical';const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+            let tag='';if(over)tag='<span class="tag tag-alert">OVER BUDGET</span>';else if(i.needsReview)tag='<span class="tag tag-review">REVISAR</span>';else if(conf>=90)tag='<span class="tag tag-auto">AUTO</span>';
+            return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo||'')+'</span>'+(i.origem==='upload'?'<span>upload</span>':'')+tag+'</div></div></div><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+val+'</div><div class="tx-conf">'+conf+'%</div></div></div>'
+        }).join('');
+        // Auto rate
+        const auto=items.filter(i=>i.confianca>.9&&!i.needsReview).length;
+        const rate=items.length>0?Math.round((auto/items.length)*100):0;
+        document.getElementById('auto-pill').textContent=rate+'% auto';
+        // Audit
+        const alerts=items.filter(i=>i.audit&&i.audit.alert==='critical');
+        const ok=items.filter(i=>i.audit&&i.audit.withinBudget);
+        document.getElementById('audit-panel').innerHTML=
+            '<div style="display:flex;align-items:baseline;gap:12px">'+
+                '<div style="font-size:28px;font-weight:700;color:'+(alerts.length>0?'var(--danger)':'var(--success)')+'">'+
+                    (alerts.length>0?alerts.length:'0')+'</div>'+
+                '<div style="font-size:13px;color:var(--t2)">'+(alerts.length>0?'alerta'+(alerts.length>1?'s':'')+' de orcamento':'Orcamento dentro dos limites')+'</div>'+
+            '</div>'+
+            '<div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--t3)">'+
+                '<span>'+ok.length+'/'+items.length+' auditados</span>'+
+                '<span>Taxa: '+rate+'%</span>'+
+            '</div>';
+        document.getElementById('last-sync').textContent='Atualizado em '+new Date().toLocaleString('pt-BR');
         lucide.createIcons();
-        setInterval(() => { load(); generateReport(); }, 60000);
-    </script>
-</body>
+    }catch(e){el.innerHTML='<div class="empty-state" style="color:var(--danger)">Erro: '+esc(e.message)+'</div>'}
+}
 
+async function loadReport(){
+    try{const r=await fetch(api('/api/guardianReports'));if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();if(!d.success)throw new Error(d.error||'Erro');
+        const rp=d.report;
+        document.getElementById('k-ebitda').textContent=brl(rp.indicators.ebitda);
+        document.getElementById('k-lucro').textContent=brl(rp.indicators.lucroLiquido);
+        document.getElementById('k-ml').textContent=rp.indicators.margemLiquida;
+        document.getElementById('k-mb').textContent=rp.indicators.margemBruta;
+        document.getElementById('k-fc').textContent=brl(rp.indicators.fluxoCaixa);
+        document.getElementById('k-caixa').textContent=brl(rp.treasury.caixaAtual);
+        document.getElementById('k-caixa-sub').textContent='Proj. 30d: '+brl(rp.treasury.previsao30Dias);
+        renderDRE(rp.dre);renderDFC(rp.dfc);renderForecast(rp.forecast);
+        renderTxList(document.getElementById('entradas-list'),rp.entradas,'in');
+        renderTxList(document.getElementById('saidas-list'),rp.saidas,'out');
+        renderCats(rp.categorized);
+        document.getElementById('dot-inter').classList.add('live');
+        document.getElementById('dot-ai').classList.add('live');
+        document.getElementById('dot-graph').classList.add('live');
+    }catch(e){console.warn('Report:',e)}
+}
+
+function loadAll(){loadInbox();loadReport()}
+function generateReport(){loadReport();toast('Relatorio atualizado.','ok')}
+
+// ---- Active sidebar nav ----
+const observer=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+        if(e.isIntersecting){
+            document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
+            const id=e.target.id;
+            const map={'kpi-section':0,'dre-section':1,'dfc-section':2,'forecast-section':3,'tx-section':4,'cat-section':5,'inbox-section':6};
+            const idx=map[id];
+            if(idx!==undefined){
+                const items=document.querySelectorAll('.sidebar-item');
+                if(items[idx])items[idx].classList.add('active');
+            }
+        }
+    });
+},{threshold:0.3});
+['kpi-section','dre-section','dfc-section','forecast-section','tx-section','cat-section','inbox-section'].forEach(id=>{
+    const el=document.getElementById(id);if(el)observer.observe(el);
+});
+
+// Init
+checkAuth();loadAll();lucide.createIcons();
+setInterval(loadAll,60000);
+</script>
+</body>
 </html>
