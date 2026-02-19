@@ -105,6 +105,21 @@ export class GuardianAgents {
     }
 
     /**
+     * Agent 4: Reconciliador (Smart Match)
+     */
+    async reconcile(txs: AnalysisResult[], docs: AnalysisResult[]): Promise<void> {
+        logger.info(`Running reconciliation for ${txs.length} transactions and ${docs.length} documents`);
+        for (const tx of txs) {
+            const match = docs.find(d => Math.abs(d.value - tx.value) < 0.01);
+            if (match) {
+                tx.matchedId = match.id;
+                tx.suggestedAction = 'archive';
+                tx.confidence = 1.0;
+            }
+        }
+    }
+
+    /**
      * Agent 5: Strategist (Controladoria Avançada)
      * Gera indicadores financeiros intermediários (EBITDA, Margens, Eficiência).
      */
