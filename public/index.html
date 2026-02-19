@@ -6,253 +6,466 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wfinance | Guardian Sovereign Cockpit</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.426.0"></script>
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         :root {
-            --bg-guardian: #0A0510;
-            --c-gold: #F59E0B;
-            --c-emerald: #10B981;
-            --c-red: #EF4444;
-            --border: rgba(255, 255, 255, 0.08);
-            --text-p: #F8FAFC;
-            --text-s: #94A3B8;
+            --bg: #F3F4F6;
+            --bg-white: #FFFFFF;
+            --bg-hover: #F9FAFB;
+            --purple: #4B2D8E;
+            --purple-light: #6B4FB0;
+            --purple-dim: rgba(75,45,142,0.08);
+            --purple-border: rgba(75,45,142,0.15);
+            --emerald: #059669;
+            --emerald-dim: rgba(5,150,105,0.08);
+            --red: #DC2626;
+            --red-dim: rgba(220,38,38,0.08);
+            --blue: #2563EB;
+            --blue-dim: rgba(37,99,235,0.08);
+            --gold: #D97706;
+            --gold-dim: rgba(217,119,6,0.08);
+            --border: #E5E7EB;
+            --border-hover: #D1D5DB;
+            --text-1: #111827;
+            --text-2: #6B7280;
+            --text-3: #9CA3AF;
+            --radius: 14px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-guardian);
-            color: var(--text-p);
-            padding: 40px;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text-1);
+            min-height: 100vh;
         }
 
-        .header {
+        .shell {
+            max-width: 1360px;
+            margin: 0 auto;
+            padding: 28px 36px 60px;
+        }
+
+        /* ---- Topbar ---- */
+        .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
+            padding-bottom: 24px;
         }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        .brand {
+            display: flex; align-items: center; gap: 12px;
         }
-
-        .user-info {
-            font-size: 12px;
-            color: var(--text-s);
+        .brand-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, var(--purple), var(--purple-light));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Outfit'; font-weight: 700; font-size: 17px; color: #fff;
         }
+        .brand h1 {
+            font-family: 'Outfit'; font-weight: 600; font-size: 20px;
+            color: var(--purple); letter-spacing: -0.3px;
+        }
+        .brand-sub {
+            font-size: 11px; color: var(--text-3); margin-top: 1px;
+            letter-spacing: 0.5px;
+        }
+        .topbar-right {
+            display: flex; align-items: center; gap: 14px;
+        }
+        .badge-row { display: flex; gap: 6px; }
+        .badge {
+            font-size: 10px; padding: 4px 10px; border-radius: 20px;
+            border: 1px solid var(--border); color: var(--text-3);
+            font-weight: 500; transition: all 0.3s;
+            display: flex; align-items: center; gap: 5px;
+            background: var(--bg-white);
+        }
+        .badge .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--text-3); transition: all 0.3s;
+        }
+        .badge.live { border-color: var(--emerald); color: var(--emerald); }
+        .badge.live .dot { background: var(--emerald); box-shadow: 0 0 6px rgba(5,150,105,0.4); }
+        .badge.error { border-color: var(--red); color: var(--red); }
+        .badge.error .dot { background: var(--red); }
 
-        .btn-auth {
-            background: transparent;
+        .auto-pill {
+            font-size: 11px; padding: 5px 14px; border-radius: 20px;
+            background: var(--purple-dim); color: var(--purple);
+            font-weight: 600; font-family: 'JetBrains Mono';
+        }
+        .user-chip { font-size: 11px; color: var(--text-2); }
+        .btn-ghost {
+            background: var(--bg-white); border: 1px solid var(--border);
+            color: var(--text-2); padding: 6px 16px; border-radius: 8px;
+            font-size: 11px; cursor: pointer; transition: all 0.2s;
+            font-family: 'Inter';
+        }
+        .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+
+        /* ---- KPI Strip ---- */
+        .kpi-strip {
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            gap: 14px; margin-top: 4px;
+        }
+        .kpi {
+            background: var(--bg-white);
             border: 1px solid var(--border);
-            color: var(--text-s);
-            padding: 6px 14px;
-            border-radius: 8px;
-            font-size: 11px;
-            cursor: pointer;
+            border-radius: var(--radius);
+            padding: 20px 18px;
+            box-shadow: var(--shadow-sm);
             transition: all 0.2s;
         }
-
-        .btn-auth:hover {
-            border-color: var(--c-gold);
-            color: var(--c-gold);
+        .kpi:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
+        .kpi-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-3); margin-bottom: 8px; font-weight: 600;
         }
+        .kpi-value {
+            font-family: 'Outfit'; font-size: 22px; font-weight: 600;
+            color: var(--text-1); letter-spacing: -0.5px;
+        }
+        .kpi-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+        .kpi.accent { border-left: 3px solid var(--purple); }
+        .kpi.accent .kpi-value { color: var(--purple); }
+        .kpi.emerald { border-left: 3px solid var(--emerald); }
+        .kpi.emerald .kpi-value { color: var(--emerald); }
+        .kpi.blue { border-left: 3px solid var(--blue); }
+        .kpi.blue .kpi-value { color: var(--blue); }
 
+        /* ---- Cards ---- */
+        .grid-2 {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;
+        }
         .card {
-            background: rgba(255, 255, 255, 0.03);
+            background: var(--bg-white);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 30px;
-            margin-top: 30px;
+            border-radius: var(--radius);
+            padding: 22px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
         }
+        .card:hover { box-shadow: var(--shadow); }
+        .card-title {
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.6px; color: var(--text-2); margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card-title i { width: 15px; height: 15px; color: var(--purple-light); }
 
+        /* ---- Inbox ---- */
+        .inbox-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 20px; margin-bottom: 14px;
+        }
+        .inbox-header h2 {
+            font-family: 'Outfit'; font-size: 17px; font-weight: 500;
+            color: var(--text-1);
+        }
+        .inbox-actions { display: flex; gap: 8px; }
+        .btn {
+            padding: 8px 18px; border-radius: 8px; border: none;
+            font-weight: 600; font-size: 11px; cursor: pointer;
+            font-family: 'Inter'; transition: all 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary {
+            background: var(--purple); color: #fff;
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--purple-light); }
+        .btn-secondary {
+            background: var(--bg-white); border: 1px solid var(--border);
+            color: var(--text-2);
+        }
+        .btn-secondary:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
+        .btn-accent {
+            background: var(--emerald); color: #fff;
+        }
+        .btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
+
+        .inbox-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
         .inbox-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 12px;
-            margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+        .inbox-item:last-child { border-bottom: none; }
+        .inbox-item:hover { background: var(--bg-hover); }
+        .inbox-item-left { display: flex; align-items: center; gap: 12px; }
+        .inbox-icon {
+            width: 34px; height: 34px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .inbox-icon.credit { background: var(--emerald-dim); color: var(--emerald); }
+        .inbox-icon.debit { background: var(--red-dim); color: var(--red); }
+        .inbox-icon.doc { background: var(--blue-dim); color: var(--blue); }
+        .inbox-label { font-size: 13px; font-weight: 500; color: var(--text-1); }
+        .inbox-meta {
+            font-size: 11px; color: var(--text-3); margin-top: 2px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .inbox-value {
+            font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 500;
+            text-align: right; color: var(--text-1);
+        }
+        .inbox-confidence {
+            font-size: 10px; color: var(--text-3); margin-top: 2px;
+            text-align: right;
+        }
+        .tag {
+            font-size: 9px; padding: 2px 7px; border-radius: 5px; font-weight: 600;
+        }
+        .tag-ok { background: var(--emerald-dim); color: var(--emerald); }
+        .tag-alert { background: var(--red-dim); color: var(--red); }
+        .tag-review { background: var(--gold-dim); color: var(--gold); }
+
+        /* ---- Toast ---- */
+        .toast-container {
+            position: fixed; bottom: 24px; right: 24px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 1000;
+        }
+        .toast {
+            padding: 12px 18px; border-radius: 10px;
+            font-size: 13px; font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease;
+            max-width: 380px;
+        }
+        .toast-success { background: #fff; border-left: 3px solid var(--emerald); color: var(--text-1); }
+        .toast-error { background: #fff; border-left: 3px solid var(--red); color: var(--text-1); }
+        .toast-info { background: #fff; border-left: 3px solid var(--blue); color: var(--text-1); }
+        @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } }
+
+        /* ---- Modal ---- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(3px);
+            display: none; align-items: center; justify-content: center; z-index: 999;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #fff; border: 1px solid var(--border);
+            border-radius: 16px; padding: 28px; width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .modal h3 {
+            font-family: 'Outfit'; font-size: 17px; color: var(--purple);
+            margin-bottom: 6px;
+        }
+        .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
+        .modal input {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--bg);
+            color: var(--text-1); font-size: 13px; font-family: 'Inter';
+            outline: none; transition: border-color 0.2s;
+        }
+        .modal input:focus { border-color: var(--purple); }
+        .modal-actions {
+            display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
         }
 
-        .btn-gold {
-            background: var(--c-gold);
-            color: black;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
+        /* ---- Loading ---- */
+        .empty-state {
+            text-align: center; padding: 44px 20px; color: var(--text-3);
         }
-
-        .btn-sync {
-            background: var(--c-emerald);
-            color: black;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
+        .empty-state p { font-size: 13px; margin-top: 8px; }
+        .spinner {
+            width: 18px; height: 18px; border: 2px solid var(--border);
+            border-top-color: var(--purple); border-radius: 50%;
+            animation: spin 0.6s linear infinite; display: inline-block;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .btn-sync:disabled,
-        .btn-gold:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg) 25%, #E5E7EB 50%, var(--bg) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 6px; height: 18px;
         }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        .stat-box {
-            background: rgba(255, 255, 255, 0.03);
-            padding: 15px;
-            border-radius: 12px;
-            text-align: center;
+        .last-sync { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 1200px) {
+            .kpi-strip { grid-template-columns: repeat(3, 1fr); }
         }
-
-        .stat-label {
-            font-size: 11px;
-            color: var(--text-s);
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-
-        .stat-val {
-            font-size: 18px;
-            font-weight: 700;
-            font-family: 'Outfit';
-        }
-
-        .error-msg {
-            color: var(--c-red);
-            font-size: 13px;
-            padding: 10px;
-            border: 1px solid var(--c-red);
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-
-        .loading {
-            color: var(--text-s);
-            font-size: 13px;
-        }
-
-        .integration-status {
-            display: flex;
-            gap: 12px;
-            margin-top: 10px;
-        }
-
-        .int-badge {
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            color: var(--text-s);
-        }
-
-        .int-badge.active {
-            border-color: var(--c-emerald);
-            color: var(--c-emerald);
+        @media (max-width: 768px) {
+            .shell { padding: 16px; }
+            .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; gap: 14px; align-items: flex-start; }
+            .inbox-header { flex-direction: column; gap: 10px; align-items: flex-start; }
         }
     </style>
 </head>
 
 <body>
-    <header class="header">
-        <div>
-            <h1 style="font-family: 'Outfit'; margin: 0;">W_GUARDIAN</h1>
-            <div class="integration-status">
-                <span id="badge-inter" class="int-badge">Inter API</span>
-                <span id="badge-graph" class="int-badge">MS Graph</span>
-                <span id="badge-ai" class="int-badge">AI/OCR</span>
+    <div class="shell">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-icon">G</div>
+                <div>
+                    <h1>Guardian</h1>
+                    <div class="brand-sub">Sovereign Financial Cockpit</div>
+                </div>
             </div>
-        </div>
-        <div class="header-right">
-            <div id="auto-mode" style="font-size: 12px; color: var(--c-emerald);">-- Autonomous Mode</div>
-            <span id="user-display" class="user-info"></span>
-            <button id="auth-btn" class="btn-auth" onclick="handleAuth()">Login</button>
-        </div>
-    </header>
+            <div class="topbar-right">
+                <div class="badge-row">
+                    <span id="badge-inter" class="badge"><span class="dot"></span> Inter</span>
+                    <span id="badge-graph" class="badge"><span class="dot"></span> Graph</span>
+                    <span id="badge-ai" class="badge"><span class="dot"></span> OCR</span>
+                </div>
+                <div id="auto-pill" class="auto-pill">-- %</div>
+                <span id="user-display" class="user-chip"></span>
+                <button id="auth-btn" class="btn-ghost" onclick="handleAuth()">Login</button>
+            </div>
+        </header>
 
-    <div class="card"
-        style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(245, 158, 11, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2);">
-        <h3 style="color: var(--c-gold); margin-top: 0;">Strategic Analytics (Indicadores)</h3>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px;">
-            <div class="stat-box">
-                <div class="stat-label">EBITDA</div>
-                <div id="ebitda-val" class="stat-val">R$ 0,00</div>
+        <!-- KPI Strip -->
+        <section class="kpi-strip">
+            <div class="kpi accent">
+                <div class="kpi-label">EBITDA</div>
+                <div id="kpi-ebitda" class="kpi-value">--</div>
+                <div class="kpi-sub">Resultado operacional</div>
             </div>
-            <div class="stat-box">
-                <div class="stat-label">Margem Liquida</div>
-                <div id="margin-val" class="stat-val">0%</div>
+            <div class="kpi">
+                <div class="kpi-label">Caixa Atual</div>
+                <div id="kpi-caixa" class="kpi-value">--</div>
+                <div id="kpi-caixa-sub" class="kpi-sub">Saldo consolidado</div>
             </div>
-            <div class="stat-box">
-                <div class="stat-label">Eficiencia</div>
-                <div id="eff-val" class="stat-val">0%</div>
+            <div class="kpi">
+                <div class="kpi-label">Margem Liquida</div>
+                <div id="kpi-margin" class="kpi-value">--</div>
+                <div class="kpi-sub">Receita x Despesas</div>
             </div>
-            <div class="stat-box">
-                <div class="stat-label">Soberania</div>
-                <div id="sovereignty-val" class="stat-val" style="color: var(--c-emerald);">--</div>
+            <div class="kpi emerald">
+                <div class="kpi-label">Eficiencia</div>
+                <div id="kpi-eff" class="kpi-value">--</div>
+                <div class="kpi-sub">Indice operacional</div>
+            </div>
+            <div class="kpi blue">
+                <div class="kpi-label">Soberania</div>
+                <div id="kpi-sov" class="kpi-value">--</div>
+                <div class="kpi-sub">Grau de automacao</div>
+            </div>
+        </section>
+
+        <!-- Cards -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title"><i data-lucide="shield-check"></i> Controladoria</div>
+                <div id="audit-panel">
+                    <div class="skeleton" style="width:70%; margin-bottom:8px;"></div>
+                    <div class="skeleton" style="width:50%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><i data-lucide="trending-up"></i> Tesouraria</div>
+                <div id="treasury-panel">
+                    <div class="skeleton" style="width:60%; margin-bottom:8px;"></div>
+                    <div class="skeleton" style="width:80%;"></div>
+                </div>
             </div>
         </div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
-        <div class="card" style="margin-top: 0;">
-            <h3>Controladoria (Audit)</h3>
-            <div id="budget-alerts" style="margin-top: 15px;">
-                <div class="loading">Aguardando sincronizacao...</div>
+
+        <!-- Inbox -->
+        <div class="inbox-header">
+            <div>
+                <h2>Decision Inbox</h2>
+                <div id="last-sync" class="last-sync"></div>
+            </div>
+            <div class="inbox-actions">
+                <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar
+                </button>
+                <button class="btn btn-secondary" onclick="generateReport()">
+                    <i data-lucide="bar-chart-3" style="width:13px;height:13px;"></i> Relatorio
+                </button>
+                <button class="btn btn-accent" onclick="openImportModal()">
+                    <i data-lucide="upload" style="width:13px;height:13px;"></i> Importar
+                </button>
             </div>
         </div>
-        <div class="card" style="margin-top: 0;">
-            <h3>Tesouraria (Forecast)</h3>
-            <div id="cash-forecast" style="margin-top: 15px;">
-                <div class="loading">Aguardando dados...</div>
+        <div id="inbox" class="inbox-card">
+            <div class="empty-state">
+                <div class="spinner"></div>
+                <p>Carregando dados...</p>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Decision Inbox</h2>
-            <div style="display: flex; gap: 10px;">
-                <button id="btn-sync" class="btn-sync" onclick="runSync()">SINCRONIZAR</button>
-                <button class="btn-gold"
-                    style="background: transparent; border: 1px solid var(--c-gold); color: var(--c-gold);"
-                    onclick="generateReport()">RELATORIO</button>
-                <button class="btn-gold" onclick="importManual()">IMPORTAR MANUAL</button>
+    <!-- Import Modal -->
+    <div id="import-modal" class="modal-overlay" onclick="if(event.target===this)closeImportModal()">
+        <div class="modal">
+            <h3>Importar Documento</h3>
+            <p>Cole a URL do arquivo (PDF, XML ou OFX) para processamento pelo Guardian.</p>
+            <input id="import-url" type="url" placeholder="https://exemplo.com/nota-fiscal.pdf" />
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="submitImport()">Importar</button>
             </div>
         </div>
-        <div id="inbox" style="margin-top: 20px;">
-            <div class="loading">Carregando...</div>
-        </div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toasts" class="toast-container"></div>
+
     <script>
-        // Configuration — injected at runtime or defaults
         const API_BASE = window.__GUARDIAN_API_BASE__ || 'https://func-guardian-sovereign.azurewebsites.net';
         const API_KEY = window.__GUARDIAN_API_KEY__ || '';
 
         function apiUrl(path) {
-            const base = API_BASE ? API_BASE + path : '/api' + path.replace('/api', '');
+            const base = API_BASE + path;
             return API_KEY ? base + (base.includes('?') ? '&' : '?') + 'code=' + API_KEY : base;
         }
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.appendChild(document.createTextNode(str));
-            return div.innerHTML;
+        function esc(s) {
+            const d = document.createElement('div');
+            d.appendChild(document.createTextNode(s));
+            return d.innerHTML;
         }
 
-        function formatBRL(value) {
-            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        function brl(v) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
         }
 
-        // --- Auth (Azure AD via Static Web Apps) ---
+        // ---- Toast ----
+        function toast(msg, type) {
+            const el = document.createElement('div');
+            el.className = 'toast toast-' + (type || 'info');
+            el.textContent = msg;
+            document.getElementById('toasts').appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
+
+        // ---- Modal ----
+        function openImportModal() {
+            document.getElementById('import-modal').classList.add('open');
+            setTimeout(() => document.getElementById('import-url').focus(), 100);
+        }
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.remove('open');
+        }
+
+        // ---- Auth ----
         let currentUser = null;
-
         async function checkAuth() {
             try {
                 const res = await fetch('/.auth/me');
@@ -261,191 +474,181 @@
                     currentUser = data.clientPrincipal;
                     document.getElementById('user-display').textContent = currentUser.userDetails;
                     document.getElementById('auth-btn').textContent = 'Logout';
-                    document.getElementById('btn-sync').style.display = '';
                 } else {
-                    currentUser = null;
-                    document.getElementById('user-display').textContent = '';
                     document.getElementById('auth-btn').textContent = 'Login';
-                    document.getElementById('btn-sync').style.display = 'none';
                 }
             } catch {
-                // Running outside Static Web Apps (local dev) — show all buttons
-                document.getElementById('btn-sync').style.display = '';
-                document.getElementById('user-display').textContent = 'local dev';
+                document.getElementById('user-display').textContent = 'dev';
             }
         }
 
         function handleAuth() {
-            if (currentUser) {
-                window.location.href = '/.auth/logout';
-            } else {
-                window.location.href = '/.auth/login/aad';
-            }
+            if (currentUser) window.location.href = '/.auth/logout';
+            else window.location.href = '/.auth/login/aad';
         }
 
-        // --- Sync ---
+        // ---- Sync ----
         async function runSync() {
             const btn = document.getElementById('btn-sync');
             btn.disabled = true;
-            btn.textContent = 'SINCRONIZANDO...';
+            btn.innerHTML = '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Sincronizando...';
 
             try {
                 const res = await fetch(apiUrl('/api/guardianSync'), { method: 'POST' });
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        alert('Autenticacao necessaria. Faca login primeiro.');
-                        return;
-                    }
-                    throw new Error('API retornou status ' + res.status);
-                }
+                if (res.status === 401) { toast('Faca login primeiro.', 'error'); return; }
+                if (!res.ok) throw new Error('Status ' + res.status);
 
                 const data = await res.json();
                 if (data.success) {
-                    alert(
-                        'Sincronizacao concluida!\n\n' +
-                        'Saldo: ' + formatBRL(data.summary.balance) + '\n' +
-                        'Transacoes: ' + data.summary.transactions + '\n' +
-                        'Documentos: ' + data.summary.documents + '\n' +
-                        'Automatizados: ' + data.summary.automated
-                    );
+                    const s = data.summary;
+                    toast(s.transactions + ' transacoes e ' + s.documents + ' docs sincronizados.', 'success');
                     load();
                     generateReport();
                 }
             } catch (e) {
-                alert('Erro ao sincronizar: ' + e.message);
+                toast('Erro: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'SINCRONIZAR';
+                btn.innerHTML = '<i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar';
+                lucide.createIcons();
             }
         }
 
-        // --- Load inbox ---
+        // ---- Load Inbox ----
         async function load() {
             const container = document.getElementById('inbox');
-            const alertContainer = document.getElementById('budget-alerts');
-
             try {
-                container.innerHTML = '<div class="loading">Carregando...</div>';
                 const res = await fetch(apiUrl('/api/guardianStatus'));
-
-                if (!res.ok) throw new Error('API retornou status ' + res.status);
+                if (!res.ok) throw new Error('Status ' + res.status);
 
                 const data = await res.json();
                 const items = data.items || [];
 
                 if (items.length === 0) {
-                    container.innerHTML = '<div class="loading">Nenhum item pendente. Execute uma sincronizacao.</div>';
-                } else {
-                    container.innerHTML = items.map(i => {
-                        const classification = escapeHtml(String(i.classificacao || ''));
-                        const value = typeof i.valor === 'number' ? formatBRL(i.valor) : 'R$ --';
-                        const isOverBudget = i.audit && i.audit.alert === 'critical';
-                        const isImported = i.origem === 'import_manual';
-                        const btnLabel = i.needsReview ? 'REVISAR' : 'APROVAR';
-
-                        return '<div class="inbox-item">' +
-                            '<div>' +
-                                '<div style="font-weight: 600; display:flex; align-items:center; gap:8px;">' +
-                                    classification +
-                                    (isOverBudget ? ' <span style="color:var(--c-red); font-size:10px;">[OVER BUDGET]</span>' : '') +
-                                '</div>' +
-                                '<div style="font-size: 11px; color: var(--text-s);">' + value + (isImported ? ' (Importado)' : '') + '</div>' +
-                            '</div>' +
-                            '<button class="btn-gold">' + btnLabel + '</button>' +
-                        '</div>';
-                    }).join('');
+                    container.innerHTML = '<div class="empty-state"><p>Nenhum item. Execute uma sincronizacao.</p></div>';
+                    return;
                 }
 
-                // Automation rate
-                const automated = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
-                const rate = items.length > 0 ? Math.round((automated / items.length) * 100) : 0;
-                document.getElementById('auto-mode').textContent = rate + '% Autonomous Mode';
+                container.innerHTML = items.map(i => {
+                    const cls = esc(String(i.classificacao || 'Sem classificacao'));
+                    const val = typeof i.valor === 'number' ? brl(i.valor) : '--';
+                    const isCredit = i.classificacao && i.classificacao.includes('Receita');
+                    const isDoc = i.tipo === 'document';
+                    const iconCls = isDoc ? 'doc' : (isCredit ? 'credit' : 'debit');
+                    const iconSymbol = isDoc ? 'file-text' : (isCredit ? 'arrow-up-right' : 'arrow-down-left');
+                    const overBudget = i.audit && i.audit.alert === 'critical';
+                    const conf = typeof i.confianca === 'number' ? Math.round(i.confianca * 100) : 0;
 
-                // Sovereignty grade
-                const sovEl = document.getElementById('sovereignty-val');
-                sovEl.textContent = rate >= 90 ? 'Grade 10+' : rate >= 70 ? 'Grade 7' : 'Grade ' + Math.floor(rate / 10);
+                    let tag = '';
+                    if (overBudget) tag = '<span class="tag tag-alert">OVER BUDGET</span>';
+                    else if (i.needsReview) tag = '<span class="tag tag-review">REVISAR</span>';
+                    else if (conf >= 90) tag = '<span class="tag tag-ok">AUTO</span>';
 
-                // Budget alerts
+                    return '<div class="inbox-item">' +
+                        '<div class="inbox-item-left">' +
+                            '<div class="inbox-icon ' + iconCls + '"><i data-lucide="' + iconSymbol + '" style="width:15px;height:15px;"></i></div>' +
+                            '<div>' +
+                                '<div class="inbox-label">' + cls + '</div>' +
+                                '<div class="inbox-meta">' +
+                                    '<span>' + esc(i.tipo || '') + '</span>' +
+                                    (i.origem === 'import_manual' ? '<span>importado</span>' : '') +
+                                    tag +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="inbox-value" style="color:' + (isCredit ? 'var(--emerald)' : 'var(--text-1)') + ';">' +
+                                (isCredit ? '+' : '') + val +
+                            '</div>' +
+                            '<div class="inbox-confidence">' + conf + '%</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+
+                const auto = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
+                const rate = items.length > 0 ? Math.round((auto / items.length) * 100) : 0;
+                document.getElementById('auto-pill').textContent = rate + '% auto';
+
+                const sovEl = document.getElementById('kpi-sov');
+                sovEl.textContent = rate >= 90 ? 'Grade 10' : rate >= 70 ? 'Grade 7' : 'Grade ' + Math.floor(rate / 10);
+
                 const alerts = items.filter(i => i.audit && i.audit.alert === 'critical');
-                alertContainer.innerHTML = alerts.length > 0
-                    ? '<div style="color:var(--c-red); font-size:13px; font-weight:600;">' + alerts.length + ' itens acima do orcamento</div>'
-                    : '<div style="color:var(--c-emerald); font-size:13px;">Orcamento dentro dos limites</div>';
+                const withinBudget = items.filter(i => i.audit && i.audit.withinBudget);
+                document.getElementById('audit-panel').innerHTML =
+                    (alerts.length > 0
+                        ? '<div style="color:var(--red);font-size:18px;font-family:Outfit;font-weight:600;">' + alerts.length + ' alerta' + (alerts.length > 1 ? 's' : '') + '</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Itens acima do orcamento</div>'
+                        : '<div style="color:var(--emerald);font-size:18px;font-family:Outfit;font-weight:600;">Tudo OK</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Orcamento dentro dos limites</div>'
+                    ) +
+                    '<div style="font-size:11px;color:var(--text-3);margin-top:12px;">' + withinBudget.length + '/' + items.length + ' itens auditados</div>';
 
-                if (typeof lucide !== 'undefined') lucide.createIcons();
+                document.getElementById('last-sync').textContent = 'Atualizado: ' + new Date().toLocaleString('pt-BR');
+                lucide.createIcons();
             } catch (e) {
-                console.error('Erro ao carregar dados:', e);
-                container.innerHTML = '<div class="error-msg">Erro ao carregar dados: ' + escapeHtml(e.message) + '</div>';
-                alertContainer.innerHTML = '<div class="error-msg">Falha na conexao com API</div>';
+                container.innerHTML = '<div class="empty-state" style="color:var(--red);"><p>Erro: ' + esc(e.message) + '</p></div>';
             }
         }
 
+        // ---- Report ----
         async function generateReport() {
             try {
                 const res = await fetch(apiUrl('/api/guardianReports'));
-                if (!res.ok) throw new Error('API retornou status ' + res.status);
-
+                if (!res.ok) throw new Error('Status ' + res.status);
                 const data = await res.json();
-                if (data.success) {
-                    const report = data.report;
-                    document.getElementById('ebitda-val').textContent = formatBRL(report.indicators.ebitda);
-                    document.getElementById('margin-val').textContent = report.indicators.margemLiquida;
-                    document.getElementById('eff-val').textContent = report.indicators.indiceEficiencia;
+                if (!data.success) throw new Error(data.error || 'Erro');
 
-                    // Update treasury with real data
-                    const forecast = document.getElementById('cash-forecast');
-                    forecast.innerHTML = '<div style="font-size: 13px; color: var(--text-s);">Caixa Atual: ' + formatBRL(report.treasury.caixaAtual) + '</div>' +
-                        '<div style="font-size: 13px; color: var(--text-s); margin-top:5px;">Projecao 30d: ' + formatBRL(report.treasury.previsao30Dias) + '</div>' +
-                        '<div style="font-size: 13px; color: var(--text-s); margin-top:5px;">Taxa Automacao: ' + escapeHtml(report.summary.taxaAutomacao) + '</div>';
+                const r = data.report;
+                document.getElementById('kpi-ebitda').textContent = brl(r.indicators.ebitda);
+                document.getElementById('kpi-margin').textContent = r.indicators.margemLiquida;
+                document.getElementById('kpi-eff').textContent = r.indicators.indiceEficiencia;
+                document.getElementById('kpi-caixa').textContent = brl(r.treasury.caixaAtual);
+                document.getElementById('kpi-caixa-sub').textContent = 'Proj. 30d: ' + brl(r.treasury.previsao30Dias);
 
-                    alert('Relatorio Gerado: ' + report.title + '\n\nEBITDA: ' + formatBRL(report.indicators.ebitda) + '\nEficiencia: ' + report.indicators.indiceEficiencia);
-                }
+                document.getElementById('treasury-panel').innerHTML =
+                    '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+                        '<div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Caixa</div><div style="font-family:Outfit;font-size:20px;font-weight:600;margin-top:2px;">' + brl(r.treasury.caixaAtual) + '</div></div>' +
+                        '<div style="text-align:right;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Projecao 30d</div><div style="font-family:Outfit;font-size:20px;font-weight:600;color:var(--emerald);margin-top:2px;">' + brl(r.treasury.previsao30Dias) + '</div></div>' +
+                    '</div>' +
+                    '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">' +
+                        '<span>Automacao: ' + esc(r.summary.taxaAutomacao) + '</span>' +
+                        '<span>Alertas: ' + r.summary.alertasControladoria + '</span>' +
+                    '</div>';
+
+                document.getElementById('badge-inter').classList.add('live');
+                document.getElementById('badge-ai').classList.add('live');
+                document.getElementById('badge-graph').classList.add('live');
             } catch (e) {
-                alert('Erro ao gerar relatorio: ' + e.message);
+                console.warn('Report:', e);
+                document.getElementById('treasury-panel').innerHTML = '<div style="color:var(--text-3);font-size:12px;">Dados indisponiveis</div>';
             }
         }
 
-        async function importManual() {
-            const url = prompt('Cole a URL do documento (PDF/XML/OFX):');
-            if (!url) return;
-
+        // ---- Import ----
+        async function submitImport() {
+            const url = document.getElementById('import-url').value.trim();
+            if (!url) { toast('Informe uma URL.', 'error'); return; }
+            closeImportModal();
             try {
                 const res = await fetch(apiUrl('/api/guardianImport'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url: url })
+                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url })
                 });
-
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        alert('Autenticacao necessaria. Faca login primeiro.');
-                        return;
-                    }
-                    throw new Error('API retornou status ' + res.status);
-                }
-
+                if (res.status === 401) { toast('Login necessario.', 'error'); return; }
+                if (!res.ok) throw new Error('Status ' + res.status);
                 const data = await res.json();
-                alert(data.message || 'Documento importado com sucesso.');
+                toast(data.message || 'Importado com sucesso.', 'success');
                 load();
             } catch (e) {
-                alert('Erro ao importar documento: ' + e.message);
+                toast('Erro: ' + e.message, 'error');
             }
         }
 
-        // --- Integration status badges ---
-        async function checkIntegrations() {
-            try {
-                const res = await fetch(apiUrl('/api/guardianReports'));
-                if (res.ok) {
-                    document.getElementById('badge-inter').classList.add('active');
-                    document.getElementById('badge-inter').textContent = 'Inter API (Live)';
-                }
-            } catch { /* ignore */ }
-        }
-
-        // Init
+        // ---- Init ----
         checkAuth();
         load();
-        checkIntegrations();
+        generateReport();
+        lucide.createIcons();
+        setInterval(() => { load(); generateReport(); }, 60000);
     </script>
 </body>
 
