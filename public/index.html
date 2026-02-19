@@ -35,6 +35,33 @@
             padding-bottom: 20px;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info {
+            font-size: 12px;
+            color: var(--text-s);
+        }
+
+        .btn-auth {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-s);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-auth:hover {
+            border-color: var(--c-gold);
+            color: var(--c-gold);
+        }
+
         .card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border);
@@ -61,6 +88,22 @@
             border-radius: 10px;
             font-weight: 700;
             cursor: pointer;
+        }
+
+        .btn-sync {
+            background: var(--c-emerald);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-sync:disabled,
+        .btn-gold:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .stat-box {
@@ -96,13 +139,43 @@
             color: var(--text-s);
             font-size: 13px;
         }
+
+        .integration-status {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .int-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            color: var(--text-s);
+        }
+
+        .int-badge.active {
+            border-color: var(--c-emerald);
+            color: var(--c-emerald);
+        }
     </style>
 </head>
 
 <body>
     <header class="header">
-        <h1 style="font-family: 'Outfit';">W_GUARDIAN</h1>
-        <div id="auto-mode" style="font-size: 12px; color: var(--c-emerald);">-- Autonomous Mode</div>
+        <div>
+            <h1 style="font-family: 'Outfit'; margin: 0;">W_GUARDIAN</h1>
+            <div class="integration-status">
+                <span id="badge-inter" class="int-badge">Inter API</span>
+                <span id="badge-graph" class="int-badge">MS Graph</span>
+                <span id="badge-ai" class="int-badge">AI/OCR</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div id="auto-mode" style="font-size: 12px; color: var(--c-emerald);">-- Autonomous Mode</div>
+            <span id="user-display" class="user-info"></span>
+            <button id="auth-btn" class="btn-auth" onclick="handleAuth()">Login</button>
+        </div>
     </header>
 
     <div class="card"
@@ -146,6 +219,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Decision Inbox</h2>
             <div style="display: flex; gap: 10px;">
+                <button id="btn-sync" class="btn-sync" onclick="runSync()">SINCRONIZAR</button>
                 <button class="btn-gold"
                     style="background: transparent; border: 1px solid var(--c-gold); color: var(--c-gold);"
                     onclick="generateReport()">RELATORIO</button>
@@ -157,7 +231,7 @@
         </div>
     </div>
     <script>
-        // Configuration — API_KEY can be injected at runtime via window globals
+        // Configuration — injected at runtime or defaults
         const API_BASE = window.__GUARDIAN_API_BASE__ || 'https://func-guardian-sovereign.azurewebsites.net';
         const API_KEY = window.__GUARDIAN_API_KEY__ || '';
 
@@ -176,6 +250,76 @@
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         }
 
+        // --- Auth (Azure AD via Static Web Apps) ---
+        let currentUser = null;
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/.auth/me');
+                const data = await res.json();
+                if (data.clientPrincipal) {
+                    currentUser = data.clientPrincipal;
+                    document.getElementById('user-display').textContent = currentUser.userDetails;
+                    document.getElementById('auth-btn').textContent = 'Logout';
+                    document.getElementById('btn-sync').style.display = '';
+                } else {
+                    currentUser = null;
+                    document.getElementById('user-display').textContent = '';
+                    document.getElementById('auth-btn').textContent = 'Login';
+                    document.getElementById('btn-sync').style.display = 'none';
+                }
+            } catch {
+                // Running outside Static Web Apps (local dev) — show all buttons
+                document.getElementById('btn-sync').style.display = '';
+                document.getElementById('user-display').textContent = 'local dev';
+            }
+        }
+
+        function handleAuth() {
+            if (currentUser) {
+                window.location.href = '/.auth/logout';
+            } else {
+                window.location.href = '/.auth/login/aad';
+            }
+        }
+
+        // --- Sync ---
+        async function runSync() {
+            const btn = document.getElementById('btn-sync');
+            btn.disabled = true;
+            btn.textContent = 'SINCRONIZANDO...';
+
+            try {
+                const res = await fetch(apiUrl('/api/guardianSync'), { method: 'POST' });
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        alert('Autenticacao necessaria. Faca login primeiro.');
+                        return;
+                    }
+                    throw new Error('API retornou status ' + res.status);
+                }
+
+                const data = await res.json();
+                if (data.success) {
+                    alert(
+                        'Sincronizacao concluida!\n\n' +
+                        'Saldo: ' + formatBRL(data.summary.balance) + '\n' +
+                        'Transacoes: ' + data.summary.transactions + '\n' +
+                        'Documentos: ' + data.summary.documents + '\n' +
+                        'Automatizados: ' + data.summary.automated
+                    );
+                    load();
+                    generateReport();
+                }
+            } catch (e) {
+                alert('Erro ao sincronizar: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'SINCRONIZAR';
+            }
+        }
+
+        // --- Load inbox ---
         async function load() {
             const container = document.getElementById('inbox');
             const alertContainer = document.getElementById('budget-alerts');
@@ -271,7 +415,13 @@
                     body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url: url })
                 });
 
-                if (!res.ok) throw new Error('API retornou status ' + res.status);
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        alert('Autenticacao necessaria. Faca login primeiro.');
+                        return;
+                    }
+                    throw new Error('API retornou status ' + res.status);
+                }
 
                 const data = await res.json();
                 alert(data.message || 'Documento importado com sucesso.');
@@ -281,7 +431,21 @@
             }
         }
 
+        // --- Integration status badges ---
+        async function checkIntegrations() {
+            try {
+                const res = await fetch(apiUrl('/api/guardianReports'));
+                if (res.ok) {
+                    document.getElementById('badge-inter').classList.add('active');
+                    document.getElementById('badge-inter').textContent = 'Inter API (Live)';
+                }
+            } catch { /* ignore */ }
+        }
+
+        // Init
+        checkAuth();
         load();
+        checkIntegrations();
     </script>
 </body>
 

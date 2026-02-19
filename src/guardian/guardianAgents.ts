@@ -1,3 +1,4 @@
+import * as https from 'https';
 import { createLogger, generateId } from '../shared/utils';
 import { GuardianDocument } from './emailListener';
 import { InterTransaction } from './interConnector';
@@ -34,12 +35,35 @@ export interface AuditResult {
     alert: 'none' | 'warning' | 'critical';
 }
 
+/** Azure AI Document Intelligence configuration */
+const AI_ENDPOINT = process.env.FORM_RECOGNIZER_ENDPOINT || '';
+const AI_KEY = process.env.FORM_RECOGNIZER_KEY || '';
+
+interface FormRecognizerField {
+    content?: string;
+    value?: number | string;
+    confidence?: number;
+}
+
+interface FormRecognizerResult {
+    documents?: Array<{
+        fields: Record<string, FormRecognizerField>;
+        confidence: number;
+    }>;
+}
+
 /** Discriminated union check via `source` field */
 function isEmailDocument(doc: GuardianDocument | ImportedDocument): doc is GuardianDocument {
     return doc.source !== 'manual_import';
 }
 
 export class GuardianAgents {
+
+    /** Returns true when Azure AI Document Intelligence is configured */
+    private isAIConfigured(): boolean {
+        return !!(AI_ENDPOINT && AI_KEY);
+    }
+
     async extractData(doc: GuardianDocument | ImportedDocument): Promise<AnalysisResult[]> {
         const isEmail = isEmailDocument(doc);
         const name = isEmail ? doc.subject : doc.name;
@@ -50,6 +74,11 @@ export class GuardianAgents {
             ? doc.attachments
             : [{ name: doc.name, type: doc.type, blobUrl: doc.contentUrl, size: doc.size }];
 
+        if (this.isAIConfigured()) {
+            return this.extractWithAI(attachments);
+        }
+
+        logger.warn('Azure AI Document Intelligence não configurado — usando dados mock');
         return attachments.map(att => ({
             id: generateId('EXT'),
             type: 'document' as const,
@@ -59,6 +88,161 @@ export class GuardianAgents {
             needsReview: false,
             suggestedAction: 'approve' as const,
         }));
+    }
+
+    /** Calls Azure AI Document Intelligence (prebuilt-invoice model) for real OCR */
+    private async extractWithAI(attachments: Array<{ name: string; type: string; blobUrl: string; size: number }>): Promise<AnalysisResult[]> {
+        const results: AnalysisResult[] = [];
+
+        for (const att of attachments) {
+            try {
+                const analyzed = await this.analyzeDocument(att.blobUrl);
+
+                if (analyzed.documents && analyzed.documents.length > 0) {
+                    const fields = analyzed.documents[0].fields;
+                    const docConfidence = analyzed.documents[0].confidence;
+
+                    const vendorName = (fields['VendorName']?.content || fields['VendorName']?.value || '') as string;
+                    const invoiceTotal = (fields['InvoiceTotal']?.value || fields['AmountDue']?.value || 0) as number;
+                    const classification = this.classifyVendor(vendorName, att.name);
+
+                    results.push({
+                        id: generateId('EXT'),
+                        type: 'document',
+                        classification,
+                        confidence: docConfidence,
+                        value: invoiceTotal,
+                        needsReview: docConfidence < 0.90,
+                        suggestedAction: docConfidence >= 0.90 ? 'approve' : 'investigate',
+                    });
+                } else {
+                    results.push({
+                        id: generateId('EXT'),
+                        type: 'document',
+                        classification: 'Documento Não Classificado',
+                        confidence: 0.5,
+                        value: 0,
+                        needsReview: true,
+                        suggestedAction: 'investigate',
+                    });
+                }
+            } catch (error) {
+                logger.error(`Erro ao analisar documento ${att.name}: ${error}`);
+                results.push({
+                    id: generateId('EXT'),
+                    type: 'document',
+                    classification: att.type.includes('xml') ? 'Nota Fiscal Servico' : 'Infraestrutura / AWS',
+                    confidence: 0.5,
+                    value: 0,
+                    needsReview: true,
+                    suggestedAction: 'investigate',
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /** Sends document URL to Azure AI Document Intelligence for analysis */
+    private async analyzeDocument(documentUrl: string): Promise<FormRecognizerResult> {
+        const endpoint = new URL(AI_ENDPOINT);
+        const analyzePath = `/formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2023-07-31`;
+        const body = JSON.stringify({ urlSource: documentUrl });
+
+        // Step 1: Start analysis (returns Operation-Location header)
+        const operationUrl = await new Promise<string>((resolve, reject) => {
+            const req = https.request(
+                {
+                    hostname: endpoint.hostname,
+                    path: analyzePath,
+                    method: 'POST',
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': AI_KEY,
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(body),
+                    },
+                },
+                (res) => {
+                    res.on('data', () => { /* drain */ });
+                    res.on('end', () => {
+                        const rawLocation = res.headers['operation-location'];
+                        const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation;
+                        if (res.statusCode === 202 && location) {
+                            resolve(location);
+                        } else {
+                            reject(new Error(`Form Recognizer start failed (${res.statusCode})`));
+                        }
+                    });
+                }
+            );
+            req.on('error', reject);
+            req.write(body);
+            req.end();
+        });
+
+        // Step 2: Poll for completion (max 30 seconds)
+        return this.pollAnalysisResult(operationUrl);
+    }
+
+    /** Polls the operation URL until the analysis is complete */
+    private async pollAnalysisResult(operationUrl: string): Promise<FormRecognizerResult> {
+        const url = new URL(operationUrl);
+        const maxAttempts = 15;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            await new Promise(r => setTimeout(r, 2000));
+
+            const result = await new Promise<{ status: string; analyzeResult?: FormRecognizerResult }>((resolve, reject) => {
+                const req = https.request(
+                    {
+                        hostname: url.hostname,
+                        path: url.pathname + url.search,
+                        method: 'GET',
+                        headers: { 'Ocp-Apim-Subscription-Key': AI_KEY },
+                    },
+                    (res) => {
+                        const chunks: Buffer[] = [];
+                        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+                        res.on('end', () => {
+                            const body = Buffer.concat(chunks).toString();
+                            resolve(JSON.parse(body) as { status: string; analyzeResult?: FormRecognizerResult });
+                        });
+                    }
+                );
+                req.on('error', reject);
+                req.end();
+            });
+
+            if (result.status === 'succeeded' && result.analyzeResult) {
+                return result.analyzeResult;
+            }
+            if (result.status === 'failed') {
+                throw new Error('Form Recognizer analysis failed');
+            }
+        }
+
+        throw new Error('Form Recognizer analysis timed out');
+    }
+
+    /** Maps vendor name to a financial classification */
+    private classifyVendor(vendorName: string, fileName: string): string {
+        const lower = (vendorName + ' ' + fileName).toLowerCase();
+        if (lower.includes('aws') || lower.includes('amazon') || lower.includes('azure') || lower.includes('google cloud')) {
+            return 'Infraestrutura / AWS';
+        }
+        if (lower.includes('nota fiscal') || lower.includes('nf-e') || lower.includes('nfse')) {
+            return 'Nota Fiscal Servico';
+        }
+        if (lower.includes('aluguel') || lower.includes('condominio') || lower.includes('iptu')) {
+            return 'Despesas Imobiliarias';
+        }
+        if (lower.includes('salario') || lower.includes('folha') || lower.includes('inss') || lower.includes('fgts')) {
+            return 'Folha de Pagamento';
+        }
+        if (lower.includes('energia') || lower.includes('telefone') || lower.includes('internet')) {
+            return 'Utilidades';
+        }
+        return 'Despesas Administrativas';
     }
 
     async classifyTransaction(tx: InterTransaction): Promise<AnalysisResult> {

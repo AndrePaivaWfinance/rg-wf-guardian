@@ -1,0 +1,62 @@
+{
+    "auth": {
+        "identityProviders": {
+            "azureActiveDirectory": {
+                "registration": {
+                    "openIdIssuer": "https://login.microsoftonline.com/{TENANT_ID}/v2.0",
+                    "clientIdSettingName": "AAD_CLIENT_ID",
+                    "clientSecretSettingName": "AAD_CLIENT_SECRET"
+                }
+            }
+        }
+    },
+    "routes": [
+        {
+            "route": "/api/guardianSync",
+            "allowedRoles": ["authenticated"]
+        },
+        {
+            "route": "/api/guardianImport",
+            "allowedRoles": ["authenticated"]
+        },
+        {
+            "route": "/api/guardianStatus",
+            "allowedRoles": ["anonymous", "authenticated"]
+        },
+        {
+            "route": "/api/guardianReports",
+            "allowedRoles": ["anonymous", "authenticated"]
+        },
+        {
+            "route": "/.auth/login/aad",
+            "allowedRoles": ["anonymous"]
+        },
+        {
+            "route": "/.auth/logout",
+            "allowedRoles": ["authenticated"]
+        },
+        {
+            "route": "/",
+            "allowedRoles": ["authenticated"]
+        },
+        {
+            "route": "/index.html",
+            "allowedRoles": ["authenticated"]
+        }
+    ],
+    "responseOverrides": {
+        "401": {
+            "redirect": "/.auth/login/aad",
+            "statusCode": 302
+        }
+    },
+    "navigationFallback": {
+        "rewrite": "/index.html"
+    },
+    "globalHeaders": {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://func-guardian-sovereign.azurewebsites.net"
+    }
+}
