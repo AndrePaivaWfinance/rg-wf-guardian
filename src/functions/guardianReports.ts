@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
 import { createLogger, nowISO } from '../shared/utils';
+import { GuardianAgents } from '../guardian/guardianAgents';
 
 const logger = createLogger('GuardianReports');
 
@@ -12,24 +13,28 @@ export async function guardianReportsHandler(
 
     try {
         const items = await getGuardianAuthorizations();
+        const agents = new GuardianAgents();
 
-        // Simulação de Agregação de Dados para Relatório
-        const totalValue = items.reduce((acc, curr) => acc + (curr.valor || 0), 0);
-        const criticalAlerts = items.filter(i => i.audit?.alert === 'critical').length;
+        // Agregação via Agente Estrategista
+        const kpis = await agents.calculateKPIs(items);
 
         const report = {
             generatedAt: nowISO(),
-            title: 'Sovereign Financial Book - Fevereiro 2026',
+            title: 'Strategic Sovereign Report - Wfinance',
             summary: {
-                totalAnalizado: totalValue,
-                itemsPendentes: items.length,
-                alertasControladoria: criticalAlerts,
+                totalAnalizado: kpis.revenue,
+                alertasControladoria: items.filter(i => i.audit?.alert === 'critical').length,
                 taxaAutomacao: '92.4%'
+            },
+            indicators: {
+                ebitda: kpis.ebitda,
+                margemLiquida: kpis.netMargin,
+                indiceEficiencia: kpis.efficiency,
+                saudeFinanceira: kpis.status
             },
             treasury: {
                 caixaAtual: 1242850.42,
-                previsao30Dias: 1315400.00,
-                liquidezImediata: 'Alta'
+                previsao30Dias: 1315400.00
             }
         };
 

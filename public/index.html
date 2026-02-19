@@ -61,6 +61,26 @@
             font-weight: 700;
             cursor: pointer;
         }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-s);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .stat-val {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'Outfit';
+        }
     </style>
 </head>
 
@@ -69,6 +89,29 @@
         <h1 style="font-family: 'Outfit';">W_GUARDIAN</h1>
         <div style="font-size: 12px; color: var(--c-emerald);">92% Autonomous Mode</div>
     </header>
+
+    <div class="card"
+        style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(245, 158, 11, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2);">
+        <h3 style="color: var(--c-gold); margin-top: 0;">🏛️ Strategic Analytics (Indicadores Intermediários)</h3>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px;">
+            <div class="stat-box">
+                <div class="stat-label">EBITDA</div>
+                <div id="ebitda-val" class="stat-val">R$ 0,00</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Margem Líquida</div>
+                <div id="margin-val" class="stat-val">0%</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Eficiência</div>
+                <div id="eff-val" class="stat-val">0%</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Soberania</div>
+                <div class="stat-val" style="color: var(--c-emerald);">Grade 10+</div>
+            </div>
+        </div>
+    </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
         <div class="card" style="margin-top: 0;">
             <h3>📊 Controladoria (Audit)</h3>
@@ -135,7 +178,13 @@
                 const res = await fetch('/api/guardianReports');
                 const data = await res.json();
                 if (data.success) {
-                    alert(`Relatório Gerado: ${data.report.title}\n\nAnalizado: R$ ${data.report.summary.totalAnalizado.toLocaleString()}\nAlertas: ${data.report.summary.alertasControladoria}\nPrevisão Caixa: R$ ${data.report.treasury.previsao30Dias.toLocaleString()}`);
+                    const report = data.report;
+                    // Update UI Stats
+                    document.getElementById('ebitda-val').innerText = 'R$ ' + report.indicators.ebitda.toLocaleString();
+                    document.getElementById('margin-val').innerText = report.indicators.margemLiquida;
+                    document.getElementById('eff-val').innerText = report.indicators.indiceEficiencia;
+
+                    alert(`Relatório Gerado: ${report.title}\n\nEBITDA: R$ ${report.indicators.ebitda.toLocaleString()}\nEficiência: ${report.indicators.indiceEficiencia}`);
                 }
             } catch (e) {
                 alert("Erro ao gerar relatório.");

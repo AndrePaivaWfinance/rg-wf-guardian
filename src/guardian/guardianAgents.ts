@@ -104,15 +104,35 @@ export class GuardianAgents {
         }
     }
 
-    async reconcile(txs: AnalysisResult[], docs: AnalysisResult[]): Promise<void> {
-        logger.info(`Running reconciliation for ${txs.length} transactions and ${docs.length} documents`);
-        for (const tx of txs) {
-            const match = docs.find(d => Math.abs(d.value - tx.value) < 0.01);
-            if (match) {
-                tx.matchedId = match.id;
-                tx.suggestedAction = 'archive';
-                tx.confidence = 1.0;
-            }
-        }
+    /**
+     * Agent 5: Strategist (Controladoria Avançada)
+     * Gera indicadores financeiros intermediários (EBITDA, Margens, Eficiência).
+     */
+    async calculateKPIs(results: AnalysisResult[]): Promise<any> {
+        logger.info(`Generating strategic KPIs for ${results.length} items`);
+
+        const revenue = results
+            .filter(r => r.classification === 'Receita Operacional')
+            .reduce((acc, curr) => acc + curr.value, 0);
+
+        const opExpenses = results
+            .filter(r => r.classification !== 'Receita Operacional' && r.type === 'transaction')
+            .reduce((acc, curr) => acc + curr.value, 0);
+
+        // EBITDA Simulado (Earning Before Interest, Taxes, Depreciation, and Amortization)
+        const ebitda = revenue - opExpenses;
+        const netMargin = revenue > 0 ? (ebitda / revenue) * 100 : 0;
+
+        // Indicador de Eficiência (Despesa / Receita)
+        const efficiency = revenue > 0 ? (opExpenses / revenue) * 100 : 0;
+
+        return {
+            ebitda,
+            revenue,
+            opExpenses,
+            netMargin: netMargin.toFixed(2) + '%',
+            efficiency: efficiency.toFixed(2) + '%',
+            status: ebitda > 0 ? 'Healthy' : 'Critical'
+        };
     }
 }
