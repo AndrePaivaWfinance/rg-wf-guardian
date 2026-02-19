@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "azure-functions-core-tools": "^4.x",
-    "typescript": "^4.x"
+    "typescript": "^4.x",
+    "@types/node": "^20.x",
+    "ts-node": "^10.x"
   }
 }

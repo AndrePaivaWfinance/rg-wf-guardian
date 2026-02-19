@@ -49,7 +49,11 @@ export class GuardianAgents {
 
     async classifyTransaction(tx: InterTransaction): Promise<AnalysisResult> {
         logger.info(`Classifying transaction: ${tx.descricao}`);
-        const confidence = tx.descricao.includes('PIX RECEBIDO') ? 1.0 : 0.85;
+        // Melhora a confiança para itens recorrentes ou padrão (Simulando Prompt Engineering)
+        let confidence = 0.85;
+        if (tx.descricao.includes('PIX RECEBIDO')) confidence = 1.0;
+        if (tx.descricao.includes('CONDOMINIO')) confidence = 0.95; // Recorrente, alta confiança
+
         return {
             id: 'CLASS_' + tx.id,
             type: 'transaction',
