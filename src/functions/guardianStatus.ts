@@ -17,6 +17,6 @@ export async function guardianStatusHandler(
 
 app.http('guardianStatus', {
     methods: ['GET'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianStatusHandler,
 });
