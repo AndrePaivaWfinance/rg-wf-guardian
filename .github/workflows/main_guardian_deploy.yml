@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_NAME: 'func-rg-wf-guardian'
+  AZURE_FUNCTIONAPP_NAME: 'func-guardian-sovereign'
   AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'
   NODE_VERSION: '20.x'
 
