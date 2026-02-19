@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wfinance | Guardian Sovereign Cockpit</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-guardian: #0A0510;
+            --c-gold: #F59E0B;
+            --c-emerald: #10B981;
+            --border: rgba(255, 255, 255, 0.08);
+            --text-p: #F8FAFC;
+            --text-s: #94A3B8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-guardian);
+            color: var(--text-p);
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .inbox-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+        .btn-gold {
+            background: var(--c-gold);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <h1 style="font-family: 'Outfit';">W_GUARDIAN</h1>
+        <div style="font-size: 12px; color: var(--c-emerald);">92% Autonomous Mode</div>
+    </header>
+    <div class="card">
+        <h2>Decision Inbox</h2>
+        <div id="inbox" style="margin-top: 20px;"></div>
+    </div>
+    <script>
+        async function load() {
+            const res = await fetch('/api/guardianStatus');
+            const data = await res.json();
+            const container = document.getElementById('inbox');
+            container.innerHTML = data.items.map(i => `
+                <div class="inbox-item">
+                    <div>
+                        <div style="font-weight: 600;">${i.classificacao}</div>
+                        <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()}</div>
+                    </div>
+                    <button class="btn-gold">APROVAR</button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+        load();
+    </script>
+</body>
+
+</html>
