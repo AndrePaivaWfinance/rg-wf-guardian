@@ -425,23 +425,23 @@
     </div>
 
     <div class="sidebar-section">Visao Geral</div>
-    <div class="sidebar-item active" onclick="scrollTo('#kpi-section')"><i data-lucide="layout-dashboard"></i> Dashboard</div>
-    <div class="sidebar-item" onclick="scrollTo('#dre-section')"><i data-lucide="file-spreadsheet"></i> DRE</div>
-    <div class="sidebar-item" onclick="scrollTo('#dfc-section')"><i data-lucide="wallet"></i> DFC</div>
-    <div class="sidebar-item" onclick="scrollTo('#forecast-section')"><i data-lucide="trending-up"></i> Previsibilidade</div>
+    <div class="sidebar-item active" data-nav="kpi-section"><i data-lucide="layout-dashboard"></i> Dashboard</div>
+    <div class="sidebar-item" data-nav="dre-section"><i data-lucide="file-spreadsheet"></i> DRE</div>
+    <div class="sidebar-item" data-nav="dfc-section"><i data-lucide="wallet"></i> DFC</div>
+    <div class="sidebar-item" data-nav="forecast-section"><i data-lucide="trending-up"></i> Previsibilidade</div>
 
     <div class="sidebar-section">Operacional</div>
-    <div class="sidebar-item" onclick="scrollTo('#tx-section')"><i data-lucide="repeat"></i> Transacoes</div>
-    <div class="sidebar-item" onclick="scrollTo('#cat-section')"><i data-lucide="layers"></i> Categorias</div>
-    <div class="sidebar-item" onclick="scrollTo('#inbox-section')">
+    <div class="sidebar-item" data-nav="tx-section"><i data-lucide="repeat"></i> Transacoes</div>
+    <div class="sidebar-item" data-nav="cat-section"><i data-lucide="layers"></i> Categorias</div>
+    <div class="sidebar-item" data-nav="inbox-section">
         <i data-lucide="inbox"></i> Inbox
         <span id="inbox-badge" class="sidebar-badge" style="display:none">0</span>
     </div>
 
     <div class="sidebar-section">Acoes</div>
-    <div class="sidebar-item" onclick="runSync()"><i data-lucide="refresh-cw"></i> Sincronizar</div>
-    <div class="sidebar-item" onclick="document.getElementById('file-input').click()"><i data-lucide="upload-cloud"></i> Upload OCR</div>
-    <div class="sidebar-item" onclick="openImportModal()"><i data-lucide="link"></i> Importar URL</div>
+    <div class="sidebar-item" data-action="sync"><i data-lucide="refresh-cw"></i> Sincronizar</div>
+    <div class="sidebar-item" data-action="upload"><i data-lucide="upload-cloud"></i> Upload OCR</div>
+    <div class="sidebar-item" data-action="import"><i data-lucide="link"></i> Importar URL</div>
 
     <div class="sidebar-spacer"></div>
 
@@ -582,7 +582,19 @@ let forecastChart=null;
 function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
 function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
-function scrollTo(sel){document.querySelector(sel)?.scrollIntoView({behavior:'smooth',block:'start'})}
+function navTo(id){const el=document.getElementById(id);if(el){el.scrollIntoView({behavior:'smooth',block:'start'})}}
+
+// Sidebar click delegation
+document.querySelector('.sidebar').addEventListener('click',function(e){
+    const item=e.target.closest('.sidebar-item');
+    if(!item)return;
+    const nav=item.dataset.nav;
+    const action=item.dataset.action;
+    if(nav){navTo(nav)}
+    else if(action==='sync'){runSync()}
+    else if(action==='upload'){document.getElementById('file-input').click()}
+    else if(action==='import'){openImportModal()}
+});
 
 // Toast
 function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
@@ -797,14 +809,10 @@ function generateReport(){loadReport();toast('Relatorio atualizado.','ok')}
 const observer=new IntersectionObserver(entries=>{
     entries.forEach(e=>{
         if(e.isIntersecting){
-            document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
-            const id=e.target.id;
-            const map={'kpi-section':0,'dre-section':1,'dfc-section':2,'forecast-section':3,'tx-section':4,'cat-section':5,'inbox-section':6};
-            const idx=map[id];
-            if(idx!==undefined){
-                const items=document.querySelectorAll('.sidebar-item');
-                if(items[idx])items[idx].classList.add('active');
-            }
+            const navItems=document.querySelectorAll('.sidebar-item[data-nav]');
+            navItems.forEach(i=>i.classList.remove('active'));
+            const match=document.querySelector('.sidebar-item[data-nav="'+e.target.id+'"]');
+            if(match)match.classList.add('active');
         }
     });
 },{threshold:0.3});
