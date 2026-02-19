@@ -142,7 +142,7 @@
     <script>
         async function load() {
             try {
-                const res = await fetch('/api/guardianStatus');
+                const res = await fetch('https://func-guardian-sovereign.azurewebsites.net/api/guardianStatus');
                 const data = await res.json();
                 const container = document.getElementById('inbox');
                 const alertContainer = document.getElementById('budget-alerts');
@@ -175,7 +175,7 @@
 
         async function generateReport() {
             try {
-                const res = await fetch('/api/guardianReports');
+                const res = await fetch('https://func-guardian-sovereign.azurewebsites.net/api/guardianReports');
                 const data = await res.json();
                 if (data.success) {
                     const report = data.report;
