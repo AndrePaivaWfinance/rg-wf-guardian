@@ -30,7 +30,18 @@ export async function guardianReportsHandler(
         }));
 
         const kpis = await agents.calculateKPIs(analysisItems);
-        const balance = await inter.getBalance();
+
+        // Try live balance; fall back to computed balance from persisted items
+        let caixaAtual: number;
+        try {
+            const balance = await inter.getBalance();
+            caixaAtual = balance.total;
+        } catch (err: unknown) {
+            logger.warn('Inter API indisponível — calculando saldo a partir dos dados persistidos');
+            const receitas = items.filter(i => i.tipo === 'transaction' && i.valor > 0 && i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0);
+            const despesas = items.filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Despesa')).reduce((s, i) => s + i.valor, 0);
+            caixaAtual = receitas - despesas;
+        }
 
         const automatedCount = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
@@ -50,8 +61,8 @@ export async function guardianReportsHandler(
                 saudeFinanceira: kpis.status,
             },
             treasury: {
-                caixaAtual: balance.total,
-                previsao30Dias: balance.total * 1.058,
+                caixaAtual,
+                previsao30Dias: caixaAtual * 1.058,
             },
         };
 

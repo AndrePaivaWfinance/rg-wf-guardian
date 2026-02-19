@@ -23,14 +23,22 @@ export async function guardianSyncHandler(
         const endDate = nowISO().split('T')[0];
         const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        const [balance, txs, docs] = await Promise.all([
+        const [balanceResult, txs, docs] = await Promise.allSettled([
             inter.getBalance(),
             inter.syncStatement(startDate, endDate),
             email.processIncomingEmails(),
         ]);
 
-        const docResults = (await Promise.all(docs.map(d => agents.extractData(d)))).flat();
-        const txResults = await Promise.all(txs.map(t => agents.classifyTransaction(t)));
+        const balance = balanceResult.status === 'fulfilled' ? balanceResult.value : { disponivel: 0, reservado: 0, total: 0, dataHora: nowISO() };
+        if (balanceResult.status === 'rejected') logger.warn('Inter balance indisponível: ' + String(balanceResult.reason));
+        if (txs.status === 'rejected') throw new Error('Falha ao buscar extrato: ' + String(txs.reason));
+        if (docs.status === 'rejected') throw new Error('Falha ao buscar emails: ' + String(docs.reason));
+
+        const transactions = txs.value;
+        const documents = docs.value;
+
+        const docResults = (await Promise.all(documents.map(d => agents.extractData(d)))).flat();
+        const txResults = await Promise.all(transactions.map(t => agents.classifyTransaction(t)));
 
         // Auditoria e Reconciliação
         const allResults = [...txResults, ...docResults];
