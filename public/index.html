@@ -1,655 +1,500 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wfinance | Guardian Sovereign Cockpit</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.426.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{
+            --bg:#F3F4F6;--white:#FFF;--hover:#F9FAFB;
+            --purple:#4B2D8E;--purple-l:#6B4FB0;--purple-d:rgba(75,45,142,0.07);
+            --green:#059669;--green-d:rgba(5,150,105,0.08);
+            --red:#DC2626;--red-d:rgba(220,38,38,0.08);
+            --blue:#2563EB;--blue-d:rgba(37,99,235,0.08);
+            --gold:#D97706;--gold-d:rgba(217,119,6,0.08);
+            --border:#E5E7EB;--border-h:#D1D5DB;
+            --t1:#111827;--t2:#6B7280;--t3:#9CA3AF;
+            --r:12px;--sh:0 1px 3px rgba(0,0,0,0.06);
+        }
+        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);min-height:100vh}
+        .shell{max-width:1400px;margin:0 auto;padding:24px 32px 60px}
 
-        :root {
-            --bg: #F3F4F6;
-            --bg-white: #FFFFFF;
-            --bg-hover: #F9FAFB;
-            --purple: #4B2D8E;
-            --purple-light: #6B4FB0;
-            --purple-dim: rgba(75,45,142,0.08);
-            --purple-border: rgba(75,45,142,0.15);
-            --emerald: #059669;
-            --emerald-dim: rgba(5,150,105,0.08);
-            --red: #DC2626;
-            --red-dim: rgba(220,38,38,0.08);
-            --blue: #2563EB;
-            --blue-dim: rgba(37,99,235,0.08);
-            --gold: #D97706;
-            --gold-dim: rgba(217,119,6,0.08);
-            --border: #E5E7EB;
-            --border-hover: #D1D5DB;
-            --text-1: #111827;
-            --text-2: #6B7280;
-            --text-3: #9CA3AF;
-            --radius: 14px;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
+        /* Topbar */
+        .topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px}
+        .brand{display:flex;align-items:center;gap:10px}
+        .brand-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--purple),var(--purple-l));border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;color:#fff}
+        .brand h1{font-family:'Outfit';font-weight:600;font-size:19px;color:var(--purple)}
+        .brand-sub{font-size:10px;color:var(--t3);letter-spacing:.5px}
+        .topbar-r{display:flex;align-items:center;gap:12px}
+        .badge-row{display:flex;gap:5px}
+        .badge{font-size:9px;padding:3px 9px;border-radius:16px;border:1px solid var(--border);color:var(--t3);font-weight:500;display:flex;align-items:center;gap:4px;background:var(--white)}
+        .badge .dot{width:5px;height:5px;border-radius:50%;background:var(--t3)}
+        .badge.live{border-color:var(--green);color:var(--green)}.badge.live .dot{background:var(--green);box-shadow:0 0 5px rgba(5,150,105,.4)}
+        .auto-pill{font-size:10px;padding:4px 12px;border-radius:16px;background:var(--purple-d);color:var(--purple);font-weight:600;font-family:'JetBrains Mono'}
+        .btn-ghost{background:var(--white);border:1px solid var(--border);color:var(--t2);padding:5px 14px;border-radius:7px;font-size:10px;cursor:pointer;font-family:'Inter'}
+        .btn-ghost:hover{border-color:var(--purple);color:var(--purple)}
 
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg);
-            color: var(--text-1);
-            min-height: 100vh;
-        }
+        /* Cards */
+        .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh)}
+        .card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--t2);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+        .card-title i{width:14px;height:14px;color:var(--purple-l)}
 
-        .shell {
-            max-width: 1360px;
-            margin: 0 auto;
-            padding: 28px 36px 60px;
-        }
+        /* KPI Strip */
+        .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:20px}
+        .kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 14px;box-shadow:var(--sh)}
+        .kpi-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:6px;font-weight:600}
+        .kpi-value{font-family:'Outfit';font-size:20px;font-weight:600;color:var(--t1)}
+        .kpi-sub{font-size:10px;color:var(--t3);margin-top:3px}
+        .kpi.accent{border-left:3px solid var(--purple)}.kpi.accent .kpi-value{color:var(--purple)}
+        .kpi.green{border-left:3px solid var(--green)}.kpi.green .kpi-value{color:var(--green)}
+        .kpi.blue{border-left:3px solid var(--blue)}.kpi.blue .kpi-value{color:var(--blue)}
+        .kpi.red{border-left:3px solid var(--red)}.kpi.red .kpi-value{color:var(--red)}
 
-        /* ---- Topbar ---- */
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 24px;
-        }
-        .brand {
-            display: flex; align-items: center; gap: 12px;
-        }
-        .brand-icon {
-            width: 38px; height: 38px;
-            background: linear-gradient(135deg, var(--purple), var(--purple-light));
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-family: 'Outfit'; font-weight: 700; font-size: 17px; color: #fff;
-        }
-        .brand h1 {
-            font-family: 'Outfit'; font-weight: 600; font-size: 20px;
-            color: var(--purple); letter-spacing: -0.3px;
-        }
-        .brand-sub {
-            font-size: 11px; color: var(--text-3); margin-top: 1px;
-            letter-spacing: 0.5px;
-        }
-        .topbar-right {
-            display: flex; align-items: center; gap: 14px;
-        }
-        .badge-row { display: flex; gap: 6px; }
-        .badge {
-            font-size: 10px; padding: 4px 10px; border-radius: 20px;
-            border: 1px solid var(--border); color: var(--text-3);
-            font-weight: 500; transition: all 0.3s;
-            display: flex; align-items: center; gap: 5px;
-            background: var(--bg-white);
-        }
-        .badge .dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--text-3); transition: all 0.3s;
-        }
-        .badge.live { border-color: var(--emerald); color: var(--emerald); }
-        .badge.live .dot { background: var(--emerald); box-shadow: 0 0 6px rgba(5,150,105,0.4); }
-        .badge.error { border-color: var(--red); color: var(--red); }
-        .badge.error .dot { background: var(--red); }
+        /* Grid layouts */
+        .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+        .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px}
 
-        .auto-pill {
-            font-size: 11px; padding: 5px 14px; border-radius: 20px;
-            background: var(--purple-dim); color: var(--purple);
-            font-weight: 600; font-family: 'JetBrains Mono';
-        }
-        .user-chip { font-size: 11px; color: var(--text-2); }
-        .btn-ghost {
-            background: var(--bg-white); border: 1px solid var(--border);
-            color: var(--text-2); padding: 6px 16px; border-radius: 8px;
-            font-size: 11px; cursor: pointer; transition: all 0.2s;
-            font-family: 'Inter';
-        }
-        .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+        /* Section headers */
+        .sec{display:flex;justify-content:space-between;align-items:center;margin-top:24px;margin-bottom:12px}
+        .sec h2{font-family:'Outfit';font-size:16px;font-weight:500}
+        .sec-sub{font-size:10px;color:var(--t3);margin-top:3px}
 
-        /* ---- KPI Strip ---- */
-        .kpi-strip {
-            display: grid; grid-template-columns: repeat(5, 1fr);
-            gap: 14px; margin-top: 4px;
-        }
-        .kpi {
-            background: var(--bg-white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 18px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
-        }
-        .kpi:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
-        .kpi-label {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-            color: var(--text-3); margin-bottom: 8px; font-weight: 600;
-        }
-        .kpi-value {
-            font-family: 'Outfit'; font-size: 22px; font-weight: 600;
-            color: var(--text-1); letter-spacing: -0.5px;
-        }
-        .kpi-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
-        .kpi.accent { border-left: 3px solid var(--purple); }
-        .kpi.accent .kpi-value { color: var(--purple); }
-        .kpi.emerald { border-left: 3px solid var(--emerald); }
-        .kpi.emerald .kpi-value { color: var(--emerald); }
-        .kpi.blue { border-left: 3px solid var(--blue); }
-        .kpi.blue .kpi-value { color: var(--blue); }
+        /* Buttons */
+        .btn{padding:7px 16px;border-radius:7px;border:none;font-weight:600;font-size:10px;cursor:pointer;font-family:'Inter';display:flex;align-items:center;gap:5px}
+        .btn:disabled{opacity:.4;cursor:not-allowed}
+        .btn-p{background:var(--purple);color:#fff}.btn-p:hover:not(:disabled){background:var(--purple-l)}
+        .btn-s{background:var(--white);border:1px solid var(--border);color:var(--t2)}.btn-s:hover:not(:disabled){border-color:var(--purple);color:var(--purple)}
+        .btn-a{background:var(--green);color:#fff}.btn-a:hover:not(:disabled){filter:brightness(1.1)}
+        .btn-row{display:flex;gap:7px}
 
-        /* ---- Cards ---- */
-        .grid-2 {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;
-        }
-        .card {
-            background: var(--bg-white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 22px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s;
-        }
-        .card:hover { box-shadow: var(--shadow); }
-        .card-title {
-            font-size: 12px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.6px; color: var(--text-2); margin-bottom: 16px;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .card-title i { width: 15px; height: 15px; color: var(--purple-light); }
+        /* Tables */
+        .tbl{width:100%;border-collapse:collapse;font-size:12px}
+        .tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600}
+        .tbl td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--t1)}
+        .tbl tr:last-child td{border-bottom:none}
+        .tbl .row-bold td{font-weight:600;color:var(--t1)}
+        .tbl .row-sub td{padding-left:24px;color:var(--t2);font-size:11px}
+        .tbl .row-total td{font-weight:700;border-top:2px solid var(--border);padding-top:10px}
+        .tbl .num{text-align:right;font-family:'JetBrains Mono';font-size:11px}
 
-        /* ---- Inbox ---- */
-        .inbox-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-top: 20px; margin-bottom: 14px;
-        }
-        .inbox-header h2 {
-            font-family: 'Outfit'; font-size: 17px; font-weight: 500;
-            color: var(--text-1);
-        }
-        .inbox-actions { display: flex; gap: 8px; }
-        .btn {
-            padding: 8px 18px; border-radius: 8px; border: none;
-            font-weight: 600; font-size: 11px; cursor: pointer;
-            font-family: 'Inter'; transition: all 0.2s;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-primary {
-            background: var(--purple); color: #fff;
-        }
-        .btn-primary:hover:not(:disabled) { background: var(--purple-light); }
-        .btn-secondary {
-            background: var(--bg-white); border: 1px solid var(--border);
-            color: var(--text-2);
-        }
-        .btn-secondary:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
-        .btn-accent {
-            background: var(--emerald); color: #fff;
-        }
-        .btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
+        /* Transaction items */
+        .tx-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)}
+        .tx-item:last-child{border-bottom:none}
+        .tx-item:hover{background:var(--hover)}
+        .tx-left{display:flex;align-items:center;gap:10px}
+        .tx-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+        .tx-icon.in{background:var(--green-d);color:var(--green)}
+        .tx-icon.out{background:var(--red-d);color:var(--red)}
+        .tx-icon.doc{background:var(--blue-d);color:var(--blue)}
+        .tx-label{font-size:12px;font-weight:500}
+        .tx-meta{font-size:10px;color:var(--t3);margin-top:1px;display:flex;gap:6px;align-items:center}
+        .tx-val{font-family:'JetBrains Mono';font-size:12px;font-weight:500;text-align:right}
+        .tx-conf{font-size:9px;color:var(--t3);text-align:right}
+        .tag{font-size:8px;padding:1px 6px;border-radius:4px;font-weight:600}
+        .tag-ok{background:var(--green-d);color:var(--green)}
+        .tag-alert{background:var(--red-d);color:var(--red)}
+        .tag-review{background:var(--gold-d);color:var(--gold)}
 
-        .inbox-card {
-            background: var(--bg-white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-        .inbox-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.1s;
-        }
-        .inbox-item:last-child { border-bottom: none; }
-        .inbox-item:hover { background: var(--bg-hover); }
-        .inbox-item-left { display: flex; align-items: center; gap: 12px; }
-        .inbox-icon {
-            width: 34px; height: 34px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .inbox-icon.credit { background: var(--emerald-dim); color: var(--emerald); }
-        .inbox-icon.debit { background: var(--red-dim); color: var(--red); }
-        .inbox-icon.doc { background: var(--blue-dim); color: var(--blue); }
-        .inbox-label { font-size: 13px; font-weight: 500; color: var(--text-1); }
-        .inbox-meta {
-            font-size: 11px; color: var(--text-3); margin-top: 2px;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .inbox-value {
-            font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 500;
-            text-align: right; color: var(--text-1);
-        }
-        .inbox-confidence {
-            font-size: 10px; color: var(--text-3); margin-top: 2px;
-            text-align: right;
-        }
-        .tag {
-            font-size: 9px; padding: 2px 7px; border-radius: 5px; font-weight: 600;
-        }
-        .tag-ok { background: var(--emerald-dim); color: var(--emerald); }
-        .tag-alert { background: var(--red-dim); color: var(--red); }
-        .tag-review { background: var(--gold-dim); color: var(--gold); }
+        /* Category bars */
+        .cat-item{padding:10px 14px;border-bottom:1px solid var(--border)}
+        .cat-item:last-child{border-bottom:none}
+        .cat-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:500}
+        .cat-bar-wrap{height:4px;background:var(--bg);border-radius:2px;margin-top:6px}
+        .cat-bar{height:100%;border-radius:2px;background:var(--purple);transition:width .5s}
+        .cat-meta{font-size:10px;color:var(--t3);margin-top:4px}
 
-        /* ---- Toast ---- */
-        .toast-container {
-            position: fixed; bottom: 24px; right: 24px;
-            display: flex; flex-direction: column; gap: 8px; z-index: 1000;
-        }
-        .toast {
-            padding: 12px 18px; border-radius: 10px;
-            font-size: 13px; font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            animation: slideIn 0.3s ease;
-            max-width: 380px;
-        }
-        .toast-success { background: #fff; border-left: 3px solid var(--emerald); color: var(--text-1); }
-        .toast-error { background: #fff; border-left: 3px solid var(--red); color: var(--text-1); }
-        .toast-info { background: #fff; border-left: 3px solid var(--blue); color: var(--text-1); }
-        @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } }
+        /* Upload zone */
+        .upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;transition:all .2s}
+        .upload-zone:hover,.upload-zone.drag{border-color:var(--purple);background:var(--purple-d)}
+        .upload-zone p{font-size:12px;color:var(--t2);margin-top:8px}
+        .upload-zone small{font-size:10px;color:var(--t3)}
+        .upload-zone input{display:none}
 
-        /* ---- Modal ---- */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(3px);
-            display: none; align-items: center; justify-content: center; z-index: 999;
-        }
-        .modal-overlay.open { display: flex; }
-        .modal {
-            background: #fff; border: 1px solid var(--border);
-            border-radius: 16px; padding: 28px; width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-        }
-        .modal h3 {
-            font-family: 'Outfit'; font-size: 17px; color: var(--purple);
-            margin-bottom: 6px;
-        }
-        .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
-        .modal input {
-            width: 100%; padding: 10px 14px; border-radius: 8px;
-            border: 1px solid var(--border); background: var(--bg);
-            color: var(--text-1); font-size: 13px; font-family: 'Inter';
-            outline: none; transition: border-color 0.2s;
-        }
-        .modal input:focus { border-color: var(--purple); }
-        .modal-actions {
-            display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
-        }
+        /* Chart */
+        .chart-wrap{position:relative;height:260px}
 
-        /* ---- Loading ---- */
-        .empty-state {
-            text-align: center; padding: 44px 20px; color: var(--text-3);
-        }
-        .empty-state p { font-size: 13px; margin-top: 8px; }
-        .spinner {
-            width: 18px; height: 18px; border: 2px solid var(--border);
-            border-top-color: var(--purple); border-radius: 50%;
-            animation: spin 0.6s linear infinite; display: inline-block;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Toast */
+        .toast-c{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:1000}
+        .toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.1);animation:slideIn .3s;max-width:360px}
+        .toast-ok{background:#fff;border-left:3px solid var(--green);color:var(--t1)}
+        .toast-err{background:#fff;border-left:3px solid var(--red);color:var(--t1)}
+        .toast-info{background:#fff;border-left:3px solid var(--blue);color:var(--t1)}
+        @keyframes slideIn{from{transform:translateX(60px);opacity:0}}
 
-        .skeleton {
-            background: linear-gradient(90deg, var(--bg) 25%, #E5E7EB 50%, var(--bg) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 6px; height: 18px;
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        /* Modal */
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.3);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:999}
+        .modal-bg.open{display:flex}
+        .modal{background:#fff;border:1px solid var(--border);border-radius:14px;padding:24px;width:400px;box-shadow:0 16px 48px rgba(0,0,0,.12)}
+        .modal h3{font-family:'Outfit';font-size:16px;color:var(--purple);margin-bottom:5px}
+        .modal p{font-size:12px;color:var(--t2);margin-bottom:14px}
+        .modal input{width:100%;padding:9px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--t1);font-size:12px;font-family:'Inter';outline:none}
+        .modal input:focus{border-color:var(--purple)}
+        .modal-acts{display:flex;gap:7px;justify-content:flex-end;margin-top:14px}
 
-        .last-sync { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+        /* Skeleton */
+        .skel{background:linear-gradient(90deg,var(--bg) 25%,#E5E7EB 50%,var(--bg) 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:5px;height:16px}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .empty{text-align:center;padding:36px 16px;color:var(--t3);font-size:12px}
 
-        /* ---- Responsive ---- */
-        @media (max-width: 1200px) {
-            .kpi-strip { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 768px) {
-            .shell { padding: 16px; }
-            .kpi-strip { grid-template-columns: repeat(2, 1fr); }
-            .grid-2 { grid-template-columns: 1fr; }
-            .topbar { flex-direction: column; gap: 14px; align-items: flex-start; }
-            .inbox-header { flex-direction: column; gap: 10px; align-items: flex-start; }
-        }
+        /* Responsive */
+        @media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(3,1fr)}.g3{grid-template-columns:1fr}}
+        @media(max-width:768px){.shell{padding:14px}.kpi-strip{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.topbar{flex-direction:column;gap:12px;align-items:flex-start}.sec{flex-direction:column;gap:8px;align-items:flex-start}}
     </style>
 </head>
-
 <body>
-    <div class="shell">
-        <!-- Topbar -->
-        <header class="topbar">
-            <div class="brand">
-                <div class="brand-icon">G</div>
-                <div>
-                    <h1>Guardian</h1>
-                    <div class="brand-sub">Sovereign Financial Cockpit</div>
-                </div>
-            </div>
-            <div class="topbar-right">
-                <div class="badge-row">
-                    <span id="badge-inter" class="badge"><span class="dot"></span> Inter</span>
-                    <span id="badge-graph" class="badge"><span class="dot"></span> Graph</span>
-                    <span id="badge-ai" class="badge"><span class="dot"></span> OCR</span>
-                </div>
-                <div id="auto-pill" class="auto-pill">-- %</div>
-                <span id="user-display" class="user-chip"></span>
-                <button id="auth-btn" class="btn-ghost" onclick="handleAuth()">Login</button>
-            </div>
-        </header>
-
-        <!-- KPI Strip -->
-        <section class="kpi-strip">
-            <div class="kpi accent">
-                <div class="kpi-label">EBITDA</div>
-                <div id="kpi-ebitda" class="kpi-value">--</div>
-                <div class="kpi-sub">Resultado operacional</div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-label">Caixa Atual</div>
-                <div id="kpi-caixa" class="kpi-value">--</div>
-                <div id="kpi-caixa-sub" class="kpi-sub">Saldo consolidado</div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-label">Margem Liquida</div>
-                <div id="kpi-margin" class="kpi-value">--</div>
-                <div class="kpi-sub">Receita x Despesas</div>
-            </div>
-            <div class="kpi emerald">
-                <div class="kpi-label">Eficiencia</div>
-                <div id="kpi-eff" class="kpi-value">--</div>
-                <div class="kpi-sub">Indice operacional</div>
-            </div>
-            <div class="kpi blue">
-                <div class="kpi-label">Soberania</div>
-                <div id="kpi-sov" class="kpi-value">--</div>
-                <div class="kpi-sub">Grau de automacao</div>
-            </div>
-        </section>
-
-        <!-- Cards -->
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-title"><i data-lucide="shield-check"></i> Controladoria</div>
-                <div id="audit-panel">
-                    <div class="skeleton" style="width:70%; margin-bottom:8px;"></div>
-                    <div class="skeleton" style="width:50%;"></div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-title"><i data-lucide="trending-up"></i> Tesouraria</div>
-                <div id="treasury-panel">
-                    <div class="skeleton" style="width:60%; margin-bottom:8px;"></div>
-                    <div class="skeleton" style="width:80%;"></div>
-                </div>
-            </div>
+<div class="shell">
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon">G</div>
+            <div><h1>Guardian</h1><div class="brand-sub">Sovereign Financial Cockpit</div></div>
         </div>
-
-        <!-- Inbox -->
-        <div class="inbox-header">
-            <div>
-                <h2>Decision Inbox</h2>
-                <div id="last-sync" class="last-sync"></div>
+        <div class="topbar-r">
+            <div class="badge-row">
+                <span id="b-inter" class="badge"><span class="dot"></span> Inter</span>
+                <span id="b-graph" class="badge"><span class="dot"></span> Graph</span>
+                <span id="b-ai" class="badge"><span class="dot"></span> OCR</span>
             </div>
-            <div class="inbox-actions">
-                <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
-                    <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar
-                </button>
-                <button class="btn btn-secondary" onclick="generateReport()">
-                    <i data-lucide="bar-chart-3" style="width:13px;height:13px;"></i> Relatorio
-                </button>
-                <button class="btn btn-accent" onclick="openImportModal()">
-                    <i data-lucide="upload" style="width:13px;height:13px;"></i> Importar
-                </button>
-            </div>
+            <div id="auto-pill" class="auto-pill">--%</div>
+            <span id="user-d" class="brand-sub" style="letter-spacing:0"></span>
+            <button id="auth-btn" class="btn-ghost" onclick="handleAuth()">Login</button>
         </div>
-        <div id="inbox" class="inbox-card">
-            <div class="empty-state">
-                <div class="spinner"></div>
-                <p>Carregando dados...</p>
+    </header>
+
+    <!-- KPI Strip -->
+    <section class="kpi-strip">
+        <div class="kpi accent"><div class="kpi-label">EBITDA</div><div id="k-ebitda" class="kpi-value">--</div><div class="kpi-sub">Resultado operacional</div></div>
+        <div class="kpi green"><div class="kpi-label">Lucro Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
+        <div class="kpi"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Lucro / Receita</div></div>
+        <div class="kpi"><div class="kpi-label">Margem Bruta</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Bruto / Receita</div></div>
+        <div class="kpi blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional mensal</div></div>
+        <div class="kpi"><div class="kpi-label">Caixa Atual</div><div id="k-caixa" class="kpi-value">--</div><div id="k-caixa-sub" class="kpi-sub">Saldo consolidado</div></div>
+    </section>
+
+    <!-- DRE + DFC -->
+    <div class="g2">
+        <div class="card">
+            <div class="card-title"><i data-lucide="file-spreadsheet"></i> DRE — Demonstracao do Resultado</div>
+            <div id="dre-table"><div class="skel" style="width:80%;margin-bottom:6px"></div><div class="skel" style="width:60%"></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i data-lucide="wallet"></i> DFC — Fluxo de Caixa</div>
+            <div id="dfc-table"><div class="skel" style="width:70%;margin-bottom:6px"></div><div class="skel" style="width:55%"></div></div>
+        </div>
+    </div>
+
+    <!-- Forecast Chart -->
+    <div class="card" style="margin-top:14px">
+        <div class="card-title"><i data-lucide="trending-up"></i> Previsibilidade — Projecao 6 Meses</div>
+        <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
+    </div>
+
+    <!-- Transactions: Entradas + Saidas -->
+    <div class="g2">
+        <div class="card">
+            <div class="card-title" style="color:var(--green)"><i data-lucide="arrow-up-right"></i> Entradas (Receitas)</div>
+            <div id="entradas-list"><div class="empty"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title" style="color:var(--red)"><i data-lucide="arrow-down-left"></i> Saidas (Despesas + Docs)</div>
+            <div id="saidas-list"><div class="empty"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+
+    <!-- Categorized + Audit -->
+    <div class="g2">
+        <div class="card">
+            <div class="card-title"><i data-lucide="layers"></i> Transacoes Categorizadas</div>
+            <div id="cat-list"><div class="skel" style="width:70%;margin-bottom:6px"></div><div class="skel" style="width:50%"></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i data-lucide="shield-check"></i> Controladoria</div>
+            <div id="audit-panel"><div class="skel" style="width:60%;margin-bottom:6px"></div><div class="skel" style="width:40%"></div></div>
+        </div>
+    </div>
+
+    <!-- Upload + Actions -->
+    <div class="g2">
+        <div class="card">
+            <div class="card-title"><i data-lucide="upload-cloud"></i> Anexar Documento (OCR)</div>
+            <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+                <i data-lucide="file-plus" style="width:28px;height:28px;color:var(--purple-l)"></i>
+                <p>Arraste um arquivo ou clique para selecionar</p>
+                <small>PDF, XML, OFX, CSV — processado automaticamente via OCR</small>
+                <input id="file-input" type="file" accept=".pdf,.xml,.ofx,.csv" onchange="handleFileSelect(event)">
+            </div>
+            <div id="upload-status" style="margin-top:10px"></div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i data-lucide="settings-2"></i> Acoes</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                <button id="btn-sync" class="btn btn-p" style="width:100%;justify-content:center" onclick="runSync()">
+                    <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sincronizar Banco Inter + Emails
+                </button>
+                <button class="btn btn-s" style="width:100%;justify-content:center" onclick="generateReport()">
+                    <i data-lucide="bar-chart-3" style="width:12px;height:12px"></i> Gerar Relatorio Completo
+                </button>
+                <button class="btn btn-s" style="width:100%;justify-content:center" onclick="openImportModal()">
+                    <i data-lucide="link" style="width:12px;height:12px"></i> Importar via URL
+                </button>
+                <div style="font-size:10px;color:var(--t3);margin-top:4px" id="last-sync"></div>
             </div>
         </div>
     </div>
 
-    <!-- Import Modal -->
-    <div id="import-modal" class="modal-overlay" onclick="if(event.target===this)closeImportModal()">
-        <div class="modal">
-            <h3>Importar Documento</h3>
-            <p>Cole a URL do arquivo (PDF, XML ou OFX) para processamento pelo Guardian.</p>
-            <input id="import-url" type="url" placeholder="https://exemplo.com/nota-fiscal.pdf" />
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="submitImport()">Importar</button>
-            </div>
+    <!-- Decision Inbox -->
+    <div class="sec">
+        <div><h2>Decision Inbox</h2><div class="sec-sub">Itens aguardando aprovacao ou revisao</div></div>
+    </div>
+    <div id="inbox" class="card" style="padding:0;overflow:hidden">
+        <div class="empty"><div class="spinner"></div><p style="margin-top:8px">Carregando...</p></div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div id="import-modal" class="modal-bg" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <h3>Importar via URL</h3>
+        <p>Informe a URL do documento para processamento.</p>
+        <input id="import-url" type="url" placeholder="https://exemplo.com/nota.pdf">
+        <div class="modal-acts">
+            <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-p" onclick="submitImport()">Importar</button>
         </div>
     </div>
+</div>
 
-    <!-- Toast Container -->
-    <div id="toasts" class="toast-container"></div>
+<div id="toasts" class="toast-c"></div>
 
-    <script>
-        const API_BASE = window.__GUARDIAN_API_BASE__ || 'https://func-guardian-sovereign.azurewebsites.net';
-        const API_KEY = window.__GUARDIAN_API_KEY__ || '';
+<script>
+const API=window.__GUARDIAN_API_BASE__||'https://func-guardian-sovereign.azurewebsites.net';
+const KEY=window.__GUARDIAN_API_KEY__||'';
+let forecastChart=null;
 
-        function apiUrl(path) {
-            const base = API_BASE + path;
-            return API_KEY ? base + (base.includes('?') ? '&' : '?') + 'code=' + API_KEY : base;
-        }
+function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
+function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
+function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
+function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
+function openImportModal(){document.getElementById('import-modal').classList.add('open')}
+function closeModal(){document.getElementById('import-modal').classList.remove('open')}
 
-        function esc(s) {
-            const d = document.createElement('div');
-            d.appendChild(document.createTextNode(s));
-            return d.innerHTML;
-        }
+// Auth
+let user=null;
+async function checkAuth(){
+    try{const r=await fetch('/.auth/me');const d=await r.json();
+        if(d.clientPrincipal){user=d.clientPrincipal;document.getElementById('user-d').textContent=user.userDetails;document.getElementById('auth-btn').textContent='Logout'}
+    }catch{document.getElementById('user-d').textContent='dev'}
+}
+function handleAuth(){user?window.location.href='/.auth/logout':window.location.href='/.auth/login/aad'}
 
-        function brl(v) {
-            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-        }
+// Sync
+async function runSync(){
+    const btn=document.getElementById('btn-sync');btn.disabled=true;
+    btn.innerHTML='<span class="spinner" style="width:12px;height:12px;border-width:2px"></span> Sincronizando...';
+    try{const r=await fetch(api('/api/guardianSync'),{method:'POST'});
+        if(r.status===401){toast('Login necessario.','err');return}
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        if(d.success){toast(d.summary.transactions+' tx + '+d.summary.documents+' docs sincronizados','ok');loadAll()}
+    }catch(e){toast('Erro: '+e.message,'err')}
+    finally{btn.disabled=false;btn.innerHTML='<i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sincronizar Banco Inter + Emails';lucide.createIcons()}
+}
 
-        // ---- Toast ----
-        function toast(msg, type) {
-            const el = document.createElement('div');
-            el.className = 'toast toast-' + (type || 'info');
-            el.textContent = msg;
-            document.getElementById('toasts').appendChild(el);
-            setTimeout(() => el.remove(), 5000);
-        }
+// File upload
+function handleDrop(e){e.preventDefault();document.getElementById('upload-zone').classList.remove('drag');if(e.dataTransfer.files.length)uploadFile(e.dataTransfer.files[0])}
+function handleFileSelect(e){if(e.target.files.length)uploadFile(e.target.files[0])}
+async function uploadFile(file){
+    const status=document.getElementById('upload-status');
+    status.innerHTML='<span class="spinner" style="width:12px;height:12px;border-width:2px"></span> <span style="font-size:11px;color:var(--t2)">Processando '+esc(file.name)+' via OCR...</span>';
+    try{
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+        const r=await fetch(api('/api/guardianUpload'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,contentBase64:b64})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        status.innerHTML='<span style="font-size:11px;color:var(--green)">'+esc(d.message)+'</span>';
+        toast(d.message,'ok');
+        loadAll();
+    }catch(e){status.innerHTML='<span style="font-size:11px;color:var(--red)">Erro: '+esc(e.message)+'</span>';toast('Upload falhou: '+e.message,'err')}
+}
 
-        // ---- Modal ----
-        function openImportModal() {
-            document.getElementById('import-modal').classList.add('open');
-            setTimeout(() => document.getElementById('import-url').focus(), 100);
-        }
-        function closeImportModal() {
-            document.getElementById('import-modal').classList.remove('open');
-        }
+// Import URL
+async function submitImport(){
+    const url=document.getElementById('import-url').value.trim();if(!url){toast('Informe uma URL.','err');return}
+    closeModal();
+    try{const r=await fetch(api('/api/guardianImport'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Documento',type:'pdf',url})});
+        if(!r.ok)throw new Error('Status '+r.status);const d=await r.json();toast(d.message||'Importado.','ok');loadAll()
+    }catch(e){toast('Erro: '+e.message,'err')}
+}
 
-        // ---- Auth ----
-        let currentUser = null;
-        async function checkAuth() {
-            try {
-                const res = await fetch('/.auth/me');
-                const data = await res.json();
-                if (data.clientPrincipal) {
-                    currentUser = data.clientPrincipal;
-                    document.getElementById('user-display').textContent = currentUser.userDetails;
-                    document.getElementById('auth-btn').textContent = 'Logout';
-                } else {
-                    document.getElementById('auth-btn').textContent = 'Login';
-                }
-            } catch {
-                document.getElementById('user-display').textContent = 'dev';
+// Render DRE table
+function renderDRE(dre){
+    const r=(label,val,cls)=>'<tr class="'+(cls||'')+'"><td>'+label+'</td><td class="num">'+(typeof val==='number'?brl(val):val)+'</td></tr>';
+    document.getElementById('dre-table').innerHTML='<table class="tbl"><thead><tr><th>Conta</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+
+        r('Receita Bruta',dre.receitaBruta,'row-bold')+
+        r('(-) Deducoes (PIS/COFINS/ISS)',dre.deducoes,'row-sub')+
+        r('= Receita Liquida',dre.receitaLiquida,'row-bold')+
+        r('(-) Custos dos Servicos',dre.custosServicos,'row-sub')+
+        r('= Lucro Bruto',dre.lucroBruto,'row-bold')+
+        r('(-) Desp. Administrativas',dre.despesasOperacionais.administrativas,'row-sub')+
+        r('(-) Desp. Imobiliarias',dre.despesasOperacionais.imobiliarias,'row-sub')+
+        r('(-) Utilidades',dre.despesasOperacionais.utilidades,'row-sub')+
+        r('= EBITDA',dre.ebitda,'row-bold')+
+        r('(-) Deprec. / Amortizacao',dre.depreciacaoAmortizacao,'row-sub')+
+        r('= EBIT',dre.ebit,'row-bold')+
+        r('(-) Resultado Financeiro',dre.resultadoFinanceiro,'row-sub')+
+        r('= Lucro Antes IR',dre.lucroAntesIR,'row-bold')+
+        r('(-) IR / CSLL',dre.irCSLL,'row-sub')+
+        r('= Lucro Liquido',dre.lucroLiquido,'row-total')+
+        '<tr><td colspan="2" style="padding-top:10px;font-size:10px;color:var(--t3)">Margem Bruta: '+dre.margemBruta+' | Margem EBITDA: '+dre.margemEbitda+' | Margem Liquida: '+dre.margemLiquida+'</td></tr>'+
+        '</tbody></table>';
+}
+
+// Render DFC table
+function renderDFC(dfc){
+    const r=(label,val,cls)=>'<tr class="'+(cls||'')+'"><td>'+label+'</td><td class="num">'+(typeof val==='number'?brl(val):val)+'</td></tr>';
+    document.getElementById('dfc-table').innerHTML='<table class="tbl"><thead><tr><th>Fluxo</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+
+        '<tr class="row-bold"><td colspan="2" style="color:var(--t2);font-size:10px">ATIVIDADES OPERACIONAIS</td></tr>'+
+        r('(+) Recebimentos de Clientes',dfc.operacional.recebimentosClientes,'row-sub')+
+        r('(-) Pagamentos a Fornecedores',dfc.operacional.pagamentosFornecedores,'row-sub')+
+        r('(-) Pagamentos de Despesas',dfc.operacional.pagamentosDespesas,'row-sub')+
+        r('= Caixa Operacional',dfc.operacional.total,'row-bold')+
+        '<tr class="row-bold"><td colspan="2" style="color:var(--t2);font-size:10px;padding-top:10px">ATIVIDADES DE INVESTIMENTO</td></tr>'+
+        r('Aquisicao de Ativos',dfc.investimento.aquisicaoAtivos,'row-sub')+
+        r('= Caixa Investimento',dfc.investimento.total,'row-bold')+
+        '<tr class="row-bold"><td colspan="2" style="color:var(--t2);font-size:10px;padding-top:10px">ATIVIDADES DE FINANCIAMENTO</td></tr>'+
+        r('= Caixa Financiamento',dfc.financiamento.total,'row-bold')+
+        '<tr style="height:8px"><td colspan="2"></td></tr>'+
+        r('Variacao Liquida',dfc.variacaoLiquida,'row-total')+
+        r('Caixa Inicial',dfc.caixaInicial)+
+        r('Caixa Final',dfc.caixaFinal,'row-bold')+
+        '</tbody></table>';
+}
+
+// Render forecast chart
+function renderForecast(forecast){
+    const ctx=document.getElementById('forecast-chart').getContext('2d');
+    if(forecastChart)forecastChart.destroy();
+    forecastChart=new Chart(ctx,{
+        type:'line',
+        data:{
+            labels:forecast.map(f=>f.month),
+            datasets:[
+                {label:'Receita',data:forecast.map(f=>f.receita),borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.3,borderWidth:2,pointRadius:3},
+                {label:'Despesas',data:forecast.map(f=>f.despesas),borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,.08)',fill:true,tension:.3,borderWidth:2,pointRadius:3},
+                {label:'Caixa Acumulado',data:forecast.map(f=>f.caixaAcumulado),borderColor:'#4B2D8E',backgroundColor:'rgba(75,45,142,.06)',fill:true,tension:.3,borderWidth:2,pointRadius:3,yAxisID:'y1'}
+            ]
+        },
+        options:{
+            responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{position:'top',labels:{font:{size:10,family:'Inter'},usePointStyle:true,pointStyle:'circle'}}},
+            scales:{
+                y:{position:'left',ticks:{callback:v=>brl(v),font:{size:9}},grid:{color:'rgba(0,0,0,.04)'}},
+                y1:{position:'right',ticks:{callback:v=>brl(v),font:{size:9}},grid:{display:false}},
+                x:{ticks:{font:{size:10}},grid:{display:false}}
             }
         }
+    });
+}
 
-        function handleAuth() {
-            if (currentUser) window.location.href = '/.auth/logout';
-            else window.location.href = '/.auth/login/aad';
-        }
+// Render transactions
+function renderTxList(el,items,type){
+    if(!items.length){el.innerHTML='<div class="empty">Nenhuma transacao</div>';return}
+    el.innerHTML=items.map(i=>{
+        const cls=esc(i.classificacao||'');
+        const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+        const icon=type==='in'?'arrow-up-right':'arrow-down-left';
+        let tag='';
+        if(i.audit&&i.audit.alert==='critical')tag='<span class="tag tag-alert">ALERTA</span>';
+        else if(conf>=90)tag='<span class="tag tag-ok">AUTO</span>';
+        return '<div class="tx-item"><div class="tx-left"><div class="tx-icon '+type+'"><i data-lucide="'+icon+'" style="width:14px;height:14px"></i></div><div><div class="tx-label">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo)+'</span>'+tag+'</div></div></div><div><div class="tx-val" style="color:'+(type==='in'?'var(--green)':'var(--t1)')+'">'+brl(i.valor)+'</div><div class="tx-conf">'+conf+'%</div></div></div>'
+    }).join('');
+}
 
-        // ---- Sync ----
-        async function runSync() {
-            const btn = document.getElementById('btn-sync');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Sincronizando...';
+// Render categorized
+function renderCategorized(cats){
+    if(!cats.length){document.getElementById('cat-list').innerHTML='<div class="empty">Sem dados</div>';return}
+    const max=cats[0].total;
+    document.getElementById('cat-list').innerHTML=cats.map(c=>{
+        const pct=max>0?Math.round((c.total/max)*100):0;
+        return '<div class="cat-item"><div class="cat-header"><span>'+esc(c.category)+'</span><span style="font-family:JetBrains Mono;font-size:11px">'+brl(c.total)+'</span></div><div class="cat-bar-wrap"><div class="cat-bar" style="width:'+pct+'%"></div></div><div class="cat-meta">'+c.count+' item(ns)</div></div>'
+    }).join('');
+}
 
-            try {
-                const res = await fetch(apiUrl('/api/guardianSync'), { method: 'POST' });
-                if (res.status === 401) { toast('Faca login primeiro.', 'error'); return; }
-                if (!res.ok) throw new Error('Status ' + res.status);
-
-                const data = await res.json();
-                if (data.success) {
-                    const s = data.summary;
-                    toast(s.transactions + ' transacoes e ' + s.documents + ' docs sincronizados.', 'success');
-                    load();
-                    generateReport();
-                }
-            } catch (e) {
-                toast('Erro: ' + e.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Sincronizar';
-                lucide.createIcons();
-            }
-        }
-
-        // ---- Load Inbox ----
-        async function load() {
-            const container = document.getElementById('inbox');
-            try {
-                const res = await fetch(apiUrl('/api/guardianStatus'));
-                if (!res.ok) throw new Error('Status ' + res.status);
-
-                const data = await res.json();
-                const items = data.items || [];
-
-                if (items.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>Nenhum item. Execute uma sincronizacao.</p></div>';
-                    return;
-                }
-
-                container.innerHTML = items.map(i => {
-                    const cls = esc(String(i.classificacao || 'Sem classificacao'));
-                    const val = typeof i.valor === 'number' ? brl(i.valor) : '--';
-                    const isCredit = i.classificacao && i.classificacao.includes('Receita');
-                    const isDoc = i.tipo === 'document';
-                    const iconCls = isDoc ? 'doc' : (isCredit ? 'credit' : 'debit');
-                    const iconSymbol = isDoc ? 'file-text' : (isCredit ? 'arrow-up-right' : 'arrow-down-left');
-                    const overBudget = i.audit && i.audit.alert === 'critical';
-                    const conf = typeof i.confianca === 'number' ? Math.round(i.confianca * 100) : 0;
-
-                    let tag = '';
-                    if (overBudget) tag = '<span class="tag tag-alert">OVER BUDGET</span>';
-                    else if (i.needsReview) tag = '<span class="tag tag-review">REVISAR</span>';
-                    else if (conf >= 90) tag = '<span class="tag tag-ok">AUTO</span>';
-
-                    return '<div class="inbox-item">' +
-                        '<div class="inbox-item-left">' +
-                            '<div class="inbox-icon ' + iconCls + '"><i data-lucide="' + iconSymbol + '" style="width:15px;height:15px;"></i></div>' +
-                            '<div>' +
-                                '<div class="inbox-label">' + cls + '</div>' +
-                                '<div class="inbox-meta">' +
-                                    '<span>' + esc(i.tipo || '') + '</span>' +
-                                    (i.origem === 'import_manual' ? '<span>importado</span>' : '') +
-                                    tag +
-                                '</div>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div>' +
-                            '<div class="inbox-value" style="color:' + (isCredit ? 'var(--emerald)' : 'var(--text-1)') + ';">' +
-                                (isCredit ? '+' : '') + val +
-                            '</div>' +
-                            '<div class="inbox-confidence">' + conf + '%</div>' +
-                        '</div>' +
-                    '</div>';
-                }).join('');
-
-                const auto = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
-                const rate = items.length > 0 ? Math.round((auto / items.length) * 100) : 0;
-                document.getElementById('auto-pill').textContent = rate + '% auto';
-
-                const sovEl = document.getElementById('kpi-sov');
-                sovEl.textContent = rate >= 90 ? 'Grade 10' : rate >= 70 ? 'Grade 7' : 'Grade ' + Math.floor(rate / 10);
-
-                const alerts = items.filter(i => i.audit && i.audit.alert === 'critical');
-                const withinBudget = items.filter(i => i.audit && i.audit.withinBudget);
-                document.getElementById('audit-panel').innerHTML =
-                    (alerts.length > 0
-                        ? '<div style="color:var(--red);font-size:18px;font-family:Outfit;font-weight:600;">' + alerts.length + ' alerta' + (alerts.length > 1 ? 's' : '') + '</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Itens acima do orcamento</div>'
-                        : '<div style="color:var(--emerald);font-size:18px;font-family:Outfit;font-weight:600;">Tudo OK</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Orcamento dentro dos limites</div>'
-                    ) +
-                    '<div style="font-size:11px;color:var(--text-3);margin-top:12px;">' + withinBudget.length + '/' + items.length + ' itens auditados</div>';
-
-                document.getElementById('last-sync').textContent = 'Atualizado: ' + new Date().toLocaleString('pt-BR');
-                lucide.createIcons();
-            } catch (e) {
-                container.innerHTML = '<div class="empty-state" style="color:var(--red);"><p>Erro: ' + esc(e.message) + '</p></div>';
-            }
-        }
-
-        // ---- Report ----
-        async function generateReport() {
-            try {
-                const res = await fetch(apiUrl('/api/guardianReports'));
-                if (!res.ok) throw new Error('Status ' + res.status);
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || 'Erro');
-
-                const r = data.report;
-                document.getElementById('kpi-ebitda').textContent = brl(r.indicators.ebitda);
-                document.getElementById('kpi-margin').textContent = r.indicators.margemLiquida;
-                document.getElementById('kpi-eff').textContent = r.indicators.indiceEficiencia;
-                document.getElementById('kpi-caixa').textContent = brl(r.treasury.caixaAtual);
-                document.getElementById('kpi-caixa-sub').textContent = 'Proj. 30d: ' + brl(r.treasury.previsao30Dias);
-
-                document.getElementById('treasury-panel').innerHTML =
-                    '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-                        '<div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Caixa</div><div style="font-family:Outfit;font-size:20px;font-weight:600;margin-top:2px;">' + brl(r.treasury.caixaAtual) + '</div></div>' +
-                        '<div style="text-align:right;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Projecao 30d</div><div style="font-family:Outfit;font-size:20px;font-weight:600;color:var(--emerald);margin-top:2px;">' + brl(r.treasury.previsao30Dias) + '</div></div>' +
-                    '</div>' +
-                    '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">' +
-                        '<span>Automacao: ' + esc(r.summary.taxaAutomacao) + '</span>' +
-                        '<span>Alertas: ' + r.summary.alertasControladoria + '</span>' +
-                    '</div>';
-
-                document.getElementById('badge-inter').classList.add('live');
-                document.getElementById('badge-ai').classList.add('live');
-                document.getElementById('badge-graph').classList.add('live');
-            } catch (e) {
-                console.warn('Report:', e);
-                document.getElementById('treasury-panel').innerHTML = '<div style="color:var(--text-3);font-size:12px;">Dados indisponiveis</div>';
-            }
-        }
-
-        // ---- Import ----
-        async function submitImport() {
-            const url = document.getElementById('import-url').value.trim();
-            if (!url) { toast('Informe uma URL.', 'error'); return; }
-            closeImportModal();
-            try {
-                const res = await fetch(apiUrl('/api/guardianImport'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url })
-                });
-                if (res.status === 401) { toast('Login necessario.', 'error'); return; }
-                if (!res.ok) throw new Error('Status ' + res.status);
-                const data = await res.json();
-                toast(data.message || 'Importado com sucesso.', 'success');
-                load();
-            } catch (e) {
-                toast('Erro: ' + e.message, 'error');
-            }
-        }
-
-        // ---- Init ----
-        checkAuth();
-        load();
-        generateReport();
+// Load inbox
+async function loadInbox(){
+    const el=document.getElementById('inbox');
+    try{const r=await fetch(api('/api/guardianStatus'));if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();const items=d.items||[];
+        if(!items.length){el.innerHTML='<div class="empty">Nenhum item pendente.</div>';return}
+        el.innerHTML=items.map(i=>{
+            const cls=esc(String(i.classificacao||''));
+            const val=typeof i.valor==='number'?brl(i.valor):'--';
+            const isCredit=i.classificacao&&i.classificacao.includes('Receita');
+            const isDoc=i.tipo==='document';
+            const iconCls=isDoc?'doc':(isCredit?'in':'out');
+            const icon=isDoc?'file-text':(isCredit?'arrow-up-right':'arrow-down-left');
+            const over=i.audit&&i.audit.alert==='critical';
+            const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+            let tag='';if(over)tag='<span class="tag tag-alert">OVER BUDGET</span>';else if(i.needsReview)tag='<span class="tag tag-review">REVISAR</span>';else if(conf>=90)tag='<span class="tag tag-ok">AUTO</span>';
+            return '<div class="tx-item"><div class="tx-left"><div class="tx-icon '+iconCls+'"><i data-lucide="'+icon+'" style="width:14px;height:14px"></i></div><div><div class="tx-label">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo||'')+'</span>'+(i.origem==='import_manual'||i.origem==='upload'?'<span>upload</span>':'')+tag+'</div></div></div><div><div class="tx-val" style="color:'+(isCredit?'var(--green)':'var(--t1)')+'">'+val+'</div><div class="tx-conf">'+conf+'%</div></div></div>'
+        }).join('');
+        const auto=items.filter(i=>i.confianca>.9&&!i.needsReview).length;
+        const rate=items.length>0?Math.round((auto/items.length)*100):0;
+        document.getElementById('auto-pill').textContent=rate+'% auto';
+        // Audit panel
+        const alerts=items.filter(i=>i.audit&&i.audit.alert==='critical');
+        const ok=items.filter(i=>i.audit&&i.audit.withinBudget);
+        document.getElementById('audit-panel').innerHTML=(alerts.length>0
+            ?'<div style="color:var(--red);font-size:18px;font-family:Outfit;font-weight:600">'+alerts.length+' alerta'+(alerts.length>1?'s':'')+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Itens acima do orcamento</div>'
+            :'<div style="color:var(--green);font-size:18px;font-family:Outfit;font-weight:600">Tudo OK</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Orcamento dentro dos limites</div>'
+        )+'<div style="font-size:10px;color:var(--t3);margin-top:10px">'+ok.length+'/'+items.length+' auditados</div>';
+        document.getElementById('last-sync').textContent='Atualizado: '+new Date().toLocaleString('pt-BR');
         lucide.createIcons();
-        setInterval(() => { load(); generateReport(); }, 60000);
-    </script>
-</body>
+    }catch(e){el.innerHTML='<div class="empty" style="color:var(--red)">Erro: '+esc(e.message)+'</div>'}
+}
 
+// Load report
+async function loadReport(){
+    try{const r=await fetch(api('/api/guardianReports'));if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();if(!d.success)throw new Error(d.error||'Erro');
+        const rp=d.report;
+        // KPIs
+        document.getElementById('k-ebitda').textContent=brl(rp.indicators.ebitda);
+        document.getElementById('k-lucro').textContent=brl(rp.indicators.lucroLiquido);
+        document.getElementById('k-ml').textContent=rp.indicators.margemLiquida;
+        document.getElementById('k-mb').textContent=rp.indicators.margemBruta;
+        document.getElementById('k-fc').textContent=brl(rp.indicators.fluxoCaixa);
+        document.getElementById('k-caixa').textContent=brl(rp.treasury.caixaAtual);
+        document.getElementById('k-caixa-sub').textContent='Proj. 30d: '+brl(rp.treasury.previsao30Dias);
+        // DRE + DFC
+        renderDRE(rp.dre);
+        renderDFC(rp.dfc);
+        // Forecast
+        renderForecast(rp.forecast);
+        // Transactions
+        renderTxList(document.getElementById('entradas-list'),rp.entradas,'in');
+        renderTxList(document.getElementById('saidas-list'),rp.saidas,'out');
+        // Categorized
+        renderCategorized(rp.categorized);
+        // Badges
+        document.getElementById('b-inter').classList.add('live');
+        document.getElementById('b-ai').classList.add('live');
+        document.getElementById('b-graph').classList.add('live');
+    }catch(e){console.warn('Report:',e)}
+}
+
+function loadAll(){loadInbox();loadReport()}
+function generateReport(){loadReport();toast('Relatorio atualizado.','ok')}
+
+// Init
+checkAuth();loadAll();lucide.createIcons();
+setInterval(loadAll,60000);
+</script>
+</body>
 </html>
