@@ -69,28 +69,77 @@
         <h1 style="font-family: 'Outfit';">W_GUARDIAN</h1>
         <div style="font-size: 12px; color: var(--c-emerald);">92% Autonomous Mode</div>
     </header>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        <div class="card" style="margin-top: 0;">
+            <h3>📊 Controladoria (Audit)</h3>
+            <div id="budget-alerts" style="margin-top: 15px;">
+                <div style="font-size: 13px; color: var(--text-s);">Aguardando sincronização...</div>
+            </div>
+        </div>
+        <div class="card" style="margin-top: 0;">
+            <h3>💰 Tesouraria (Forecast)</h3>
+            <div id="cash-forecast" style="margin-top: 15px;">
+                <div style="font-size: 13px; color: var(--text-s);">Caixa Projetado (30d): R$ 1.315.400,00</div>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Decision Inbox</h2>
-            <button class="btn-gold" onclick="importManual()">IMPORTAR MANUAL</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-gold"
+                    style="background: transparent; border: 1px solid var(--c-gold); color: var(--c-gold);"
+                    onclick="generateReport()">RELATÓRIO</button>
+                <button class="btn-gold" onclick="importManual()">IMPORTAR MANUAL</button>
+            </div>
         </div>
         <div id="inbox" style="margin-top: 20px;"></div>
     </div>
     <script>
         async function load() {
-            const res = await fetch('/api/guardianStatus');
-            const data = await res.json();
-            const container = document.getElementById('inbox');
-            container.innerHTML = items.map(i => `
-                <div class="inbox-item">
-                    <div>
-                        <div style="font-weight: 600;">${i.classificacao}</div>
-                        <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()} ${i.origem === 'import_manual' ? ' (Importado)' : ''}</div>
+            try {
+                const res = await fetch('/api/guardianStatus');
+                const data = await res.json();
+                const container = document.getElementById('inbox');
+                const alertContainer = document.getElementById('budget-alerts');
+
+                const items = data.items || [];
+
+                container.innerHTML = items.map(i => `
+                    <div class="inbox-item">
+                        <div>
+                            <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
+                                ${i.classificacao}
+                                ${i.audit?.alert === 'critical' ? '<span style="color:#EF4444; font-size:10px;">[OVER BUDGET]</span>' : ''}
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()} ${i.origem === 'import_manual' ? ' (Importado)' : ''}</div>
+                        </div>
+                        <button class="btn-gold">${i.needsReview ? 'REVISAR' : 'APROVAR'}</button>
                     </div>
-                    <button class="btn-gold">APROVAR</button>
-                </div>
-            `).join('');
-            lucide.createIcons();
+                `).join('');
+
+                const alerts = items.filter(i => i.audit?.alert === 'critical');
+                alertContainer.innerHTML = alerts.length > 0
+                    ? `<div style="color:#EF4444; font-size:13px; font-weight:600;">⚠️ ${alerts.length} itens acima do orçamento</div>`
+                    : `<div style="color:var(--c-emerald); font-size:13px;">✅ Orçamento dentro dos limites</div>`;
+
+                lucide.createIcons();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function generateReport() {
+            try {
+                const res = await fetch('/api/guardianReports');
+                const data = await res.json();
+                if (data.success) {
+                    alert(`Relatório Gerado: ${data.report.title}\n\nAnalizado: R$ ${data.report.summary.totalAnalizado.toLocaleString()}\nAlertas: ${data.report.summary.alertasControladoria}\nPrevisão Caixa: R$ ${data.report.treasury.previsao30Dias.toLocaleString()}`);
+                }
+            } catch (e) {
+                alert("Erro ao gerar relatório.");
+            }
         }
 
         async function importManual() {

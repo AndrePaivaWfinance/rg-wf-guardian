@@ -23,6 +23,14 @@ export interface AnalysisResult {
     matchedId?: string;
     needsReview: boolean;
     suggestedAction: 'approve' | 'investigate' | 'archive';
+    audit?: AuditResult;
+}
+
+export interface AuditResult {
+    withinBudget: boolean;
+    budgetLimit?: number;
+    variation?: number;
+    alert: 'none' | 'warning' | 'critical';
 }
 
 export class GuardianAgents {
@@ -63,6 +71,37 @@ export class GuardianAgents {
             needsReview: confidence < 0.90,
             suggestedAction: confidence >= 0.90 ? 'archive' : 'investigate'
         };
+    }
+
+    /**
+     * Agent 4: Auditor (Controladoria)
+     * Verifica conformidade com orçamento e regras de negócio.
+     */
+    async audit(result: AnalysisResult): Promise<void> {
+        logger.info(`Auditing result: ${result.classification} - R$ ${result.value}`);
+
+        // MOCK: Configuração de Orçamento por Categoria
+        const budgets: Record<string, number> = {
+            'Infraestrutura / AWS': 1000.00,
+            'Despesas Administrativas': 5000.00
+        };
+
+        const limit = budgets[result.classification];
+        if (limit) {
+            const isOver = result.value > limit;
+            result.audit = {
+                withinBudget: !isOver,
+                budgetLimit: limit,
+                variation: isOver ? (result.value - limit) : 0,
+                alert: isOver ? 'critical' : 'none'
+            };
+
+            if (isOver) {
+                result.needsReview = true;
+                result.suggestedAction = 'investigate';
+                logger.warn(`ALERTA: Despesa acima do orçamento! (${result.classification})`);
+            }
+        }
     }
 
     async reconcile(txs: AnalysisResult[], docs: AnalysisResult[]): Promise<void> {

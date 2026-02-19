@@ -27,6 +27,10 @@ export async function guardianSyncHandler(
         const docResults = (await Promise.all(docs.map(d => agents.extractData(d)))).flat();
         const txResults = await Promise.all(txs.map(t => agents.classifyTransaction(t)));
 
+        // 3. Auditoria e Reconciliação
+        for (const res of [...txResults, ...docResults]) {
+            await agents.audit(res);
+        }
         await agents.reconcile(txResults, docResults);
 
         for (const res of [...txResults, ...docResults]) {
