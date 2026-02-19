@@ -67,6 +67,6 @@ export async function guardianReportsHandler(
 
 app.http('guardianReports', {
     methods: ['GET'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianReportsHandler,
 });

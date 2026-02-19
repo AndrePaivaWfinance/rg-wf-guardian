@@ -5,24 +5,31 @@
 
 import { AnalysisResult } from '../guardian/guardianAgents';
 
-/** Entity stored in Azure Table Storage / in-memory */
+/** Audit result shape (used in-memory and after deserialization) */
+export interface AuditInfo {
+    withinBudget: boolean;
+    budgetLimit?: number;
+    variation?: number;
+    alert: 'none' | 'warning' | 'critical';
+}
+
+/** Entity stored in Azure Table Storage / in-memory.
+ *  Complex fields (audit) are serialized as JSON strings for Table Storage compatibility. */
 export interface GuardianAuthorization {
     id: string;
     tipo: 'document' | 'transaction';
     classificacao: string;
     valor: number;
     confianca: number;
-    match: string | null;
+    match: string;
     status: 'pendente' | 'aprovado' | 'rejeitado';
     criadoEm: string;
     sugestao: 'approve' | 'investigate' | 'archive';
     origem?: string;
-    audit?: {
-        withinBudget: boolean;
-        budgetLimit?: number;
-        variation?: number;
-        alert: 'none' | 'warning' | 'critical';
-    };
+    /** Stored as JSON string in Table Storage, parsed back on read */
+    auditJson?: string;
+    /** Transient — populated after parsing auditJson */
+    audit?: AuditInfo;
     needsReview?: boolean;
     // Azure Table Storage keys
     partitionKey?: string;
@@ -59,14 +66,24 @@ export function toGuardianAuth(
         classificacao: res.classification,
         valor: res.value,
         confianca: res.confidence,
-        match: res.matchedId || null,
+        match: res.matchedId || '',
         status: 'pendente',
         criadoEm,
         sugestao: res.suggestedAction,
-        origem,
-        audit: res.audit,
+        origem: origem || '',
+        auditJson: res.audit ? JSON.stringify(res.audit) : undefined,
         needsReview: res.needsReview,
     };
+}
+
+/** Hydrates audit from JSON string after reading from Table Storage */
+export function hydrateAuth(auth: GuardianAuthorization): GuardianAuthorization {
+    if (auth.auditJson && !auth.audit) {
+        try {
+            auth.audit = JSON.parse(auth.auditJson) as AuditInfo;
+        } catch { /* ignore parse errors */ }
+    }
+    return auth;
 }
 
 /** Valid document types for import */

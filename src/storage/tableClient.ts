@@ -1,6 +1,6 @@
 import { TableClient } from '@azure/data-tables';
 import { createLogger } from '../shared/utils';
-import { GuardianAuthorization } from '../shared/types';
+import { GuardianAuthorization, hydrateAuth } from '../shared/types';
 
 const logger = createLogger('TableClient');
 
@@ -62,7 +62,7 @@ export async function getGuardianAuthorizations(): Promise<GuardianAuthorization
 
     if (!client) {
         const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
-        return table.filter(item => item.status === 'pendente');
+        return table.filter(item => item.status === 'pendente').map(hydrateAuth);
     }
 
     const items: GuardianAuthorization[] = [];
@@ -71,7 +71,7 @@ export async function getGuardianAuthorizations(): Promise<GuardianAuthorization
             queryOptions: { filter: `status eq 'pendente'` },
         });
         for await (const entity of entities) {
-            items.push(entity as unknown as GuardianAuthorization);
+            items.push(hydrateAuth(entity as unknown as GuardianAuthorization));
         }
     } catch (error) {
         logger.error('Erro ao listar autorizações Guardian', error);
@@ -89,9 +89,11 @@ export async function createGuardianAuth(auth: GuardianAuthorization): Promise<v
         return;
     }
 
+    // Strip transient `audit` object — Table Storage only accepts primitives
+    const { audit, ...storableAuth } = auth;
     await client.createEntity({
         partitionKey: 'GUARDIAN',
         rowKey: auth.id,
-        ...auth,
+        ...storableAuth,
     });
 }

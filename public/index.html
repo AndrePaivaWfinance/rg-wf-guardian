@@ -157,8 +157,8 @@
         </div>
     </div>
     <script>
-        // Configuration — set API_BASE via environment or fallback to same-origin proxy
-        const API_BASE = window.__GUARDIAN_API_BASE__ || '';
+        // Configuration — API_KEY can be injected at runtime via window globals
+        const API_BASE = window.__GUARDIAN_API_BASE__ || 'https://func-guardian-sovereign.azurewebsites.net';
         const API_KEY = window.__GUARDIAN_API_KEY__ || '';
 
         function apiUrl(path) {

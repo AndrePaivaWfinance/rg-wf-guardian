@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateId, safeErrorMessage, isValidUrl, nowISO } from '../src/shared/utils';
-import { toGuardianAuth, VALID_DOC_TYPES } from '../src/shared/types';
+import { toGuardianAuth, hydrateAuth, VALID_DOC_TYPES } from '../src/shared/types';
 import { GuardianAgents, AnalysisResult } from '../src/guardian/guardianAgents';
 import { InterConnector } from '../src/guardian/interConnector';
 import { EmailListener } from '../src/guardian/emailListener';
@@ -69,7 +69,11 @@ describe('Types', () => {
         expect(auth.status).toBe('pendente');
         expect(auth.sugestao).toBe('approve');
         expect(auth.origem).toBe('import_manual');
-        expect(auth.audit?.alert).toBe('none');
+        // audit is serialized as JSON string for Table Storage
+        expect(auth.auditJson).toBe('{"withinBudget":true,"alert":"none"}');
+        // After hydration, audit object is restored
+        const hydrated = hydrateAuth({ ...auth });
+        expect(hydrated.audit?.alert).toBe('none');
         expect(auth.needsReview).toBe(false);
     });
 });
