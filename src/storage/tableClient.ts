@@ -1,5 +1,6 @@
 import { TableClient } from '@azure/data-tables';
 import { createLogger } from '../shared/utils';
+import { GuardianAuthorization } from '../shared/types';
 
 const logger = createLogger('TableClient');
 
@@ -8,44 +9,40 @@ const TABLES = {
     GUARDIAN_LEDGER: 'GuardianLedger',
 } as const;
 
-// In-memory fallback for local development (no Azurite/Azure Storage needed)
-const inMemoryStore: Map<string, any[]> = new Map();
+// In-memory fallback for local development
+const inMemoryStore: Map<string, GuardianAuthorization[]> = new Map();
 let useInMemory = false;
 
-function isLocalDev(): boolean {
-    const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-    return !connStr || connStr === 'UseDevelopmentStorage=true';
-}
-
-let connectionString: string | null = null;
 const tableClients: Map<string, TableClient> = new Map();
+const initializedTables: Set<string> = new Set();
 
-function getConnectionString(): string {
-    if (!connectionString) {
-        connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-        if (!connectionString) {
-            logger.warn('AZURE_STORAGE_CONNECTION_STRING não configurada - usando armazenamento in-memory');
-            useInMemory = true;
-            return '';
-        }
+function shouldUseInMemory(): boolean {
+    if (useInMemory) return true;
+    const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+    if (!connStr || connStr === 'UseDevelopmentStorage=true') {
+        useInMemory = true;
+        return true;
     }
-    return connectionString;
+    return false;
 }
 
-function getTableClient(tableName: string): TableClient | null {
-    if (useInMemory || isLocalDev()) {
-        useInMemory = true;
-        return null;
-    }
+async function getTableClient(tableName: string): Promise<TableClient | null> {
+    if (shouldUseInMemory()) return null;
+
     if (!tableClients.has(tableName)) {
         try {
-            const client = TableClient.fromConnectionString(
-                getConnectionString(),
-                tableName
-            );
+            const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+            const client = TableClient.fromConnectionString(connStr, tableName);
+
+            if (!initializedTables.has(tableName)) {
+                await client.createTable();
+                initializedTables.add(tableName);
+                logger.info(`Tabela ${tableName} garantida no Azure Storage`);
+            }
+
             tableClients.set(tableName, client);
         } catch (error) {
-            logger.warn('Falha ao conectar ao Azure Table Storage - usando armazenamento in-memory');
+            logger.warn('Falha ao conectar ao Azure Table Storage — usando armazenamento in-memory');
             useInMemory = true;
             return null;
         }
@@ -53,31 +50,28 @@ function getTableClient(tableName: string): TableClient | null {
     return tableClients.get(tableName)!;
 }
 
-function getInMemoryTable(tableName: string): any[] {
+function getInMemoryTable(tableName: string): GuardianAuthorization[] {
     if (!inMemoryStore.has(tableName)) {
         inMemoryStore.set(tableName, []);
     }
     return inMemoryStore.get(tableName)!;
 }
 
-export async function getGuardianAuthorizations(): Promise<any[]> {
-    if (useInMemory || isLocalDev()) {
-        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
-        return table.filter((item: any) => item.status === 'pendente');
-    }
+export async function getGuardianAuthorizations(): Promise<GuardianAuthorization[]> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUTH);
 
-    const client = getTableClient(TABLES.GUARDIAN_AUTH);
     if (!client) {
-        return getInMemoryTable(TABLES.GUARDIAN_AUTH).filter((item: any) => item.status === 'pendente');
+        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
+        return table.filter(item => item.status === 'pendente');
     }
 
-    const items: any[] = [];
+    const items: GuardianAuthorization[] = [];
     try {
         const entities = client.listEntities({
             queryOptions: { filter: `status eq 'pendente'` },
         });
         for await (const entity of entities) {
-            items.push(entity);
+            items.push(entity as unknown as GuardianAuthorization);
         }
     } catch (error) {
         logger.error('Erro ao listar autorizações Guardian', error);
@@ -85,15 +79,9 @@ export async function getGuardianAuthorizations(): Promise<any[]> {
     return items;
 }
 
-export async function createGuardianAuth(auth: any): Promise<void> {
-    if (useInMemory || isLocalDev()) {
-        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
-        table.push({ partitionKey: 'GUARDIAN', rowKey: auth.id, ...auth });
-        logger.info(`[In-Memory] Auth criada: ${auth.id}`);
-        return;
-    }
+export async function createGuardianAuth(auth: GuardianAuthorization): Promise<void> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUTH);
 
-    const client = getTableClient(TABLES.GUARDIAN_AUTH);
     if (!client) {
         const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
         table.push({ partitionKey: 'GUARDIAN', rowKey: auth.id, ...auth });

@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { createLogger, nowISO } from '../shared/utils';
-import { GuardianAgents } from '../guardian/guardianAgents';
+import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
+import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
+import { InterConnector } from '../guardian/interConnector';
 
 const logger = createLogger('GuardianReports');
 
@@ -9,14 +10,30 @@ export async function guardianReportsHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    logger.info('Gerando Relatório Consolidado (Controladoria)...');
+    context.log('Gerando Relatório Consolidado (Controladoria)...');
 
     try {
         const items = await getGuardianAuthorizations();
         const agents = new GuardianAgents();
+        const inter = new InterConnector();
 
-        // Agregação via Agente Estrategista
-        const kpis = await agents.calculateKPIs(items);
+        // Map stored items back to AnalysisResult shape for KPI calculation
+        const analysisItems: AnalysisResult[] = items.map(i => ({
+            id: i.id,
+            type: i.tipo,
+            classification: i.classificacao,
+            confidence: i.confianca,
+            value: i.valor,
+            needsReview: i.needsReview ?? false,
+            suggestedAction: i.sugestao,
+            audit: i.audit,
+        }));
+
+        const kpis = await agents.calculateKPIs(analysisItems);
+        const balance = await inter.getBalance();
+
+        const automatedCount = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
+        const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
 
         const report = {
             generatedAt: nowISO(),
@@ -24,33 +41,32 @@ export async function guardianReportsHandler(
             summary: {
                 totalAnalizado: kpis.revenue,
                 alertasControladoria: items.filter(i => i.audit?.alert === 'critical').length,
-                taxaAutomacao: '92.4%'
+                taxaAutomacao: automationRate,
             },
             indicators: {
                 ebitda: kpis.ebitda,
                 margemLiquida: kpis.netMargin,
                 indiceEficiencia: kpis.efficiency,
-                saudeFinanceira: kpis.status
+                saudeFinanceira: kpis.status,
             },
             treasury: {
-                caixaAtual: 1242850.42,
-                previsao30Dias: 1315400.00
-            }
+                caixaAtual: balance.total,
+                previsao30Dias: balance.total * 1.058,
+            },
         };
 
         return {
             status: 200,
-            jsonBody: { success: true, report }
+            jsonBody: { success: true, report },
         };
-
-    } catch (error: any) {
-        logger.error('Erro ao gerar relatório', error);
-        return { status: 500, jsonBody: { error: error.message } };
+    } catch (error: unknown) {
+        context.error('Erro ao gerar relatório', error);
+        return { status: 500, jsonBody: { error: safeErrorMessage(error) } };
     }
 }
 
 app.http('guardianReports', {
     methods: ['GET'],
     authLevel: 'function',
-    handler: guardianReportsHandler
+    handler: guardianReportsHandler,
 });

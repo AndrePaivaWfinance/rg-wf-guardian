@@ -1,4 +1,4 @@
-import { createLogger, nowISO } from '../shared/utils';
+import { createLogger, nowISO, generateId } from '../shared/utils';
 
 const logger = createLogger('InterConnector');
 
@@ -32,32 +32,34 @@ export class InterConnector {
 
     async getBalance(): Promise<InterBalance> {
         logger.info('Obtendo saldo Banco Inter...');
+        // TODO: Integração real com Inter API (mTLS + OAuth2)
         return {
             disponivel: 1242850.42,
             reservado: 0,
             total: 1242850.42,
-            dataHora: nowISO()
+            dataHora: nowISO(),
         };
     }
 
     async syncStatement(startDate: string, endDate: string): Promise<InterTransaction[]> {
         logger.info(`Sincronizando extrato Inter: ${startDate} até ${endDate}`);
+        // TODO: Integração real com Inter API
         return [
             {
-                id: 'INTER_' + Date.now(),
+                id: generateId('INTER'),
                 data: nowISO().split('T')[0],
                 tipo: 'CREDITO',
                 valor: 42100.00,
                 descricao: 'PIX RECEBIDO - CLIENTE BPO ACME',
-                cpfCnpjBeneficiario: '12345678000199'
+                cpfCnpjBeneficiario: '12345678000199',
             },
             {
-                id: 'INTER_' + (Date.now() + 1),
+                id: generateId('INTER'),
                 data: nowISO().split('T')[0],
                 tipo: 'DEBITO',
                 valor: 1540.22,
                 descricao: 'PAGAMENTO BOLETO - CONDOMINIO HQ',
-            }
+            },
         ];
     }
 
@@ -65,7 +67,8 @@ export class InterConnector {
         if (this.token && Date.now() < this.tokenExpires) {
             return this.token;
         }
-        this.token = 'bearer_' + Math.random().toString(36).substring(7);
+        // TODO: Real OAuth2 client credentials flow with mTLS
+        this.token = 'bearer_mock_token';
         this.tokenExpires = Date.now() + 3600 * 1000;
         return this.token;
     }

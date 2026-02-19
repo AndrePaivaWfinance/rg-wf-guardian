@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { GuardianAgents, ImportedDocument } from '../guardian/guardianAgents';
 import { createGuardianAuth } from '../storage/tableClient';
-import { createLogger, nowISO } from '../shared/utils';
+import { createLogger, nowISO, generateId, safeErrorMessage, isValidUrl } from '../shared/utils';
+import { toGuardianAuth, ImportRequestBody, VALID_DOC_TYPES, DocType } from '../shared/types';
 
 const logger = createLogger('GuardianImport');
 
@@ -9,38 +10,36 @@ export async function guardianImportHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    logger.info('Iniciando Importação Manual de Documento...');
+    context.log('Iniciando Importação Manual de Documento...');
 
     try {
-        const body = await request.json() as any;
+        const body = await request.json() as ImportRequestBody;
+
+        // Input validation
+        if (!body.url || typeof body.url !== 'string') {
+            return { status: 400, jsonBody: { error: 'Campo "url" é obrigatório.' } };
+        }
+        if (!isValidUrl(body.url)) {
+            return { status: 400, jsonBody: { error: 'URL inválida. Use http:// ou https://.' } };
+        }
+        const docType: DocType = VALID_DOC_TYPES.includes(body.type as DocType) ? body.type as DocType : 'pdf';
+
         const agents = new GuardianAgents();
 
         const doc: ImportedDocument = {
-            id: 'IMP_' + Date.now(),
+            id: generateId('IMP'),
             name: body.name || 'documento_importado',
-            type: body.type || 'pdf',
+            type: docType,
             source: 'manual_import',
             contentUrl: body.url,
             size: body.size || 0,
-            uploadedAt: nowISO()
+            uploadedAt: nowISO(),
         };
 
-        // 1. Extração via Agente Especializado
         const results = await agents.extractData(doc);
 
-        // 2. Persistência na Fila de Soberania
         for (const res of results) {
-            await createGuardianAuth({
-                id: res.id,
-                tipo: res.type,
-                classificacao: res.classification,
-                valor: res.value,
-                confianca: res.confidence,
-                status: 'pendente',
-                criadoEm: nowISO(),
-                sugestao: res.suggestedAction,
-                origem: 'import_manual'
-            });
+            await createGuardianAuth(toGuardianAuth(res, nowISO(), 'import_manual'));
         }
 
         return {
@@ -48,18 +47,17 @@ export async function guardianImportHandler(
             jsonBody: {
                 success: true,
                 count: results.length,
-                message: 'Documento importado e enfileirado para decisão.'
-            }
+                message: 'Documento importado e enfileirado para decisão.',
+            },
         };
-
-    } catch (error: any) {
-        logger.error('Erro na Importação Guardian', error);
-        return { status: 500, jsonBody: { error: error.message } };
+    } catch (error: unknown) {
+        context.error('Erro na Importação Guardian', error);
+        return { status: 500, jsonBody: { error: safeErrorMessage(error) } };
     }
 }
 
 app.http('guardianImport', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: guardianImportHandler
+    handler: guardianImportHandler,
 });

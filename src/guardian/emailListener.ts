@@ -1,4 +1,4 @@
-import { createLogger, nowISO } from '../shared/utils';
+import { createLogger, nowISO, generateId } from '../shared/utils';
 
 const logger = createLogger('EmailListener');
 
@@ -23,9 +23,10 @@ export class EmailListener {
 
     async processIncomingEmails(): Promise<GuardianDocument[]> {
         logger.info(`Checking mailbox for ${this.email}...`);
+        // TODO: Integração real com Microsoft Graph API
         return [
             {
-                id: 'MSG_' + Date.now(),
+                id: generateId('MSG'),
                 source: this.email,
                 sender: 'faturamento@amazon.com',
                 receivedAt: nowISO(),
@@ -35,10 +36,10 @@ export class EmailListener {
                         name: 'fatura_aws_9241.pdf',
                         type: 'application/pdf',
                         blobUrl: 'https://stguardian.blob.core.windows.net/mailbox/fatura_aws_9241.pdf',
-                        size: 152400
-                    }
-                ]
-            }
+                        size: 152400,
+                    },
+                ],
+            },
         ];
     }
 }
