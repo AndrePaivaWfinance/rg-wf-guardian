@@ -28,11 +28,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 'Resolve Dependencies'
-        shell: bash
-        run: |
-          npm install
-          npm run build
+      - name: 'Install Dependencies'
+        run: npm ci
+
+      - name: 'Run Tests'
+        run: npm test
+
+      - name: 'Build'
+        run: npm run build
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1

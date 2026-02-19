@@ -8,12 +8,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap"
         rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.426.0"></script>
     <style>
         :root {
             --bg-guardian: #0A0510;
             --c-gold: #F59E0B;
             --c-emerald: #10B981;
+            --c-red: #EF4444;
             --border: rgba(255, 255, 255, 0.08);
             --text-p: #F8FAFC;
             --text-s: #94A3B8;
@@ -81,48 +82,62 @@
             font-weight: 700;
             font-family: 'Outfit';
         }
+
+        .error-msg {
+            color: var(--c-red);
+            font-size: 13px;
+            padding: 10px;
+            border: 1px solid var(--c-red);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            color: var(--text-s);
+            font-size: 13px;
+        }
     </style>
 </head>
 
 <body>
     <header class="header">
         <h1 style="font-family: 'Outfit';">W_GUARDIAN</h1>
-        <div style="font-size: 12px; color: var(--c-emerald);">92% Autonomous Mode</div>
+        <div id="auto-mode" style="font-size: 12px; color: var(--c-emerald);">-- Autonomous Mode</div>
     </header>
 
     <div class="card"
         style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(245, 158, 11, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2);">
-        <h3 style="color: var(--c-gold); margin-top: 0;">🏛️ Strategic Analytics (Indicadores Intermediários)</h3>
+        <h3 style="color: var(--c-gold); margin-top: 0;">Strategic Analytics (Indicadores)</h3>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px;">
             <div class="stat-box">
                 <div class="stat-label">EBITDA</div>
                 <div id="ebitda-val" class="stat-val">R$ 0,00</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">Margem Líquida</div>
+                <div class="stat-label">Margem Liquida</div>
                 <div id="margin-val" class="stat-val">0%</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">Eficiência</div>
+                <div class="stat-label">Eficiencia</div>
                 <div id="eff-val" class="stat-val">0%</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">Soberania</div>
-                <div class="stat-val" style="color: var(--c-emerald);">Grade 10+</div>
+                <div id="sovereignty-val" class="stat-val" style="color: var(--c-emerald);">--</div>
             </div>
         </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
         <div class="card" style="margin-top: 0;">
-            <h3>📊 Controladoria (Audit)</h3>
+            <h3>Controladoria (Audit)</h3>
             <div id="budget-alerts" style="margin-top: 15px;">
-                <div style="font-size: 13px; color: var(--text-s);">Aguardando sincronização...</div>
+                <div class="loading">Aguardando sincronizacao...</div>
             </div>
         </div>
         <div class="card" style="margin-top: 0;">
-            <h3>💰 Tesouraria (Forecast)</h3>
+            <h3>Tesouraria (Forecast)</h3>
             <div id="cash-forecast" style="margin-top: 15px;">
-                <div style="font-size: 13px; color: var(--text-s);">Caixa Projetado (30d): R$ 1.315.400,00</div>
+                <div class="loading">Aguardando dados...</div>
             </div>
         </div>
     </div>
@@ -133,80 +148,139 @@
             <div style="display: flex; gap: 10px;">
                 <button class="btn-gold"
                     style="background: transparent; border: 1px solid var(--c-gold); color: var(--c-gold);"
-                    onclick="generateReport()">RELATÓRIO</button>
+                    onclick="generateReport()">RELATORIO</button>
                 <button class="btn-gold" onclick="importManual()">IMPORTAR MANUAL</button>
             </div>
         </div>
-        <div id="inbox" style="margin-top: 20px;"></div>
+        <div id="inbox" style="margin-top: 20px;">
+            <div class="loading">Carregando...</div>
+        </div>
     </div>
     <script>
-        async function load() {
-            try {
-                const res = await fetch('https://func-guardian-sovereign.azurewebsites.net/api/guardianStatus');
-                const data = await res.json();
-                const container = document.getElementById('inbox');
-                const alertContainer = document.getElementById('budget-alerts');
+        // Configuration — set API_BASE via environment or fallback to same-origin proxy
+        const API_BASE = window.__GUARDIAN_API_BASE__ || '';
+        const API_KEY = window.__GUARDIAN_API_KEY__ || '';
 
+        function apiUrl(path) {
+            const base = API_BASE ? API_BASE + path : '/api' + path.replace('/api', '');
+            return API_KEY ? base + (base.includes('?') ? '&' : '?') + 'code=' + API_KEY : base;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function formatBRL(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        }
+
+        async function load() {
+            const container = document.getElementById('inbox');
+            const alertContainer = document.getElementById('budget-alerts');
+
+            try {
+                container.innerHTML = '<div class="loading">Carregando...</div>';
+                const res = await fetch(apiUrl('/api/guardianStatus'));
+
+                if (!res.ok) throw new Error('API retornou status ' + res.status);
+
+                const data = await res.json();
                 const items = data.items || [];
 
-                container.innerHTML = items.map(i => `
-                    <div class="inbox-item">
-                        <div>
-                            <div style="font-weight: 600; display:flex; align-items:center; gap:8px;">
-                                ${i.classificacao}
-                                ${i.audit?.alert === 'critical' ? '<span style="color:#EF4444; font-size:10px;">[OVER BUDGET]</span>' : ''}
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-s);">R$ ${i.valor?.toLocaleString()} ${i.origem === 'import_manual' ? ' (Importado)' : ''}</div>
-                        </div>
-                        <button class="btn-gold">${i.needsReview ? 'REVISAR' : 'APROVAR'}</button>
-                    </div>
-                `).join('');
+                if (items.length === 0) {
+                    container.innerHTML = '<div class="loading">Nenhum item pendente. Execute uma sincronizacao.</div>';
+                } else {
+                    container.innerHTML = items.map(i => {
+                        const classification = escapeHtml(String(i.classificacao || ''));
+                        const value = typeof i.valor === 'number' ? formatBRL(i.valor) : 'R$ --';
+                        const isOverBudget = i.audit && i.audit.alert === 'critical';
+                        const isImported = i.origem === 'import_manual';
+                        const btnLabel = i.needsReview ? 'REVISAR' : 'APROVAR';
 
-                const alerts = items.filter(i => i.audit?.alert === 'critical');
+                        return '<div class="inbox-item">' +
+                            '<div>' +
+                                '<div style="font-weight: 600; display:flex; align-items:center; gap:8px;">' +
+                                    classification +
+                                    (isOverBudget ? ' <span style="color:var(--c-red); font-size:10px;">[OVER BUDGET]</span>' : '') +
+                                '</div>' +
+                                '<div style="font-size: 11px; color: var(--text-s);">' + value + (isImported ? ' (Importado)' : '') + '</div>' +
+                            '</div>' +
+                            '<button class="btn-gold">' + btnLabel + '</button>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                // Automation rate
+                const automated = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
+                const rate = items.length > 0 ? Math.round((automated / items.length) * 100) : 0;
+                document.getElementById('auto-mode').textContent = rate + '% Autonomous Mode';
+
+                // Sovereignty grade
+                const sovEl = document.getElementById('sovereignty-val');
+                sovEl.textContent = rate >= 90 ? 'Grade 10+' : rate >= 70 ? 'Grade 7' : 'Grade ' + Math.floor(rate / 10);
+
+                // Budget alerts
+                const alerts = items.filter(i => i.audit && i.audit.alert === 'critical');
                 alertContainer.innerHTML = alerts.length > 0
-                    ? `<div style="color:#EF4444; font-size:13px; font-weight:600;">⚠️ ${alerts.length} itens acima do orçamento</div>`
-                    : `<div style="color:var(--c-emerald); font-size:13px;">✅ Orçamento dentro dos limites</div>`;
+                    ? '<div style="color:var(--c-red); font-size:13px; font-weight:600;">' + alerts.length + ' itens acima do orcamento</div>'
+                    : '<div style="color:var(--c-emerald); font-size:13px;">Orcamento dentro dos limites</div>';
 
-                lucide.createIcons();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
             } catch (e) {
-                console.error(e);
+                console.error('Erro ao carregar dados:', e);
+                container.innerHTML = '<div class="error-msg">Erro ao carregar dados: ' + escapeHtml(e.message) + '</div>';
+                alertContainer.innerHTML = '<div class="error-msg">Falha na conexao com API</div>';
             }
         }
 
         async function generateReport() {
             try {
-                const res = await fetch('https://func-guardian-sovereign.azurewebsites.net/api/guardianReports');
+                const res = await fetch(apiUrl('/api/guardianReports'));
+                if (!res.ok) throw new Error('API retornou status ' + res.status);
+
                 const data = await res.json();
                 if (data.success) {
                     const report = data.report;
-                    // Update UI Stats
-                    document.getElementById('ebitda-val').innerText = 'R$ ' + report.indicators.ebitda.toLocaleString();
-                    document.getElementById('margin-val').innerText = report.indicators.margemLiquida;
-                    document.getElementById('eff-val').innerText = report.indicators.indiceEficiencia;
+                    document.getElementById('ebitda-val').textContent = formatBRL(report.indicators.ebitda);
+                    document.getElementById('margin-val').textContent = report.indicators.margemLiquida;
+                    document.getElementById('eff-val').textContent = report.indicators.indiceEficiencia;
 
-                    alert(`Relatório Gerado: ${report.title}\n\nEBITDA: R$ ${report.indicators.ebitda.toLocaleString()}\nEficiência: ${report.indicators.indiceEficiencia}`);
+                    // Update treasury with real data
+                    const forecast = document.getElementById('cash-forecast');
+                    forecast.innerHTML = '<div style="font-size: 13px; color: var(--text-s);">Caixa Atual: ' + formatBRL(report.treasury.caixaAtual) + '</div>' +
+                        '<div style="font-size: 13px; color: var(--text-s); margin-top:5px;">Projecao 30d: ' + formatBRL(report.treasury.previsao30Dias) + '</div>' +
+                        '<div style="font-size: 13px; color: var(--text-s); margin-top:5px;">Taxa Automacao: ' + escapeHtml(report.summary.taxaAutomacao) + '</div>';
+
+                    alert('Relatorio Gerado: ' + report.title + '\n\nEBITDA: ' + formatBRL(report.indicators.ebitda) + '\nEficiencia: ' + report.indicators.indiceEficiencia);
                 }
             } catch (e) {
-                alert("Erro ao gerar relatório.");
+                alert('Erro ao gerar relatorio: ' + e.message);
             }
         }
 
         async function importManual() {
-            const url = prompt("Cole a URL do documento (PDF/XML/OFX):");
+            const url = prompt('Cole a URL do documento (PDF/XML/OFX):');
             if (!url) return;
 
             try {
-                const res = await fetch('/api/guardianImport', {
+                const res = await fetch(apiUrl('/api/guardianImport'), {
                     method: 'POST',
-                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: 'Documento Importado', type: 'pdf', url: url })
                 });
+
+                if (!res.ok) throw new Error('API retornou status ' + res.status);
+
                 const data = await res.json();
-                alert(data.message);
+                alert(data.message || 'Documento importado com sucesso.');
                 load();
             } catch (e) {
-                alert("Erro ao importar documento.");
+                alert('Erro ao importar documento: ' + e.message);
             }
         }
+
         load();
     </script>
 </body>

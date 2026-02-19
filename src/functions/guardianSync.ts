@@ -3,7 +3,8 @@ import { InterConnector } from '../guardian/interConnector';
 import { EmailListener } from '../guardian/emailListener';
 import { GuardianAgents } from '../guardian/guardianAgents';
 import { createGuardianAuth } from '../storage/tableClient';
-import { createLogger, nowISO } from '../shared/utils';
+import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
+import { toGuardianAuth } from '../shared/types';
 
 const logger = createLogger('GuardianSync');
 
@@ -11,40 +12,36 @@ export async function guardianSyncHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    logger.info('Iniciando Sincronização Guardian...');
+    context.log('Iniciando Sincronização Guardian...');
 
     const inter = new InterConnector();
     const email = new EmailListener();
     const agents = new GuardianAgents();
 
     try {
+        // Use rolling 30-day window instead of hardcoded start date
+        const endDate = nowISO().split('T')[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
         const [balance, txs, docs] = await Promise.all([
             inter.getBalance(),
-            inter.syncStatement('2026-01-01', nowISO().split('T')[0]),
-            email.processIncomingEmails()
+            inter.syncStatement(startDate, endDate),
+            email.processIncomingEmails(),
         ]);
 
         const docResults = (await Promise.all(docs.map(d => agents.extractData(d)))).flat();
         const txResults = await Promise.all(txs.map(t => agents.classifyTransaction(t)));
 
-        // 3. Auditoria e Reconciliação
-        for (const res of [...txResults, ...docResults]) {
+        // Auditoria e Reconciliação
+        const allResults = [...txResults, ...docResults];
+        for (const res of allResults) {
             await agents.audit(res);
         }
         await agents.reconcile(txResults, docResults);
 
-        for (const res of [...txResults, ...docResults]) {
-            await createGuardianAuth({
-                id: res.id,
-                tipo: res.type,
-                classificacao: res.classification,
-                valor: res.value,
-                confianca: res.confidence,
-                match: res.matchedId || null,
-                status: 'pendente',
-                criadoEm: nowISO(),
-                sugestao: res.suggestedAction
-            });
+        // Persist with full data (audit + needsReview included)
+        for (const res of allResults) {
+            await createGuardianAuth(toGuardianAuth(res, nowISO()));
         }
 
         return {
@@ -52,20 +49,21 @@ export async function guardianSyncHandler(
             jsonBody: {
                 success: true,
                 summary: {
+                    balance: balance.total,
                     transactions: txResults.length,
                     documents: docResults.length,
-                    automated: txResults.filter(t => t.confidence > 0.90).length
-                }
-            }
+                    automated: txResults.filter(t => t.confidence > 0.90).length,
+                },
+            },
         };
-    } catch (error: any) {
-        logger.error('Erro no Sync Guardian', error);
-        return { status: 500, jsonBody: { error: error.message } };
+    } catch (error: unknown) {
+        context.error('Erro no Sync Guardian', error);
+        return { status: 500, jsonBody: { error: safeErrorMessage(error) } };
     }
 }
 
 app.http('guardianSync', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: guardianSyncHandler
+    handler: guardianSyncHandler,
 });
