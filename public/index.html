@@ -773,17 +773,18 @@ async function loadDashboard(){
 
         // ---- SEMANAL PAGE ----
         const s=d.semanal;
-        document.getElementById('s-pending').textContent=s.pendingApproval.length;
+        const pendingList=s.transacoesEncontradas||s.pendingApproval||[];
+        document.getElementById('s-pending').textContent=pendingList.length;
         document.getElementById('s-recebido').textContent=brl(s.totalJaRecebido);
         document.getElementById('s-pago').textContent=brl(s.totalJaPago);
         document.getElementById('s-alertas').textContent=s.alertas;
         document.getElementById('auto-pill').textContent=s.taxaAutomacao+' auto';
 
         const badge=document.getElementById('approval-badge');
-        if(s.pendingApproval.length>0){badge.style.display='';badge.textContent=s.pendingApproval.length}else{badge.style.display='none'}
+        if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}
 
         renderCategorias(s.categorias||[]);
-        renderApprovalList(s.pendingApproval);
+        renderApprovalList(pendingList);
         renderTxList('ja-pago-list',s.jaPago,'out');
         renderTxList('ja-recebido-list',s.jaRecebido,'in');
 
