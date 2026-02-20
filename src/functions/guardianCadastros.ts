@@ -76,13 +76,17 @@ const DEFAULT_CATEGORIAS: Omit<Categoria, 'id' | 'criadoEm'>[] = [
     { nome: 'Nota Fiscal Servico',          tipo: 'CUSTO_FIXO',         grupo: 'Servicos Terceirizados',       orcamentoMensal: 0,     ativa: true },
 
     // ===== DESPESA_FINANCEIRA — Resultado Financeiro (-) =====
-    { nome: 'Fatura Cartao',                tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 3000, ativa: true },
     { nome: 'Juros e Multas',               tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 0,    ativa: true },
     { nome: 'IOF',                          tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 0,    ativa: true },
     { nome: 'Tarifas Bancarias',            tipo: 'DESPESA_FINANCEIRA', grupo: 'Tarifas Bancarias',            orcamentoMensal: 100,  ativa: true },
     { nome: 'Servicos Financeiros',         tipo: 'DESPESA_FINANCEIRA', grupo: 'Tarifas Bancarias',            orcamentoMensal: 1000, ativa: true },
-    { nome: 'Aplicacao Investimento',       tipo: 'DESPESA_FINANCEIRA', grupo: 'Outros',                       orcamentoMensal: 0,    ativa: true },
     { nome: 'Transferencias',               tipo: 'DESPESA_FINANCEIRA', grupo: 'Outros',                       orcamentoMensal: 0,    ativa: true },
+
+    // ===== TRANSFERENCIA_INTERNA — Movimentacao entre contas proprias (NAO entra no DRE) =====
+    { nome: 'Resgate Investimento',         tipo: 'TRANSFERENCIA_INTERNA', grupo: 'Movimentacao Interna',      orcamentoMensal: 0,    ativa: true },
+    { nome: 'Aplicacao Investimento',       tipo: 'TRANSFERENCIA_INTERNA', grupo: 'Movimentacao Interna',      orcamentoMensal: 0,    ativa: true },
+    { nome: 'Pagamento Fatura Cartao',      tipo: 'TRANSFERENCIA_INTERNA', grupo: 'Movimentacao Interna',      orcamentoMensal: 0,    ativa: true },
+    { nome: 'Transferencia Entre Contas',   tipo: 'TRANSFERENCIA_INTERNA', grupo: 'Movimentacao Interna',      orcamentoMensal: 0,    ativa: true },
 ];
 
 async function seedCategoriasIfEmpty(): Promise<Categoria[]> {

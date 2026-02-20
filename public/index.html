@@ -394,6 +394,12 @@
             <div class="empty-state"><span class="spinner"></span></div>
         </div>
 
+        <!-- Movimentacoes Internas -->
+        <div class="section-title"><i data-lucide="repeat"></i> Movimentacoes Internas <span id="mov-internas-badge" class="badge" style="background:var(--t3);display:none"></span></div>
+        <div class="card" id="mov-internas-list" style="padding:0;overflow:hidden">
+            <div class="empty-state">Nenhuma movimentacao interna.</div>
+        </div>
+
         <!-- Categorias -->
         <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
         <div class="card" style="padding:0;overflow:hidden">
@@ -718,6 +724,16 @@ function renderApprovalList(items){
     }).join('');
 }
 
+function renderMovInternas(items){
+    const el=document.getElementById('mov-internas-list');
+    if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma movimentacao interna.</div>';return}
+    el.innerHTML=items.map(i=>{
+        const cls=esc(i.classificacao||'');
+        const desc=i.descricao?esc(i.descricao):'';
+        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot" style="background:var(--t3)"></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span><span>'+esc(i.data||'')+'</span></div><div class="tx-meta"><span class="tag" style="background:var(--surface2);color:var(--t2)">Nao impacta DRE</span></div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:var(--t2)">'+brl(i.valor)+'</div></div><div class="tx-actions"><button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Confirmar</button><button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button></div></div></div>'
+    }).join('');
+}
+
 function renderTxList(elId,items,type){
     const el=document.getElementById(elId);
     if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhum registro.</div>';return}
@@ -785,6 +801,12 @@ async function loadDashboard(){
 
         renderCategorias(s.categorias||[]);
         renderApprovalList(pendingList);
+
+        const movInternas=s.movimentacoesInternas||[];
+        const movBadge=document.getElementById('mov-internas-badge');
+        if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}
+        renderMovInternas(movInternas);
+
         renderTxList('ja-pago-list',s.jaPago,'out');
         renderTxList('ja-recebido-list',s.jaRecebido,'in');
 
