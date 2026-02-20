@@ -7,6 +7,8 @@ import {
     ComercialDeal,
     InvestmentAccount,
     InvestmentMovement,
+    CadastroType,
+    Categoria,
 } from '../shared/areas';
 
 const logger = createLogger('AreaTableClient');
@@ -254,4 +256,97 @@ export async function deleteInvestmentMovement(contaId: string, movementId: stri
     }
 
     await client.deleteEntity(contaId, movementId);
+}
+
+// ============ CADASTROS (Categorias, Contas, Clientes, Fornecedores) ============
+
+const CADASTRO_TABLE_NAMES: Record<CadastroType, string> = {
+    categorias: 'GuardianCategorias',
+    contas: 'GuardianContasCorrentes',
+    clientes: 'GuardianClientes',
+    fornecedores: 'GuardianFornecedores',
+};
+
+type CadastroRecord = Categoria; // Will expand with ContaCorrente | Cliente | Fornecedor
+
+const cadastroInMemory: Map<string, CadastroRecord[]> = new Map();
+
+function getCadastroInMemory(tableName: string): CadastroRecord[] {
+    if (!cadastroInMemory.has(tableName)) {
+        cadastroInMemory.set(tableName, []);
+    }
+    return cadastroInMemory.get(tableName)!;
+}
+
+export async function getCadastroRecords<T extends CadastroRecord>(tipo: CadastroType): Promise<T[]> {
+    const tableName = CADASTRO_TABLE_NAMES[tipo];
+    const client = await getTableClient(tableName);
+
+    if (!client) {
+        return getCadastroInMemory(tableName) as T[];
+    }
+
+    const items: T[] = [];
+    try {
+        const entities = client.listEntities();
+        for await (const entity of entities) {
+            items.push(entity as unknown as T);
+        }
+    } catch (error) {
+        logger.error(`Erro ao listar cadastro ${tipo}`, error);
+    }
+    return items;
+}
+
+export async function createCadastroRecord(tipo: CadastroType, record: CadastroRecord): Promise<void> {
+    const tableName = CADASTRO_TABLE_NAMES[tipo];
+    const client = await getTableClient(tableName);
+
+    if (!client) {
+        const table = getCadastroInMemory(tableName);
+        table.push(record);
+        logger.info(`[In-Memory] Cadastro ${tipo} criado: ${record.id}`);
+        return;
+    }
+
+    await client.createEntity({
+        partitionKey: tipo.toUpperCase(),
+        rowKey: record.id,
+        ...record,
+    });
+}
+
+export async function updateCadastroRecord(tipo: CadastroType, record: CadastroRecord): Promise<void> {
+    const tableName = CADASTRO_TABLE_NAMES[tipo];
+    const client = await getTableClient(tableName);
+
+    if (!client) {
+        const table = getCadastroInMemory(tableName);
+        const idx = table.findIndex(r => r.id === record.id);
+        if (idx >= 0) table[idx] = record;
+        else table.push(record);
+        logger.info(`[In-Memory] Cadastro ${tipo} atualizado: ${record.id}`);
+        return;
+    }
+
+    await client.upsertEntity({
+        partitionKey: tipo.toUpperCase(),
+        rowKey: record.id,
+        ...record,
+    });
+}
+
+export async function deleteCadastroRecord(tipo: CadastroType, recordId: string): Promise<void> {
+    const tableName = CADASTRO_TABLE_NAMES[tipo];
+    const client = await getTableClient(tableName);
+
+    if (!client) {
+        const table = getCadastroInMemory(tableName);
+        const idx = table.findIndex(r => r.id === recordId);
+        if (idx >= 0) table.splice(idx, 1);
+        logger.info(`[In-Memory] Cadastro ${tipo} removido: ${recordId}`);
+        return;
+    }
+
+    await client.deleteEntity(tipo.toUpperCase(), recordId);
 }
