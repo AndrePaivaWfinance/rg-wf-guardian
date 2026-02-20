@@ -38,52 +38,48 @@ function groupByGrupo(items: GuardianAuthorization[], catMap: Map<string, { tipo
 }
 
 /**
- * DRE — Demonstracao do Resultado do Exercicio
+ * DRE — Margem de Contribuicao
  *
  * (+) Receita Bruta ................... RECEITA_DIRETA
- * (-) Deducoes s/ Receita ............. (9.25% impostos: PIS/COFINS/ISS)
+ * (-) Deducoes s/ Receita ............. (impostos ~9.25%)
  * (=) Receita Liquida
- * (-) CSP ............................. DESPESA_DIRETA (por grupo)
- * (=) Lucro Bruto
- * (-) Despesas Operacionais (SG&A) .... DESPESA_INDIRETA (por grupo)
- * (=) EBITDA
- * (-) D&A ............................. (estimado 2% receita)
- * (=) EBIT
+ * (-) Custos e Despesas Variaveis ..... CUSTO_VARIAVEL (por grupo)
+ * (=) MARGEM DE CONTRIBUICAO
+ *     Indice MC = MC / RL
+ * (-) Custos e Despesas Fixos ......... CUSTO_FIXO (por grupo)
+ * (=) RESULTADO OPERACIONAL
  * (+) Receitas Financeiras ............ RECEITA_FINANCEIRA
  * (-) Despesas Financeiras ............ DESPESA_FINANCEIRA (por grupo)
- * (=) Resultado Antes do IR
- * (-) IR/CSLL ......................... (34%)
- * (=) Lucro Liquido
+ * (=) Resultado Antes IR
+ * (-) IR/CSLL (~34%)
+ * (=) RESULTADO LIQUIDO
+ *
+ * PE = Custos Fixos / Indice MC
  */
 function buildDRE(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>) {
     // (+) Receita Bruta
     const receitaBruta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
 
-    // (-) Deducoes (PIS 1.65% + COFINS 7.6% = 9.25% lucro presumido simplificado)
+    // (-) Deducoes (PIS 1.65% + COFINS 7.6% = 9.25%)
     const deducoes = receitaBruta * 0.0925;
     const receitaLiquida = receitaBruta - deducoes;
 
-    // (-) CSP — Custo dos Servicos Prestados
-    const cspGrupos = groupByGrupo(items, catMap, 'DESPESA_DIRETA');
-    const cspTotal = Object.values(cspGrupos).reduce((s, v) => s + v, 0);
+    // (-) Custos e Despesas Variaveis
+    const varGrupos = groupByGrupo(items, catMap, 'CUSTO_VARIAVEL');
+    const varTotal = Object.values(varGrupos).reduce((s, v) => s + v, 0);
 
-    // (=) Lucro Bruto
-    const lucroBruto = receitaLiquida - cspTotal;
-    const margemBruta = receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0;
+    // (=) Margem de Contribuicao
+    const margemContribuicao = receitaLiquida - varTotal;
+    const indiceMC = receitaLiquida > 0 ? margemContribuicao / receitaLiquida : 0;
+    const margemContribuicaoPct = indiceMC * 100;
 
-    // (-) SG&A — Despesas Operacionais
-    const sgaGrupos = groupByGrupo(items, catMap, 'DESPESA_INDIRETA');
-    const sgaTotal = Object.values(sgaGrupos).reduce((s, v) => s + v, 0);
+    // (-) Custos e Despesas Fixos
+    const fixoGrupos = groupByGrupo(items, catMap, 'CUSTO_FIXO');
+    const fixoTotal = Object.values(fixoGrupos).reduce((s, v) => s + v, 0);
 
-    // (=) EBITDA
-    const ebitda = lucroBruto - sgaTotal;
-    const margemEbitda = receitaBruta > 0 ? (ebitda / receitaBruta) * 100 : 0;
-
-    // (-) D&A (estimado)
-    const deprecAmort = receitaBruta * 0.02;
-
-    // (=) EBIT
-    const ebit = ebitda - deprecAmort;
+    // (=) Resultado Operacional
+    const resultadoOperacional = margemContribuicao - fixoTotal;
+    const margemOperacionalPct = receitaBruta > 0 ? (resultadoOperacional / receitaBruta) * 100 : 0;
 
     // (+/-) Resultado Financeiro
     const receitasFinanceiras = sumByTipo(items, catMap, 'RECEITA_FINANCEIRA');
@@ -91,32 +87,34 @@ function buildDRE(items: GuardianAuthorization[], catMap: Map<string, { tipo: st
     const despesasFinanceiras = Object.values(despFinGrupos).reduce((s, v) => s + v, 0);
     const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras;
 
-    // (=) Resultado antes do IR
-    const lucroAntesIR = ebit + resultadoFinanceiro;
+    // (=) Resultado Antes IR
+    const resultadoAntesIR = resultadoOperacional + resultadoFinanceiro;
 
     // (-) IR/CSLL
-    const irCSLL = Math.max(lucroAntesIR * 0.34, 0);
+    const irCSLL = Math.max(resultadoAntesIR * 0.34, 0);
 
-    // (=) Lucro Liquido
-    const lucroLiquido = lucroAntesIR - irCSLL;
-    const margemOperacional = receitaBruta > 0 ? (ebit / receitaBruta) * 100 : 0;
-    const margemLiquida = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0;
+    // (=) Resultado Liquido
+    const resultadoLiquido = resultadoAntesIR - irCSLL;
+    const margemLiquidaPct = receitaBruta > 0 ? (resultadoLiquido / receitaBruta) * 100 : 0;
+
+    // Ponto de Equilibrio
+    const pontoEquilibrio = indiceMC > 0 ? fixoTotal / indiceMC : 0;
 
     return {
         receitaBruta,
         deducoes,
         receitaLiquida,
 
-        csp: { grupos: cspGrupos, total: cspTotal },
-        lucroBruto,
-        margemBrutaPct: margemBruta,
+        variaveis: { grupos: varGrupos, total: varTotal },
+        margemContribuicao,
+        indiceMC,
+        margemContribuicaoPct,
+        margemContribuicaoFmt: margemContribuicaoPct.toFixed(1) + '%',
 
-        sga: { grupos: sgaGrupos, total: sgaTotal },
-        ebitda,
-        margemEbitdaPct: margemEbitda,
-
-        depreciacaoAmortizacao: deprecAmort,
-        ebit,
+        fixos: { grupos: fixoGrupos, total: fixoTotal },
+        resultadoOperacional,
+        margemOperacionalPct,
+        margemOperacional: margemOperacionalPct.toFixed(1) + '%',
 
         resultadoFinanceiro: {
             receitasFinanceiras,
@@ -124,23 +122,19 @@ function buildDRE(items: GuardianAuthorization[], catMap: Map<string, { tipo: st
             liquido: resultadoFinanceiro,
         },
 
-        lucroAntesIR,
+        resultadoAntesIR,
         irCSLL,
-        lucroLiquido,
+        resultadoLiquido,
+        margemLiquidaPct,
+        margemLiquida: margemLiquidaPct.toFixed(1) + '%',
 
-        // Margens formatadas
-        margemBruta: margemBruta.toFixed(1) + '%',
-        margemOperacional: margemOperacional.toFixed(1) + '%',
-        margemEbitda: margemEbitda.toFixed(1) + '%',
-        margemLiquida: margemLiquida.toFixed(1) + '%',
+        // Ponto de Equilibrio
+        pontoEquilibrio,
 
-        // Compat: manter campos que o frontend usa
-        margemBrutaPctCompat: margemBruta,
-        margemOperacionalPct: margemOperacional,
-        margemLiquidaPct: margemLiquida,
-        lucroOperacional: ebit,
-        custosServicos: cspTotal,
-        despesasOperacionais: { total: sgaTotal, ...sgaGrupos },
+        // Compat com home indicators
+        lucroLiquido: resultadoLiquido,
+        margemBruta: margemContribuicaoPct.toFixed(1) + '%',
+        margemBrutaPct: margemContribuicaoPct,
     };
 }
 
@@ -151,31 +145,31 @@ function buildDFC(
     allItems: GuardianAuthorization[],
     catMap: Map<string, { tipo: string; grupo: string }>
 ) {
-    // Operacional: Receita Direta - Despesa Direta - Despesa Indireta
+    // Operacional: Receita - Variaveis - Fixos
     const recebimentos = sumByTipo(items, catMap, 'RECEITA_DIRETA');
-    const pagCSP = sumByTipo(items, catMap, 'DESPESA_DIRETA');
-    const pagSGA = sumByTipo(items, catMap, 'DESPESA_INDIRETA');
-    const caixaOperacional = recebimentos - pagCSP - pagSGA;
+    const pagVar = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+    const pagFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
+    const caixaOperacional = recebimentos - pagVar - pagFixo;
 
-    // Investimento: Receita Financeira - Despesa Financeira (aplicacoes/resgates)
+    // Financeiro: Receita Financeira - Despesa Financeira
     const recFinanceiras = sumByTipo(allItems, catMap, 'RECEITA_FINANCEIRA');
     const despFinanceiras = sumByTipo(allItems, catMap, 'DESPESA_FINANCEIRA');
-    const caixaInvestimento = recFinanceiras - despFinanceiras;
+    const caixaFinanceiro = recFinanceiras - despFinanceiras;
 
-    const variacaoLiquida = caixaOperacional + caixaInvestimento;
+    const variacaoLiquida = caixaOperacional + caixaFinanceiro;
     const caixaInicial = caixaInicialConfig ?? (caixaAtual - variacaoLiquida);
 
     return {
         operacional: {
             recebimentosClientes: recebimentos,
-            custoServicos: -pagCSP,
-            despesasOperacionais: -pagSGA,
+            custosVariaveis: -pagVar,
+            custosFixos: -pagFixo,
             total: caixaOperacional,
         },
-        investimento: {
+        financeiro: {
             receitasFinanceiras: recFinanceiras,
             despesasFinanceiras: -despFinanceiras,
-            total: caixaInvestimento,
+            total: caixaFinanceiro,
         },
         variacaoLiquida,
         caixaInicial,
@@ -185,7 +179,7 @@ function buildDFC(
 
 function buildForecast(items: GuardianAuthorization[], caixaAtual: number, catMap: Map<string, { tipo: string; grupo: string }>) {
     const receita = sumByTipo(items, catMap, 'RECEITA_DIRETA');
-    const despesas = sumByTipo(items, catMap, 'DESPESA_DIRETA') + sumByTipo(items, catMap, 'DESPESA_INDIRETA');
+    const despesas = sumByTipo(items, catMap, 'CUSTO_VARIAVEL') + sumByTipo(items, catMap, 'CUSTO_FIXO');
     const growthRate = 0.03;
     const months: Array<{ month: string; receita: number; despesas: number; lucroLiquido: number; caixaAcumulado: number }> = [];
     const now = new Date();
@@ -279,15 +273,28 @@ function buildInsights(
         });
     }
 
-    // CSP analysis
-    const csp = sumByTipo(items, catMap, 'DESPESA_DIRETA');
-    if (csp > 0 && receita > 0) {
-        const cspPct = (csp / receita) * 100;
-        if (cspPct > 70) {
+    // Custos Variaveis altos — MC comprimida
+    const custosVar = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+    if (custosVar > 0 && receita > 0) {
+        const rl = receita * 0.9075; // receita liquida
+        const mc = rl - custosVar;
+        const indiceMC = mc / rl;
+        if (indiceMC < 0.3) {
             insights.push({
                 type: 'danger',
-                title: 'CSP Acima de 70%',
-                text: `Custo dos servicos prestados (${formatBRL(csp)}) consome ${cspPct.toFixed(1)}% da receita. Margem bruta muito comprimida.`,
+                title: 'Margem de Contribuicao Critica',
+                text: `Indice MC de ${(indiceMC * 100).toFixed(1)}% — custos variaveis (${formatBRL(custosVar)}) consomem mais de 70% da receita liquida. Revise pricing ou reduza custos variaveis.`,
+            });
+        }
+
+        // Ponto de Equilibrio
+        const custosFixos = sumByTipo(items, catMap, 'CUSTO_FIXO');
+        if (indiceMC > 0) {
+            const pe = custosFixos / indiceMC;
+            insights.push({
+                type: pe > receita ? 'danger' : 'info',
+                title: 'Ponto de Equilibrio',
+                text: `PE mensal: ${formatBRL(pe)}. ${pe > receita ? 'ABAIXO do PE — a empresa opera com prejuizo operacional.' : 'Receita atual supera o PE em ' + formatBRL(receita - pe) + '.'}`,
             });
         }
     }
@@ -317,7 +324,7 @@ function buildMonthlyHistory(items: GuardianAuthorization[], catMap: Map<string,
         const cat = catMap.get(item.classificacao);
         if (cat?.tipo === 'RECEITA_DIRETA' || cat?.tipo === 'RECEITA_FINANCEIRA') {
             months[monthKey].receita += item.valor;
-        } else if (cat?.tipo?.startsWith('DESPESA')) {
+        } else if (cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA') {
             months[monthKey].despesas += item.valor;
         }
     }
@@ -361,13 +368,13 @@ export async function guardianDashboardHandler(
 
         // KPIs (using catMap for proper classification)
         const receitaDireta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
-        const despesaDireta = sumByTipo(items, catMap, 'DESPESA_DIRETA');
-        const despesaIndireta = sumByTipo(items, catMap, 'DESPESA_INDIRETA');
+        const custoVariavel = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+        const custoFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
         const kpis = {
             revenue: receitaDireta,
-            opExpenses: despesaDireta + despesaIndireta,
-            ebitda: receitaDireta - despesaDireta - despesaIndireta,
-            status: (receitaDireta - despesaDireta - despesaIndireta) >= 0 ? 'saudavel' : 'atencao',
+            opExpenses: custoVariavel + custoFixo,
+            ebitda: receitaDireta - custoVariavel - custoFixo,
+            status: (receitaDireta - custoVariavel - custoFixo) >= 0 ? 'saudavel' : 'atencao',
         };
 
         // Balance
@@ -431,7 +438,7 @@ export async function guardianDashboardHandler(
         // Payables / Receivables (using catMap)
         const jaPago = monthItems.filter(i => {
             const cat = catMap.get(i.classificacao);
-            return cat?.tipo?.startsWith('DESPESA');
+            return cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA';
         });
         const jaRecebido = monthItems.filter(i => {
             const cat = catMap.get(i.classificacao);
@@ -460,13 +467,18 @@ export async function guardianDashboardHandler(
                 // ---- HOME PAGE ----
                 home: {
                     indicators: {
-                        margemBruta: dre.margemBruta,
-                        margemBrutaPct: dre.margemBrutaPct,
+                        margemContribuicao: dre.margemContribuicaoFmt,
+                        margemContribuicaoPct: dre.margemContribuicaoPct,
+                        indiceMC: dre.indiceMC,
                         margemLiquida: dre.margemLiquida,
                         margemLiquidaPct: dre.margemLiquidaPct,
                         margemOperacional: dre.margemOperacional,
-                        margemEbitda: dre.margemEbitda,
-                        ebitda: dre.ebitda,
+                        resultadoOperacional: dre.resultadoOperacional,
+                        resultadoLiquido: dre.resultadoLiquido,
+                        pontoEquilibrio: dre.pontoEquilibrio,
+                        // Compat
+                        margemBruta: dre.margemBruta,
+                        margemBrutaPct: dre.margemBrutaPct,
                         lucroLiquido: dre.lucroLiquido,
                         fluxoCaixa: dfc.operacional.total,
                         caixaAtual,
@@ -508,7 +520,7 @@ export async function guardianDashboardHandler(
                         }).reduce((s, i) => s + i.valor, 0),
                         saidas: weekItems.filter(i => {
                             const c = catMap.get(i.classificacao);
-                            return c?.tipo?.startsWith('DESPESA');
+                            return c?.tipo === 'CUSTO_VARIAVEL' || c?.tipo === 'CUSTO_FIXO' || c?.tipo === 'DESPESA_FINANCEIRA';
                         }).reduce((s, i) => s + i.valor, 0),
                         count: weekItems.length,
                     },

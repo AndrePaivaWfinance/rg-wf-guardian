@@ -166,19 +166,29 @@ export interface InvestmentData {
 // ============ CADASTROS ============
 
 /**
- * Tipos contabeis alinhados ao DRE:
+ * DRE por Margem de Contribuicao
  *
- * RECEITA_DIRETA      → Receita Bruta Operacional (vendas, servicos)
- * RECEITA_FINANCEIRA  → Resultado Financeiro (rendimentos, juros recebidos)
- * DESPESA_DIRETA      → CSP — Custo dos Servicos Prestados (pessoal tecnico, infra, ferramentas)
- * DESPESA_INDIRETA    → SG&A — Despesas Operacionais (admin, mkt, aluguel, utilidades)
- * DESPESA_FINANCEIRA  → Resultado Financeiro negativo (juros, tarifas, IOF)
+ * (+) Receita Bruta ................... RECEITA_DIRETA
+ * (-) Deducoes s/ Receita ............. (impostos ~9.25%)
+ * (=) Receita Liquida
+ * (-) Custos e Despesas Variaveis ..... CUSTO_VARIAVEL
+ * (=) MARGEM DE CONTRIBUICAO (MC)
+ *     Indice MC = MC / RL
+ * (-) Custos e Despesas Fixos ......... CUSTO_FIXO
+ * (=) RESULTADO OPERACIONAL
+ * (+) Receitas Financeiras ............ RECEITA_FINANCEIRA
+ * (-) Despesas Financeiras ............ DESPESA_FINANCEIRA
+ * (=) Resultado Antes do IR
+ * (-) IR/CSLL ......................... (~34%)
+ * (=) RESULTADO LIQUIDO
+ *
+ * Ponto de Equilibrio = Custos Fixos / Indice MC
  */
 export type CategoriaTipo =
     | 'RECEITA_DIRETA'
     | 'RECEITA_FINANCEIRA'
-    | 'DESPESA_DIRETA'
-    | 'DESPESA_INDIRETA'
+    | 'CUSTO_VARIAVEL'
+    | 'CUSTO_FIXO'
     | 'DESPESA_FINANCEIRA';
 
 /** Grupo contabil dentro do DRE para sub-agrupamento */
@@ -188,18 +198,20 @@ export type CategoriaGrupo =
     | 'Outras Receitas Operacionais'
     | 'Rendimentos Financeiros'
     | 'Juros Ativos'
-    // CSP (Despesa Direta)
-    | 'Pessoal Tecnico'
-    | 'Infraestrutura e Hosting'
-    | 'Ferramentas de Producao'
+    // Custos/Despesas Variaveis
     | 'Subcontratacao'
-    // SG&A (Despesa Indireta)
-    | 'Marketing e Comercial'
-    | 'Administrativo'
+    | 'Infraestrutura Variavel'
+    | 'Comissoes'
+    | 'Marketing Performance'
+    | 'Impostos Variaveis'
+    | 'Insumos e Materiais'
+    // Custos/Despesas Fixos
+    | 'Pessoal'
     | 'Ocupacao'
     | 'Utilidades'
+    | 'Assinaturas e Licencas'
     | 'Servicos Terceirizados'
-    | 'Impostos e Taxas'
+    | 'Administrativo'
     // Despesas Financeiras
     | 'Juros e Encargos'
     | 'Tarifas Bancarias'
