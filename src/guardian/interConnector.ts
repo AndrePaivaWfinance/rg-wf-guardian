@@ -77,13 +77,7 @@ export class InterConnector {
         logger.info('Obtendo saldo via inter-ops...');
 
         if (!this.isConfigured()) {
-            logger.warn('inter-ops não configurado — usando dados mock');
-            return {
-                disponivel: 1242850.42,
-                reservado: 0,
-                total: 1242850.42,
-                dataHora: nowISO(),
-            };
+            throw new Error('inter-ops não configurado');
         }
 
         const data = await this.request<{
@@ -107,24 +101,8 @@ export class InterConnector {
         logger.info(`Sincronizando extrato via inter-ops: ${startDate} até ${endDate}`);
 
         if (!this.isConfigured()) {
-            logger.warn('inter-ops não configurado — usando dados mock');
-            return [
-                {
-                    id: generateId('INTER'),
-                    data: nowISO().split('T')[0],
-                    tipo: 'CREDITO',
-                    valor: 42100.00,
-                    descricao: 'PIX RECEBIDO - CLIENTE BPO ACME',
-                    cpfCnpjBeneficiario: '12345678000199',
-                },
-                {
-                    id: generateId('INTER'),
-                    data: nowISO().split('T')[0],
-                    tipo: 'DEBITO',
-                    valor: 1540.22,
-                    descricao: 'PAGAMENTO BOLETO - CONDOMINIO HQ',
-                },
-            ];
+            logger.warn('inter-ops não configurado — retornando vazio');
+            return [];
         }
 
         const data = await this.request<{

@@ -78,15 +78,15 @@ export class GuardianAgents {
             return this.extractWithAI(attachments);
         }
 
-        logger.warn('Azure AI Document Intelligence não configurado — usando dados mock');
+        logger.warn('Azure AI Document Intelligence não configurado — documento pendente de OCR');
         return attachments.map(att => ({
             id: generateId('EXT'),
             type: 'document' as const,
-            classification: att.type.includes('xml') ? 'Nota Fiscal Servico' : 'Infraestrutura / AWS',
-            confidence: 0.985,
-            value: 924.10,
-            needsReview: false,
-            suggestedAction: 'approve' as const,
+            classification: 'Documento Pendente OCR',
+            confidence: 0.0,
+            value: 0,
+            needsReview: true,
+            suggestedAction: 'investigate' as const,
         }));
     }
 
@@ -256,8 +256,8 @@ export class GuardianAgents {
             classification,
             confidence,
             value: tx.valor,
-            needsReview: confidence < 0.85,
-            suggestedAction: confidence >= 0.90 ? 'archive' : 'investigate',
+            needsReview: true, // All transactions come for approval so AI can learn
+            suggestedAction: confidence >= 0.90 ? 'approve' : 'investigate',
         };
     }
 

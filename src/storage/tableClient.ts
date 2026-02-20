@@ -79,6 +79,24 @@ export async function getGuardianAuthorizations(): Promise<GuardianAuthorization
     return items;
 }
 
+export async function updateGuardianAuth(id: string, updates: Partial<GuardianAuthorization>): Promise<void> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUTH);
+
+    if (!client) {
+        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
+        const idx = table.findIndex(i => i.id === id);
+        if (idx >= 0) Object.assign(table[idx], updates);
+        logger.info(`[In-Memory] Auth atualizada: ${id}`);
+        return;
+    }
+
+    const { audit, ...storableUpdates } = updates;
+    await client.updateEntity(
+        { partitionKey: 'GUARDIAN', rowKey: id, ...storableUpdates },
+        'Merge'
+    );
+}
+
 export async function createGuardianAuth(auth: GuardianAuthorization): Promise<void> {
     const client = await getTableClient(TABLES.GUARDIAN_AUTH);
 

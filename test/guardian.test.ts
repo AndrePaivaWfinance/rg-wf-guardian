@@ -83,47 +83,28 @@ describe('Types', () => {
 describe('InterConnector', () => {
     const inter = new InterConnector();
 
-    it('getBalance returns valid balance', async () => {
-        const balance = await inter.getBalance();
-        expect(balance.total).toBeGreaterThan(0);
-        expect(balance.disponivel).toBe(balance.total);
-        expect(balance.dataHora).toBeTruthy();
+    it('getBalance throws when not configured', async () => {
+        await expect(inter.getBalance()).rejects.toThrow('inter-ops não configurado');
     });
 
-    it('syncStatement returns transactions with unique IDs', async () => {
+    it('syncStatement returns empty when not configured', async () => {
         const txs = await inter.syncStatement('2026-01-01', '2026-01-31');
-        expect(txs.length).toBe(2);
-        expect(txs[0].id).not.toBe(txs[1].id);
-        expect(txs[0].tipo).toBe('CREDITO');
-        expect(txs[1].tipo).toBe('DEBITO');
+        expect(txs).toEqual([]);
     });
 });
 
 describe('EmailListener', () => {
-    it('processIncomingEmails returns documents', async () => {
+    it('processIncomingEmails returns empty when not configured', async () => {
         const listener = new EmailListener();
         const docs = await listener.processIncomingEmails();
-        expect(docs.length).toBeGreaterThan(0);
-        expect(docs[0].id).toMatch(/^MSG_/);
-        expect(docs[0].attachments.length).toBeGreaterThan(0);
+        expect(docs).toEqual([]);
     });
 });
 
 describe('GuardianAgents', () => {
     const agents = new GuardianAgents();
 
-    it('extractData from email doc produces results with unique IDs', async () => {
-        const listener = new EmailListener();
-        const docs = await listener.processIncomingEmails();
-        const results = await agents.extractData(docs[0]);
-
-        expect(results.length).toBeGreaterThan(0);
-        expect(results[0].id).toMatch(/^EXT_/);
-        expect(results[0].type).toBe('document');
-        expect(results[0].confidence).toBeGreaterThan(0);
-    });
-
-    it('extractData from imported doc works', async () => {
+    it('extractData from imported doc returns pending OCR when AI not configured', async () => {
         const imported = {
             id: 'IMP_test',
             name: 'test.xml',
@@ -134,7 +115,8 @@ describe('GuardianAgents', () => {
             uploadedAt: nowISO(),
         };
         const results = await agents.extractData(imported);
-        expect(results[0].classification).toBe('Nota Fiscal Servico');
+        expect(results[0].classification).toBe('Documento Pendente OCR');
+        expect(results[0].needsReview).toBe(true);
     });
 
     it('classifyTransaction classifies PIX RECEBIDO as Receita', async () => {
@@ -438,34 +420,32 @@ describe('Area Storage - Comercial', () => {
 
 describe('End-to-End Pipeline', () => {
     it('full sync pipeline produces audited and reconciled results', async () => {
-        const inter = new InterConnector();
-        const email = new EmailListener();
         const agents = new GuardianAgents();
 
-        const [, txs, docs] = await Promise.all([
-            inter.getBalance(),
-            inter.syncStatement('2026-01-01', '2026-01-31'),
-            email.processIncomingEmails(),
-        ]);
+        // Simulate real transactions (connectors return empty when not configured)
+        const txs = [
+            { id: 'TX_E2E_1', data: '2026-01-15', tipo: 'CREDITO' as const, valor: 5000, descricao: 'PIX RECEBIDO - CLIENTE BPO' },
+            { id: 'TX_E2E_2', data: '2026-01-16', tipo: 'DEBITO' as const, valor: 1200, descricao: 'PIX ENVIADO - Cp :90400888-SERASA SA' },
+        ];
 
-        const docResults = (await Promise.all(docs.map(d => agents.extractData(d)))).flat();
         const txResults = await Promise.all(txs.map(t => agents.classifyTransaction(t)));
 
-        for (const res of [...txResults, ...docResults]) {
+        for (const res of txResults) {
             await agents.audit(res);
         }
-        await agents.reconcile(txResults, docResults);
+        await agents.reconcile(txResults, []);
 
         // All results should have IDs
-        const allResults = [...txResults, ...docResults];
-        expect(allResults.every(r => r.id.length > 0)).toBe(true);
+        expect(txResults.every(r => r.id.length > 0)).toBe(true);
 
-        // At least one audit alert expected (AWS doc = 924.10 < 1000 = within budget, but check exists)
-        expect(allResults.some(r => r.audit !== undefined)).toBe(true);
+        // All transactions come for approval (needsReview = true)
+        expect(txResults.every(r => r.needsReview)).toBe(true);
 
-        // Automation rate should be computable
-        const automated = allResults.filter(r => r.confidence > 0.90 && !r.needsReview).length;
-        const rate = (automated / allResults.length) * 100;
-        expect(rate).toBeGreaterThan(0);
+        // Audit should be populated
+        expect(txResults.some(r => r.audit !== undefined)).toBe(true);
+
+        // Classifications should be correct
+        expect(txResults[0].classification).toBe('Receita Operacional');
+        expect(txResults[1].classification).toBe('Servicos Financeiros');
     });
 });

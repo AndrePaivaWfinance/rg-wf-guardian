@@ -42,6 +42,12 @@ export async function guardianSyncHandler(
         const docResults = (await Promise.all(documents.map(d => agents.extractData(d)))).flat();
         const txResults = await Promise.all(transactions.map(t => agents.classifyTransaction(t)));
 
+        // Build description map from original transactions
+        const txDescMap = new Map<string, { descricao: string; data: string }>();
+        for (const tx of transactions) {
+            txDescMap.set('CLASS_' + tx.id, { descricao: tx.descricao, data: tx.data });
+        }
+
         // Auditoria e Reconciliação
         const allResults = [...txResults, ...docResults];
         for (const res of allResults) {
@@ -49,9 +55,10 @@ export async function guardianSyncHandler(
         }
         await agents.reconcile(txResults, docResults);
 
-        // Persist with full data (audit + needsReview included)
+        // Persist with full data (audit + needsReview + description included)
         for (const res of allResults) {
-            await createGuardianAuth(toGuardianAuth(res, nowISO()));
+            const txInfo = txDescMap.get(res.id);
+            await createGuardianAuth(toGuardianAuth(res, nowISO(), undefined, txInfo?.descricao, txInfo?.data));
         }
 
         return {

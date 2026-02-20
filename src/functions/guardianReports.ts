@@ -206,13 +206,7 @@ export async function guardianReportsHandler(
         // Load investment accounts
         let investmentAccounts = await getAreaRecords<InvestmentAccount>('investimentos');
         let investmentMovements = await getInvestmentMovements();
-        if (investmentAccounts.length === 0) {
-            // Use same mock data pattern — will be populated when the area endpoint is called
-            investmentAccounts = [
-                { id: 'INV_001', nome: 'CDB DI Liquidez Diaria', tipo: 'CDB', banco: 'Inter', saldoInicial: 500000.00, saldoAtual: 518365.58, dataAbertura: '2025-06-01', taxaContratada: '100% CDI', ativo: true },
-                { id: 'INV_002', nome: 'CDB IPCA+ Venc. 2027', tipo: 'CDB', banco: 'Inter', saldoInicial: 350000.00, saldoAtual: 362770.83, dataAbertura: '2025-03-15', taxaContratada: 'IPCA + 6.5% a.a.', ativo: true },
-            ];
-        } else {
+        if (investmentAccounts.length > 0) {
             // Recalc balances
             for (const acct of investmentAccounts) {
                 const acctMov = investmentMovements.filter(m => m.contaId === acct.id);
