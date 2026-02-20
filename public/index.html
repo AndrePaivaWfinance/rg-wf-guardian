@@ -593,10 +593,7 @@ async function rejectItem(id){
 function renderPatrimonio(t){
     const grid=document.getElementById('patrimonio-grid');
     let html='<div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">'+brl(t.caixaAtual)+'</div></div>';
-    (t.investimentos||[]).forEach((inv,i)=>{
-        html+='<div class="patrimonio-card inv"><div class="patrimonio-label">Investimento '+(i+1)+'</div><div class="patrimonio-nome">'+esc(inv.nome)+'</div><div class="patrimonio-valor" style="color:var(--success)">'+brl(inv.saldoAtual)+'</div><div class="patrimonio-sub"><span class="patrimonio-tag">'+esc(inv.taxaContratada||'')+'</span></div></div>';
-    });
-    html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Todas as contas</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.patrimonioTotal)+'</div></div>';
+    html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Conta Corrente</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.caixaAtual)+'</div></div>';
     grid.innerHTML=html;
 }
 

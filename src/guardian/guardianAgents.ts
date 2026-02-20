@@ -263,14 +263,6 @@ export class GuardianAgents {
 
     /** Rule-based classifier for Inter bank transactions */
     private classifyByDescription(desc: string, tipo: 'CREDITO' | 'DEBITO'): { classification: string; confidence: number } {
-        // ---- Investment movements ----
-        if (desc.includes('RESGATE') && desc.includes('CDB'))
-            return { classification: 'Resgate Investimento', confidence: 0.98 };
-        if (desc.includes('APLICACAO') && (desc.includes('CDB') || desc.includes('FUNDO')))
-            return { classification: 'Aplicacao Investimento', confidence: 0.98 };
-        if (desc.includes('RENDIMENTO') || desc.includes('JUROS'))
-            return { classification: 'Rendimento Investimento', confidence: 0.97 };
-
         // ---- Card payments ----
         if (desc.includes('FATURA') && desc.includes('INTER'))
             return { classification: 'Fatura Cartao', confidence: 0.98 };
@@ -384,7 +376,6 @@ export class GuardianAgents {
 
     /** Non-operational classifications excluded from KPIs */
     private static readonly NON_OPERATIONAL = new Set([
-        'Resgate Investimento', 'Aplicacao Investimento', 'Rendimento Investimento',
         'Fatura Cartao', 'Transferencias',
     ]);
 

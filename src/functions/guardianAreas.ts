@@ -12,24 +12,17 @@ import {
     ComercialDeal,
     ComercialKPIs,
     ComercialData,
-    InvestmentAccount,
-    InvestmentMovement,
-    InvestmentKPIs,
-    InvestmentData,
 } from '../shared/areas';
 import {
     getAreaRecords,
     createAreaRecord,
     updateAreaRecord,
     deleteAreaRecord,
-    getInvestmentMovements,
-    createInvestmentMovement,
-    deleteInvestmentMovement,
 } from '../storage/areaTableClient';
 
 const logger = createLogger('GuardianAreas');
 
-const VALID_AREAS: AreaType[] = ['operacoes', 'marketing', 'comercial', 'investimentos'];
+const VALID_AREAS: AreaType[] = ['operacoes', 'marketing', 'comercial'];
 
 // ============ KPI CALCULATORS ============
 
@@ -120,38 +113,6 @@ function calcComercialKPIs(deals: ComercialDeal[]): ComercialKPIs {
     };
 }
 
-function calcInvestmentKPIs(accounts: InvestmentAccount[], movements: InvestmentMovement[]): InvestmentKPIs {
-    const ativas = accounts.filter(a => a.ativo);
-    const totalInvestido = ativas.reduce((s, a) => s + a.saldoAtual, 0);
-    const totalInicial = ativas.reduce((s, a) => s + a.saldoInicial, 0);
-    const rendimentos = movements.filter(m => m.tipo === 'JUROS').reduce((s, m) => s + m.valor, 0);
-    const impostos = movements.filter(m => m.tipo === 'IMPOSTO_IR' || m.tipo === 'IOF').reduce((s, m) => s + m.valor, 0);
-
-    return {
-        totalInvestido,
-        rendimentoAcumulado: rendimentos,
-        impostosTotais: impostos,
-        rendimentoLiquido: rendimentos - impostos,
-        rentabilidadeMedia: totalInicial > 0 ? (((totalInvestido - totalInicial) / totalInicial) * 100).toFixed(2) + '%' : '0%',
-        contasAtivas: ativas.length,
-    };
-}
-
-/** Recalculates saldoAtual based on saldoInicial + all movements */
-function recalcAccountBalance(account: InvestmentAccount, movements: InvestmentMovement[]): number {
-    const acctMovements = movements.filter(m => m.contaId === account.id);
-    let saldo = account.saldoInicial;
-    for (const m of acctMovements) {
-        if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') {
-            saldo += m.valor;
-        } else {
-            // IMPOSTO_IR, IOF, TRANSFERENCIA_PARA_CC, RESGATE
-            saldo -= m.valor;
-        }
-    }
-    return Math.round(saldo * 100) / 100;
-}
-
 // ============ HANDLERS ============
 
 export async function guardianAreasGetHandler(
@@ -182,18 +143,7 @@ export async function guardianAreasGetHandler(
             const data: ComercialData = { deals, kpis: calcComercialKPIs(deals) };
             response = { area, generatedAt: nowISO(), data };
         } else {
-            // investimentos
-            const accounts = await getAreaRecords<InvestmentAccount>(area);
-            const movements = await getInvestmentMovements();
-            for (const acct of accounts) {
-                acct.saldoAtual = recalcAccountBalance(acct, movements);
-            }
-            const data: InvestmentData = {
-                accounts,
-                movements,
-                kpis: calcInvestmentKPIs(accounts, movements),
-            };
-            response = { area, generatedAt: nowISO(), data };
+            return { status: 400, jsonBody: { error: `Area invalida. Use: ${VALID_AREAS.join(', ')}` } };
         }
 
         return { status: 200, jsonBody: { success: true, ...response } };
@@ -217,30 +167,8 @@ export async function guardianAreasPostHandler(
         const body = await request.json() as Record<string, unknown>;
         const action = (body.action as string) || 'create';
 
-        // Investment-specific: create/delete movement
-        if (area === 'investimentos' && action === 'create_movement') {
-            const movement = body.movement as InvestmentMovement;
-            if (!movement || !movement.id || !movement.contaId) {
-                return { status: 400, jsonBody: { error: 'Campo "movement" com "id" e "contaId" e obrigatorio.' } };
-            }
-            await createInvestmentMovement(movement);
-            logger.info(`investimentos create_movement: ${movement.id} (conta: ${movement.contaId})`);
-            return { status: 200, jsonBody: { success: true, action: 'create_movement', id: movement.id } };
-        }
-
-        if (area === 'investimentos' && action === 'delete_movement') {
-            const movementId = body.id as string;
-            const contaId = body.contaId as string;
-            if (!movementId || !contaId) {
-                return { status: 400, jsonBody: { error: 'Campos "id" e "contaId" sao obrigatorios para delete_movement.' } };
-            }
-            await deleteInvestmentMovement(contaId, movementId);
-            logger.info(`investimentos delete_movement: ${movementId}`);
-            return { status: 200, jsonBody: { success: true, action: 'delete_movement', id: movementId } };
-        }
-
         if (action === 'create' || action === 'update') {
-            const record = body.record as OperacoesProject | MarketingCampaign | ComercialDeal | InvestmentAccount;
+            const record = body.record as OperacoesProject | MarketingCampaign | ComercialDeal;
             if (!record || !record.id) {
                 return { status: 400, jsonBody: { error: 'Campo "record" com "id" e obrigatorio.' } };
             }
@@ -265,7 +193,7 @@ export async function guardianAreasPostHandler(
             return { status: 200, jsonBody: { success: true, action: 'delete', id: recordId } };
         }
 
-        return { status: 400, jsonBody: { error: `Action invalida: ${action}. Use: create, update, delete, create_movement, delete_movement` } };
+        return { status: 400, jsonBody: { error: `Action invalida: ${action}. Use: create, update, delete` } };
     } catch (error: unknown) {
         context.error(`Erro ao modificar area ${area}`, error);
         return { status: 500, jsonBody: { error: safeErrorMessage(error) } };

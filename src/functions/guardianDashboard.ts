@@ -1,10 +1,10 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getAreaRecords, getInvestmentMovements, getConfig, getCadastroRecords } from '../storage/areaTableClient';
+import { getConfig, getCadastroRecords } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
-import { InvestmentAccount, InvestmentMovement, Categoria } from '../shared/areas';
+import { Categoria } from '../shared/areas';
 
 const logger = createLogger('GuardianDashboard');
 
@@ -219,7 +219,6 @@ function buildInsights(
     items: GuardianAuthorization[],
     kpis: { revenue: number; opExpenses: number; ebitda: number },
     caixaAtual: number,
-    totalInvestimentos: number,
     catMap: Map<string, { tipo: string; grupo: string }>
 ) {
     const insights: Array<{ type: 'warning' | 'success' | 'info' | 'danger'; title: string; text: string }> = [];
@@ -239,18 +238,6 @@ function buildInsights(
             title: 'Operacao Superavitaria',
             text: `Resultado operacional positivo de ${formatBRL(kpis.ebitda)} com margem operacional saudavel.`,
         });
-    }
-
-    // Investment concentration
-    if (totalInvestimentos > 0 && caixaAtual > 0) {
-        const ratio = totalInvestimentos / (totalInvestimentos + caixaAtual);
-        if (ratio > 0.95) {
-            insights.push({
-                type: 'info',
-                title: 'Alta Concentracao em Investimentos',
-                text: `${(ratio * 100).toFixed(0)}% do patrimonio esta alocado em investimentos. O caixa operacional (${formatBRL(caixaAtual)}) representa apenas ${((1 - ratio) * 100).toFixed(1)}% do total. Monitore a liquidez.`,
-            });
-        }
     }
 
     // Revenue concentration
@@ -342,10 +329,8 @@ export async function guardianDashboardHandler(
     context.log('BFF: Carregando dashboard completo...');
 
     try {
-        const [items, investAcctsRaw, investMovsRaw, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
+        const [items, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
             getGuardianAuthorizations(),
-            getAreaRecords<InvestmentAccount>('investimentos'),
-            getInvestmentMovements(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
             getCadastroRecords<Categoria>('categorias'),
@@ -389,23 +374,6 @@ export async function guardianDashboardHandler(
             caixaAtual = totalReceitas - totalDespesas;
         }
 
-        // Investments
-        const investmentAccounts = investAcctsRaw;
-        const investmentMovements = investMovsRaw;
-        if (investmentAccounts.length > 0) {
-            for (const acct of investmentAccounts) {
-                const acctMov = investmentMovements.filter(m => m.contaId === acct.id);
-                let saldo = acct.saldoInicial;
-                for (const m of acctMov) {
-                    if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') saldo += m.valor;
-                    else saldo -= m.valor;
-                }
-                acct.saldoAtual = Math.round(saldo * 100) / 100;
-            }
-        }
-
-        const totalInvestimentos = investmentAccounts.filter(a => a.ativo).reduce((s, a) => s + a.saldoAtual, 0);
-        const patrimonioTotal = caixaAtual + totalInvestimentos;
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
 
         // Build financial statements using category map
@@ -413,7 +381,7 @@ export async function guardianDashboardHandler(
         const dfc = buildDFC(items, caixaAtual, ccSaldoInicial, items, catMap);
         const forecast = buildForecast(items, caixaAtual, catMap);
         const categorized = buildCategorized(items);
-        const insights = buildInsights(items, kpis, caixaAtual, totalInvestimentos, catMap);
+        const insights = buildInsights(items, kpis, caixaAtual, catMap);
         const monthlyHistory = buildMonthlyHistory(items, catMap);
 
         // Weekly breakdown
@@ -482,17 +450,12 @@ export async function guardianDashboardHandler(
                         lucroLiquido: dre.lucroLiquido,
                         fluxoCaixa: dfc.operacional.total,
                         caixaAtual,
-                        patrimonioTotal,
                         faturamentoAtual: kpis.revenue,
                         despesasOperacionais: kpis.opExpenses,
                         saudeFinanceira: kpis.status,
                     },
                     treasury: {
                         caixaAtual, caixaInicial: ccSaldoInicial, dataReferencia: ccDataRef,
-                        investimentos: investmentAccounts.filter(a => a.ativo).map(a => ({
-                            id: a.id, nome: a.nome, tipo: a.tipo, saldoAtual: a.saldoAtual, taxaContratada: a.taxaContratada,
-                        })),
-                        totalInvestimentos, patrimonioTotal,
                     },
                     insights,
                     monthlyHistory,
@@ -542,11 +505,6 @@ export async function guardianDashboardHandler(
                     monthlyHistory,
                 },
 
-                // ---- Investments (shared) ----
-                investments: {
-                    accounts: investmentAccounts,
-                    movements: investmentMovements,
-                },
             },
         };
     } catch (error: unknown) {

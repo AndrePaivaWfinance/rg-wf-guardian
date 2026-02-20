@@ -1,11 +1,10 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getAreaRecords, getInvestmentMovements, getConfig } from '../storage/areaTableClient';
+import { getConfig } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
-import { InvestmentAccount, InvestmentMovement } from '../shared/areas';
 
 const logger = createLogger('GuardianReports');
 
@@ -203,28 +202,6 @@ export async function guardianReportsHandler(
         const automatedCount = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
 
-        // Load investment accounts
-        let investmentAccounts = await getAreaRecords<InvestmentAccount>('investimentos');
-        let investmentMovements = await getInvestmentMovements();
-        if (investmentAccounts.length > 0) {
-            // Recalc balances
-            for (const acct of investmentAccounts) {
-                const acctMov = investmentMovements.filter(m => m.contaId === acct.id);
-                let saldo = acct.saldoInicial;
-                for (const m of acctMov) {
-                    if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') {
-                        saldo += m.valor;
-                    } else {
-                        saldo -= m.valor;
-                    }
-                }
-                acct.saldoAtual = Math.round(saldo * 100) / 100;
-            }
-        }
-
-        const totalInvestimentos = investmentAccounts.filter(a => a.ativo).reduce((s, a) => s + a.saldoAtual, 0);
-        const patrimonioTotal = caixaAtual + totalInvestimentos;
-
         // Load initial balance config
         const ccSaldoInicialStr = await getConfig('CC_SALDO_INICIAL');
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
@@ -269,15 +246,6 @@ export async function guardianReportsHandler(
                 caixaInicial: ccSaldoInicial,
                 dataReferencia: ccDataRef,
                 previsao30Dias: caixaAtual * 1.058,
-                investimentos: investmentAccounts.filter(a => a.ativo).map(a => ({
-                    id: a.id,
-                    nome: a.nome,
-                    tipo: a.tipo,
-                    saldoAtual: a.saldoAtual,
-                    taxaContratada: a.taxaContratada,
-                })),
-                totalInvestimentos,
-                patrimonioTotal,
             },
             dre,
             dfc,
