@@ -32,6 +32,16 @@
             "allowedRoles": ["anonymous", "authenticated"]
         },
         {
+            "route": "/api/guardianAreas/*",
+            "methods": ["GET"],
+            "allowedRoles": ["anonymous", "authenticated"]
+        },
+        {
+            "route": "/api/guardianAreas/*",
+            "methods": ["POST"],
+            "allowedRoles": ["authenticated"]
+        },
+        {
             "route": "/.auth/login/aad",
             "allowedRoles": ["anonymous"]
         },
