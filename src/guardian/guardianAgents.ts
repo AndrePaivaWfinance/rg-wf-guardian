@@ -263,11 +263,15 @@ export class GuardianAgents {
 
     /** Rule-based classifier for Inter bank transactions */
     private classifyByDescription(desc: string, tipo: 'CREDITO' | 'DEBITO'): { classification: string; confidence: number } {
-        // ---- Card payments ----
-        if (desc.includes('FATURA') && desc.includes('INTER'))
-            return { classification: 'Fatura Cartao', confidence: 0.98 };
+        // ---- Transferencias entre contas proprias (nao impacta DRE) ----
+        if (desc.includes('RESGATE') && (desc.includes('CDB') || desc.includes('LCI') || desc.includes('LCA') || desc.includes('POUPANCA')))
+            return { classification: 'Resgate Investimento', confidence: 0.98 };
+        if (desc.includes('APLICACAO') && (desc.includes('CDB') || desc.includes('LCI') || desc.includes('LCA') || desc.includes('POUPANCA')))
+            return { classification: 'Aplicacao Investimento', confidence: 0.98 };
+        if ((desc.includes('FATURA') && desc.includes('INTER')) || (desc.includes('PAGAMENTO FATURA') && desc.includes('INTER')))
+            return { classification: 'Pagamento Fatura Cartao', confidence: 0.98 };
         if (desc.includes('FATURA') && desc.includes('CARTAO'))
-            return { classification: 'Fatura Cartao', confidence: 0.97 };
+            return { classification: 'Pagamento Fatura Cartao', confidence: 0.97 };
 
         // ---- Known vendors (by CNPJ/name patterns) ----
         if (desc.includes('SERASA'))
@@ -332,7 +336,7 @@ export class GuardianAgents {
             'Infraestrutura Cloud': 500.00,
             'Software ERP': 300.00,
             'Marketing Digital': 2000.00,
-            'Fatura Cartao': 3000.00,
+            'Pagamento Fatura Cartao': 3000.00,
             'Servicos Financeiros': 1000.00,
             'Contabilidade': 500.00,
             'Folha de Pagamento': 15000.00,

@@ -140,7 +140,8 @@ export type CategoriaTipo =
     | 'RECEITA_FINANCEIRA'
     | 'CUSTO_VARIAVEL'
     | 'CUSTO_FIXO'
-    | 'DESPESA_FINANCEIRA';
+    | 'DESPESA_FINANCEIRA'
+    | 'TRANSFERENCIA_INTERNA';
 
 /** Grupo contabil dentro do DRE para sub-agrupamento */
 export type CategoriaGrupo =
@@ -166,7 +167,9 @@ export type CategoriaGrupo =
     // Despesas Financeiras
     | 'Juros e Encargos'
     | 'Tarifas Bancarias'
-    | 'Outros';
+    | 'Outros'
+    // Transferencias Internas (nao impacta DRE)
+    | 'Movimentacao Interna';
 
 export interface Categoria {
     id: string;

@@ -429,7 +429,7 @@ export async function guardianDashboardHandler(
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
 
         // ---- Transações Encontradas (pending review) ----
-        const transacoesEncontradas = pendingItems.map(i => ({
+        const mapTx = (i: GuardianAuthorization) => ({
             id: i.id,
             descricao: i.descricao || '',
             classificacao: i.classificacao,
@@ -444,7 +444,14 @@ export async function guardianDashboardHandler(
             dataInclusao: i.dataInclusao || '',
             dataPagamento: i.dataPagamento || '',
             audit: i.audit,
-        }));
+            isTransferenciaInterna: catMap.get(i.classificacao)?.tipo === 'TRANSFERENCIA_INTERNA',
+        });
+        const allPending = pendingItems.map(mapTx);
+        const transacoesEncontradas = allPending.filter(i => !i.isTransferenciaInterna);
+        const movimentacoesInternas = allPending.filter(i => i.isTransferenciaInterna);
+
+        // Approved internal transfers (for totals display)
+        const approvedInternas = items.filter(i => catMap.get(i.classificacao)?.tipo === 'TRANSFERENCIA_INTERNA');
 
         return {
             status: 200,
@@ -496,6 +503,11 @@ export async function guardianDashboardHandler(
                     transacoesEncontradas,
                     totalPendentes: transacoesEncontradas.length,
                     totalPendentesValor: transacoesEncontradas.reduce((s, i) => s + i.valor, 0),
+
+                    // Movimentações internas (transferências entre contas próprias — NÃO impactam DRE)
+                    movimentacoesInternas,
+                    totalMovInternas: movimentacoesInternas.length + approvedInternas.length,
+                    totalMovInternasValor: movimentacoesInternas.reduce((s, i) => s + i.valor, 0) + approvedInternas.reduce((s, i) => s + i.valor, 0),
 
                     weekSummary: {
                         entradas: weekItems.filter(i => {
