@@ -57,24 +57,56 @@ function getInMemoryTable(tableName: string): GuardianAuthorization[] {
     return inMemoryStore.get(tableName)!;
 }
 
+/** Returns only PENDING authorizations (for review) */
 export async function getGuardianAuthorizations(): Promise<GuardianAuthorization[]> {
+    return getAuthorizationsByStatus('pendente');
+}
+
+/** Returns only APPROVED authorizations (for DRE/dashboard calculations) */
+export async function getApprovedAuthorizations(): Promise<GuardianAuthorization[]> {
+    return getAuthorizationsByStatus('aprovado');
+}
+
+/** Returns ALL authorizations regardless of status */
+export async function getAllAuthorizations(): Promise<GuardianAuthorization[]> {
     const client = await getTableClient(TABLES.GUARDIAN_AUTH);
 
     if (!client) {
         const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
-        return table.filter(item => item.status === 'pendente').map(hydrateAuth);
+        return table.map(hydrateAuth);
+    }
+
+    const items: GuardianAuthorization[] = [];
+    try {
+        const entities = client.listEntities();
+        for await (const entity of entities) {
+            items.push(hydrateAuth(entity as unknown as GuardianAuthorization));
+        }
+    } catch (error) {
+        logger.error('Erro ao listar todas as autorizações Guardian', error);
+    }
+    return items;
+}
+
+/** Returns authorizations filtered by status */
+async function getAuthorizationsByStatus(status: string): Promise<GuardianAuthorization[]> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUTH);
+
+    if (!client) {
+        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
+        return table.filter(item => item.status === status).map(hydrateAuth);
     }
 
     const items: GuardianAuthorization[] = [];
     try {
         const entities = client.listEntities({
-            queryOptions: { filter: `status eq 'pendente'` },
+            queryOptions: { filter: `status eq '${status}'` },
         });
         for await (const entity of entities) {
             items.push(hydrateAuth(entity as unknown as GuardianAuthorization));
         }
     } catch (error) {
-        logger.error('Erro ao listar autorizações Guardian', error);
+        logger.error(`Erro ao listar autorizações Guardian (status=${status})`, error);
     }
     return items;
 }
@@ -114,4 +146,32 @@ export async function createGuardianAuth(auth: GuardianAuthorization): Promise<v
         rowKey: auth.id,
         ...storableAuth,
     });
+}
+
+/** Removes ALL entities from the GuardianAuthorizations table */
+export async function clearAllAuthorizations(): Promise<number> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUTH);
+
+    if (!client) {
+        const table = getInMemoryTable(TABLES.GUARDIAN_AUTH);
+        const count = table.length;
+        table.length = 0;
+        logger.info(`[In-Memory] ${count} autorizações removidas`);
+        return count;
+    }
+
+    let count = 0;
+    try {
+        const entities = client.listEntities({
+            queryOptions: { select: ['partitionKey', 'rowKey'] },
+        });
+        for await (const entity of entities) {
+            await client.deleteEntity(entity.partitionKey as string, entity.rowKey as string);
+            count++;
+        }
+        logger.info(`${count} autorizações removidas da tabela Azure`);
+    } catch (error) {
+        logger.error('Erro ao limpar autorizações', error);
+    }
+    return count;
 }

@@ -1,98 +1,111 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getConfig } from '../storage/areaTableClient';
+import { getGuardianAuthorizations, getApprovedAuthorizations } from '../storage/tableClient';
+import { getConfig, getCadastroRecords } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
-import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
+import { Categoria } from '../shared/areas';
 
 const logger = createLogger('GuardianReports');
 
-/** Build DRE (Demonstração do Resultado do Exercício) from items */
-function buildDRE(items: GuardianAuthorization[], kpis: { revenue: number; opExpenses: number; ebitda: number }) {
-    const receita = kpis.revenue;
-    const deducoes = receita * 0.0925; // PIS/COFINS/ISS simulated
-    const receitaLiquida = receita - deducoes;
-    const custos = items
-        .filter(i => i.classificacao?.includes('Infraestrutura') || i.classificacao?.includes('Folha'))
-        .reduce((s, i) => s + i.valor, 0);
-    const lucroBruto = receitaLiquida - custos;
-    const despesasAdmin = items
-        .filter(i => i.classificacao?.startsWith('Despesa'))
-        .reduce((s, i) => s + i.valor, 0);
-    const despesasImob = items
-        .filter(i => i.classificacao?.includes('Imobiliaria'))
-        .reduce((s, i) => s + i.valor, 0);
-    const utilidades = items
-        .filter(i => i.classificacao?.includes('Utilidades'))
-        .reduce((s, i) => s + i.valor, 0);
-    const totalDespOp = despesasAdmin + despesasImob + utilidades;
-    const ebitda = lucroBruto - totalDespOp;
-    const deprecAmort = receita * 0.02;
-    const ebit = ebitda - deprecAmort;
-    const resultadoFinanceiro = receita * 0.01;
-    const lucroAntesIR = ebit - resultadoFinanceiro;
-    const irCSLL = Math.max(lucroAntesIR * 0.34, 0);
-    const lucroLiquido = lucroAntesIR - irCSLL;
+/** Build category-type lookup from active categories */
+function buildCatLookup(categorias: Categoria[]): Map<string, { tipo: string; grupo: string }> {
+    const map = new Map<string, { tipo: string; grupo: string }>();
+    for (const c of categorias) {
+        map.set(c.nome, { tipo: c.tipo, grupo: c.grupo });
+    }
+    return map;
+}
+
+function sumByTipo(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>, tipo: string): number {
+    return items.filter(i => {
+        const cat = catMap.get(i.classificacao);
+        return cat?.tipo === tipo;
+    }).reduce((s, i) => s + i.valor, 0);
+}
+
+function groupByGrupo(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>, tipo: string): Record<string, number> {
+    const groups: Record<string, number> = {};
+    for (const i of items) {
+        const cat = catMap.get(i.classificacao);
+        if (cat?.tipo !== tipo) continue;
+        const grupo = cat.grupo;
+        groups[grupo] = (groups[grupo] || 0) + i.valor;
+    }
+    return groups;
+}
+
+/** Build DRE using category map (same model as dashboard) */
+function buildDRE(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>) {
+    const receitaBruta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+    const deducoes = receitaBruta * 0.0925;
+    const receitaLiquida = receitaBruta - deducoes;
+
+    const varGrupos = groupByGrupo(items, catMap, 'CUSTO_VARIAVEL');
+    const varTotal = Object.values(varGrupos).reduce((s, v) => s + v, 0);
+
+    const margemContribuicao = receitaLiquida - varTotal;
+    const indiceMC = receitaLiquida > 0 ? margemContribuicao / receitaLiquida : 0;
+
+    const fixoGrupos = groupByGrupo(items, catMap, 'CUSTO_FIXO');
+    const fixoTotal = Object.values(fixoGrupos).reduce((s, v) => s + v, 0);
+
+    const resultadoOperacional = margemContribuicao - fixoTotal;
+
+    const receitasFinanceiras = sumByTipo(items, catMap, 'RECEITA_FINANCEIRA');
+    const despFinGrupos = groupByGrupo(items, catMap, 'DESPESA_FINANCEIRA');
+    const despesasFinanceiras = Object.values(despFinGrupos).reduce((s, v) => s + v, 0);
+    const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras;
+
+    const resultadoAntesIR = resultadoOperacional + resultadoFinanceiro;
+    const irCSLL = Math.max(resultadoAntesIR * 0.34, 0);
+    const resultadoLiquido = resultadoAntesIR - irCSLL;
 
     return {
-        receitaBruta: receita,
+        receitaBruta,
         deducoes,
         receitaLiquida,
-        custosServicos: custos,
-        lucroBruto,
-        despesasOperacionais: {
-            administrativas: despesasAdmin,
-            imobiliarias: despesasImob,
-            utilidades,
-            total: totalDespOp,
-        },
-        ebitda,
-        depreciacaoAmortizacao: deprecAmort,
-        ebit,
-        resultadoFinanceiro,
-        lucroAntesIR,
+        variaveis: { grupos: varGrupos, total: varTotal },
+        margemContribuicao,
+        indiceMC,
+        fixos: { grupos: fixoGrupos, total: fixoTotal },
+        resultadoOperacional,
+        resultadoFinanceiro: { receitasFinanceiras, despesasFinanceiras: { grupos: despFinGrupos, total: despesasFinanceiras }, liquido: resultadoFinanceiro },
+        resultadoAntesIR,
         irCSLL,
-        lucroLiquido,
-        margemBruta: receita > 0 ? ((lucroBruto / receita) * 100).toFixed(1) + '%' : '0%',
-        margemLiquida: receita > 0 ? ((lucroLiquido / receita) * 100).toFixed(1) + '%' : '0%',
-        margemEbitda: receita > 0 ? ((ebitda / receita) * 100).toFixed(1) + '%' : '0%',
+        resultadoLiquido,
+        margemBruta: receitaBruta > 0 ? ((margemContribuicao / receitaBruta) * 100).toFixed(1) + '%' : '0%',
+        margemLiquida: receitaBruta > 0 ? ((resultadoLiquido / receitaBruta) * 100).toFixed(1) + '%' : '0%',
+        margemEbitda: receitaBruta > 0 ? ((resultadoOperacional / receitaBruta) * 100).toFixed(1) + '%' : '0%',
+        lucroLiquido: resultadoLiquido,
     };
 }
 
-/** Build DFC (Demonstração de Fluxo de Caixa) */
-function buildDFC(items: GuardianAuthorization[], caixaAtual: number, caixaInicialConfig: number | null) {
-    const recebimentos = items
-        .filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Receita'))
-        .reduce((s, i) => s + i.valor, 0);
-    const pagFornecedores = items
-        .filter(i => i.tipo === 'document')
-        .reduce((s, i) => s + i.valor, 0);
-    const pagDespOp = items
-        .filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Despesa'))
-        .reduce((s, i) => s + i.valor, 0);
-    const caixaOperacional = recebimentos - pagFornecedores - pagDespOp;
-    const investimentos = -(items
-        .filter(i => i.classificacao?.includes('Infraestrutura'))
-        .reduce((s, i) => s + i.valor, 0));
-    const financiamento = 0;
-    const variacaoLiquida = caixaOperacional + investimentos + financiamento;
-    // Use configured initial balance if available, otherwise back-calculate
+/** Build DFC */
+function buildDFC(items: GuardianAuthorization[], caixaAtual: number, caixaInicialConfig: number | null, catMap: Map<string, { tipo: string; grupo: string }>) {
+    const recebimentos = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+    const pagVar = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+    const pagFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
+    const caixaOperacional = recebimentos - pagVar - pagFixo;
+
+    const recFinanceiras = sumByTipo(items, catMap, 'RECEITA_FINANCEIRA');
+    const despFinanceiras = sumByTipo(items, catMap, 'DESPESA_FINANCEIRA');
+    const caixaFinanceiro = recFinanceiras - despFinanceiras;
+
+    const variacaoLiquida = caixaOperacional + caixaFinanceiro;
     const caixaInicial = caixaInicialConfig ?? (caixaAtual - variacaoLiquida);
 
     return {
         operacional: {
             recebimentosClientes: recebimentos,
-            pagamentosFornecedores: -pagFornecedores,
-            pagamentosDespesas: -pagDespOp,
+            custosVariaveis: -pagVar,
+            custosFixos: -pagFixo,
             total: caixaOperacional,
         },
-        investimento: {
-            aquisicaoAtivos: investimentos,
-            total: investimentos,
-        },
-        financiamento: {
-            total: financiamento,
+        financeiro: {
+            receitasFinanceiras: recFinanceiras,
+            despesasFinanceiras: -despFinanceiras,
+            total: caixaFinanceiro,
         },
         variacaoLiquida,
         caixaInicial,
@@ -100,29 +113,12 @@ function buildDFC(items: GuardianAuthorization[], caixaAtual: number, caixaInici
     };
 }
 
-/** Generate 6-month forecast based on current trends */
-function buildForecast(items: GuardianAuthorization[], caixaAtual: number) {
-    const receita = items
-        .filter(i => i.classificacao?.startsWith('Receita'))
-        .reduce((s, i) => s + i.valor, 0);
-    const despesas = items
-        .filter(i => !i.classificacao?.startsWith('Receita') && i.tipo === 'transaction')
-        .reduce((s, i) => s + i.valor, 0);
-    const docCosts = items
-        .filter(i => i.tipo === 'document')
-        .reduce((s, i) => s + i.valor, 0);
-
-    const monthlyNet = receita - despesas - docCosts;
-    const growthRate = 0.03; // 3% monthly growth projection
-    const months: Array<{
-        month: string;
-        receita: number;
-        despesas: number;
-        lucroLiquido: number;
-        fluxoCaixa: number;
-        caixaAcumulado: number;
-    }> = [];
-
+/** Generate 6-month forecast */
+function buildForecast(items: GuardianAuthorization[], caixaAtual: number, catMap: Map<string, { tipo: string; grupo: string }>) {
+    const receita = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+    const despesas = sumByTipo(items, catMap, 'CUSTO_VARIAVEL') + sumByTipo(items, catMap, 'CUSTO_FIXO');
+    const growthRate = 0.03;
+    const months: Array<{ month: string; receita: number; despesas: number; lucroLiquido: number; caixaAcumulado: number }> = [];
     const now = new Date();
     let caixa = caixaAtual;
 
@@ -131,30 +127,31 @@ function buildForecast(items: GuardianAuthorization[], caixaAtual: number) {
         const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const factor = Math.pow(1 + growthRate, i);
         const mReceita = receita * factor;
-        const mDespesas = (despesas + docCosts) * (1 + (growthRate * 0.5 * i)); // despesas crescem metade
+        const mDespesas = despesas * (1 + (growthRate * 0.5 * i));
         const mLucro = mReceita - mDespesas;
         caixa += mLucro;
-
         months.push({
             month: label,
             receita: Math.round(mReceita * 100) / 100,
             despesas: Math.round(mDespesas * 100) / 100,
             lucroLiquido: Math.round(mLucro * 100) / 100,
-            fluxoCaixa: Math.round(mLucro * 100) / 100,
             caixaAcumulado: Math.round(caixa * 100) / 100,
         });
     }
-
     return months;
 }
 
 /** Group transactions by category */
 function buildCategorized(items: GuardianAuthorization[]) {
-    const groups: Record<string, { items: Array<{ id: string; valor: number; tipo: string; origem?: string }>; total: number; count: number }> = {};
+    const groups: Record<string, { items: Array<{ id: string; valor: number; tipo: string; descricao: string; data: string; origem?: string }>; total: number; count: number }> = {};
     for (const item of items) {
         const cat = item.classificacao || 'Outros';
         if (!groups[cat]) groups[cat] = { items: [], total: 0, count: 0 };
-        groups[cat].items.push({ id: item.id, valor: item.valor, tipo: item.tipo, origem: item.origem });
+        groups[cat].items.push({
+            id: item.id, valor: item.valor, tipo: item.tipo,
+            descricao: item.descricao || '', data: item.data || '',
+            origem: item.origem,
+        });
         groups[cat].total += item.valor;
         groups[cat].count++;
     }
@@ -170,66 +167,104 @@ export async function guardianReportsHandler(
     context.log('Gerando Relatório Consolidado (Controladoria)...');
 
     try {
-        const items = await getGuardianAuthorizations();
-        const agents = new GuardianAgents();
+        // Fetch approved (for DRE) and pending (for review section) in parallel
+        const [approvedItems, pendingItems, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
+            getApprovedAuthorizations(),
+            getGuardianAuthorizations(),
+            getConfig('CC_SALDO_INICIAL'),
+            getConfig('CC_DATA_REFERENCIA'),
+            getCadastroRecords<Categoria>('categorias'),
+        ]);
+
         const inter = new InterConnector();
+        const catMap = buildCatLookup(categorias);
 
-        const analysisItems: AnalysisResult[] = items.map(i => ({
-            id: i.id,
-            type: i.tipo,
-            classification: i.classificacao,
-            confidence: i.confianca,
-            value: i.valor,
-            needsReview: i.needsReview ?? false,
-            suggestedAction: i.sugestao,
-            audit: i.audit,
-        }));
+        // Only approved items for financial calculations
+        const items = approvedItems;
 
-        const kpis = await agents.calculateKPIs(analysisItems);
+        // KPIs from approved items
+        const receitaDireta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+        const custoVariavel = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+        const custoFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
+        const kpis = {
+            revenue: receitaDireta,
+            opExpenses: custoVariavel + custoFixo,
+            ebitda: receitaDireta - custoVariavel - custoFixo,
+        };
 
-        // Try live balance; fall back to computed balance from persisted items
+        // Try live balance
         let caixaAtual: number;
         try {
             const balance = await inter.getBalance();
             caixaAtual = balance.total;
-        } catch (err: unknown) {
+        } catch {
             logger.warn('Inter API indisponível — calculando saldo a partir dos dados persistidos');
-            const receitas = items.filter(i => i.tipo === 'transaction' && i.valor > 0 && i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0);
-            const despesas = items.filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Despesa')).reduce((s, i) => s + i.valor, 0);
+            const receitas = sumByTipo(items, catMap, 'RECEITA_DIRETA') + sumByTipo(items, catMap, 'RECEITA_FINANCEIRA');
+            const despesas = custoVariavel + custoFixo + sumByTipo(items, catMap, 'DESPESA_FINANCEIRA');
             caixaAtual = receitas - despesas;
         }
 
-        const automatedCount = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
+        const automatedCount = items.filter(i => !i.needsReview).length;
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
 
-        // Load initial balance config
-        const ccSaldoInicialStr = await getConfig('CC_SALDO_INICIAL');
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
-        const ccDataRef = await getConfig('CC_DATA_REFERENCIA');
 
         // Build financial statements
-        const dre = buildDRE(items, kpis);
-        const dfc = buildDFC(items, caixaAtual, ccSaldoInicial);
-        const forecast = buildForecast(items, caixaAtual);
+        const dre = buildDRE(items, catMap);
+        const dfc = buildDFC(items, caixaAtual, ccSaldoInicial, catMap);
+        const forecast = buildForecast(items, caixaAtual, catMap);
         const categorized = buildCategorized(items);
 
-        // Separate transactions
+        // Separate approved entries/exits
+        const isReceita = (i: GuardianAuthorization) => {
+            const cat = catMap.get(i.classificacao);
+            return cat?.tipo === 'RECEITA_DIRETA' || cat?.tipo === 'RECEITA_FINANCEIRA';
+        };
         const entradas = items
-            .filter(i => i.classificacao?.startsWith('Receita'))
-            .map(i => ({ id: i.id, classificacao: i.classificacao, valor: i.valor, confianca: i.confianca, tipo: i.tipo, origem: i.origem }));
+            .filter(i => isReceita(i))
+            .map(i => ({
+                id: i.id, classificacao: i.classificacao, valor: i.valor, confianca: i.confianca,
+                tipo: i.tipo, origem: i.origem, descricao: i.descricao || '', data: i.data || '',
+                dataCompetencia: i.dataCompetencia || '', dataPagamento: i.dataPagamento || '',
+            }));
         const saidas = items
-            .filter(i => !i.classificacao?.startsWith('Receita'))
-            .map(i => ({ id: i.id, classificacao: i.classificacao, valor: i.valor, confianca: i.confianca, tipo: i.tipo, origem: i.origem, audit: i.audit }));
+            .filter(i => !isReceita(i))
+            .map(i => ({
+                id: i.id, classificacao: i.classificacao, valor: i.valor, confianca: i.confianca,
+                tipo: i.tipo, origem: i.origem, descricao: i.descricao || '', data: i.data || '',
+                dataCompetencia: i.dataCompetencia || '', dataPagamento: i.dataPagamento || '',
+                audit: i.audit,
+            }));
+
+        // ---- Transações Encontradas (pending review) ----
+        const transacoesEncontradas = pendingItems.map(i => ({
+            id: i.id,
+            descricao: i.descricao || '',
+            classificacao: i.classificacao,
+            valor: i.valor,
+            confianca: i.confianca,
+            sugestaoIA: i.sugestaoIA || '',
+            sugestao: i.sugestao,
+            origem: i.origem || '',
+            data: i.data || '',
+            dataCompetencia: i.dataCompetencia || '',
+            dataVencimento: i.dataVencimento || '',
+            dataInclusao: i.dataInclusao || '',
+            dataPagamento: i.dataPagamento || '',
+            audit: i.audit,
+        }));
 
         const report = {
             generatedAt: nowISO(),
-            title: 'Strategic Sovereign Report - Wfinance',
+            title: 'Relatório Estratégico Sovereign - Wfinance',
             summary: {
                 totalAnalizado: kpis.revenue,
                 alertasControladoria: items.filter(i => i.audit?.alert === 'critical').length,
                 taxaAutomacao: automationRate,
                 totalEntradas: entradas.reduce((s, i) => s + i.valor, 0),
                 totalSaidas: saidas.reduce((s, i) => s + i.valor, 0),
+                transacoesPendentes: transacoesEncontradas.length,
+                valorPendente: transacoesEncontradas.reduce((s, i) => s + i.valor, 0),
             },
             indicators: {
                 ebitda: kpis.ebitda,
@@ -237,15 +272,14 @@ export async function guardianReportsHandler(
                 margemBruta: dre.margemBruta,
                 margemEbitda: dre.margemEbitda,
                 lucroLiquido: dre.lucroLiquido,
-                indiceEficiencia: kpis.efficiency,
-                saudeFinanceira: kpis.status,
+                saudeFinanceira: kpis.ebitda >= 0 ? 'Healthy' : 'Critical',
                 fluxoCaixa: dfc.operacional.total,
             },
             treasury: {
                 caixaAtual,
                 caixaInicial: ccSaldoInicial,
                 dataReferencia: ccDataRef,
-                previsao30Dias: caixaAtual * 1.058,
+                previsao30Dias: caixaAtual + (kpis.ebitda > 0 ? kpis.ebitda : 0),
             },
             dre,
             dfc,
@@ -253,6 +287,9 @@ export async function guardianReportsHandler(
             categorized,
             entradas,
             saidas,
+
+            // ---- SEÇÃO: Transações Encontradas ----
+            transacoesEncontradas,
         };
 
         return {

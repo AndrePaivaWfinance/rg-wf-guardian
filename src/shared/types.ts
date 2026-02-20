@@ -28,6 +28,16 @@ export interface GuardianAuthorization {
     origem?: string;
     descricao?: string;
     data?: string;
+
+    // Datas financeiras
+    dataCompetencia?: string;  // Mês/período contábil (YYYY-MM-DD)
+    dataVencimento?: string;   // Data de vencimento (YYYY-MM-DD)
+    dataInclusao?: string;     // Data em que foi descoberta/importada (YYYY-MM-DD)
+    dataPagamento?: string;    // Data efetiva do pagamento (YYYY-MM-DD)
+
+    // Sugestão da IA para revisão
+    sugestaoIA?: string;       // Texto explicativo da classificação sugerida pela IA
+
     /** Stored as JSON string in Table Storage, parsed back on read */
     auditJson?: string;
     /** Transient — populated after parsing auditJson */
@@ -64,6 +74,9 @@ export function toGuardianAuth(
     descricao?: string,
     data?: string
 ): GuardianAuthorization {
+    const dataTransacao = data || criadoEm.split('T')[0];
+    const hoje = criadoEm.split('T')[0];
+
     return {
         id: res.id,
         tipo: res.type,
@@ -76,9 +89,23 @@ export function toGuardianAuth(
         sugestao: res.suggestedAction,
         origem: origem || '',
         descricao: descricao || '',
-        data: data || criadoEm.split('T')[0],
+        data: dataTransacao,
+
+        // Datas financeiras
+        dataCompetencia: dataTransacao.substring(0, 7) + '-01', // primeiro dia do mês da transação
+        dataVencimento: dataTransacao,                           // mesma data da transação (ajustável pelo usuário)
+        dataInclusao: hoje,                                      // data em que o sync descobriu
+        dataPagamento: dataTransacao,                            // data efetiva (para extrato bancário já é a data do pagamento)
+
+        // Sugestão IA
+        sugestaoIA: `Classificado como "${res.classification}" com ${(res.confidence * 100).toFixed(0)}% de confiança. ${
+            res.suggestedAction === 'approve' ? 'Recomendação: aprovar automaticamente.' :
+            res.suggestedAction === 'investigate' ? 'Recomendação: revisar antes de aprovar.' :
+            'Recomendação: arquivar (conciliado com documento).'
+        }`,
+
         auditJson: res.audit ? JSON.stringify(res.audit) : undefined,
-        needsReview: res.needsReview,
+        needsReview: true, // Todas as transações precisam de aprovação do usuário
     };
 }
 
