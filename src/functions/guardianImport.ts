@@ -58,6 +58,6 @@ export async function guardianImportHandler(
 
 app.http('guardianImport', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianImportHandler,
 });

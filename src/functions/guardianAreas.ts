@@ -414,6 +414,6 @@ app.http('guardianAreasGet', {
 app.http('guardianAreasPost', {
     methods: ['POST'],
     route: 'guardianAreas/{area}',
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianAreasPostHandler,
 });

@@ -73,6 +73,6 @@ export async function guardianUploadHandler(
 
 app.http('guardianUpload', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianUploadHandler,
 });

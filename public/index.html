@@ -833,7 +833,7 @@
 <div id="toasts" class="toast-c"></div>
 
 <script>
-const API=window.__GUARDIAN_API_BASE__||'https://func-guardian-sovereign.azurewebsites.net';
+const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'?'http://localhost:7071':'https://func-guardian-sovereign.azurewebsites.net');
 const KEY=window.__GUARDIAN_API_KEY__||'';
 let forecastChart=null;
 let useMock=false;
