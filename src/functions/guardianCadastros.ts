@@ -89,7 +89,7 @@ const DEFAULT_CATEGORIAS: Omit<Categoria, 'id' | 'criadoEm'>[] = [
     { nome: 'Transferencia Entre Contas',   tipo: 'TRANSFERENCIA_INTERNA', grupo: 'Movimentacao Interna',      orcamentoMensal: 0,    ativa: true },
 ];
 
-async function seedCategoriasIfEmpty(): Promise<Categoria[]> {
+export async function seedCategoriasIfEmpty(): Promise<Categoria[]> {
     let categorias = await getCadastroRecords<Categoria>('categorias');
     if (categorias.length === 0) {
         logger.info('Seeding categorias padrao...');
@@ -103,6 +103,24 @@ async function seedCategoriasIfEmpty(): Promise<Categoria[]> {
             await createCadastroRecord('categorias', cat);
         }
         categorias = await getCadastroRecords<Categoria>('categorias');
+    } else {
+        // Ensure new default categories are added if missing
+        const existingNames = new Set(categorias.map(c => c.nome));
+        const missing = DEFAULT_CATEGORIAS.filter(d => !existingNames.has(d.nome));
+        if (missing.length > 0) {
+            logger.info(`Adicionando ${missing.length} categorias novas...`);
+            const now = nowISO();
+            const nextId = categorias.length + 1;
+            for (let i = 0; i < missing.length; i++) {
+                const cat: Categoria = {
+                    id: `CAT_${String(nextId + i).padStart(3, '0')}`,
+                    ...missing[i],
+                    criadoEm: now,
+                };
+                await createCadastroRecord('categorias', cat);
+            }
+            categorias = await getCadastroRecords<Categoria>('categorias');
+        }
     }
     return categorias;
 }
