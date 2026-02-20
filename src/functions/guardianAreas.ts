@@ -273,17 +273,32 @@ export async function guardianAreasGetHandler(
 
         if (area === 'operacoes') {
             let projects = await getAreaRecords<OperacoesProject>(area);
-            if (projects.length === 0) projects = getMockOperacoes();
+            if (projects.length === 0) {
+                context.log('Operacoes: storage vazio, executando seed inicial...');
+                projects = getMockOperacoes();
+                await Promise.all(projects.map(p => createAreaRecord(area, p)));
+                context.log(`Operacoes: seed concluido — ${projects.length} projetos persistidos.`);
+            }
             const data: OperacoesData = { projects, kpis: calcOperacoesKPIs(projects) };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'marketing') {
             let campaigns = await getAreaRecords<MarketingCampaign>(area);
-            if (campaigns.length === 0) campaigns = getMockMarketing();
+            if (campaigns.length === 0) {
+                context.log('Marketing: storage vazio, executando seed inicial...');
+                campaigns = getMockMarketing();
+                await Promise.all(campaigns.map(c => createAreaRecord(area, c)));
+                context.log(`Marketing: seed concluido — ${campaigns.length} campanhas persistidas.`);
+            }
             const data: MarketingData = { campaigns, kpis: calcMarketingKPIs(campaigns) };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'comercial') {
             let deals = await getAreaRecords<ComercialDeal>(area);
-            if (deals.length === 0) deals = getMockComercial();
+            if (deals.length === 0) {
+                context.log('Comercial: storage vazio, executando seed inicial...');
+                deals = getMockComercial();
+                await Promise.all(deals.map(d => createAreaRecord(area, d)));
+                context.log(`Comercial: seed concluido — ${deals.length} deals persistidos.`);
+            }
             const data: ComercialData = { deals, kpis: calcComercialKPIs(deals) };
             response = { area, generatedAt: nowISO(), data };
         } else {
@@ -291,8 +306,13 @@ export async function guardianAreasGetHandler(
             let accounts = await getAreaRecords<InvestmentAccount>(area);
             let movements = await getInvestmentMovements();
             if (accounts.length === 0) {
+                // Seed: persist mock data to storage so the cycle is complete
+                context.log('Investimentos: storage vazio, executando seed inicial...');
                 accounts = getMockInvestmentAccounts();
                 movements = getMockInvestmentMovements();
+                await Promise.all(accounts.map(a => createAreaRecord(area, a)));
+                await Promise.all(movements.map(m => createInvestmentMovement(m)));
+                context.log(`Investimentos: seed concluido — ${accounts.length} contas, ${movements.length} movimentos persistidos.`);
             }
             // Recalculate balances from movements
             for (const acct of accounts) {
