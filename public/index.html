@@ -836,123 +836,11 @@
 const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'?'http://localhost:7071':'https://func-guardian-sovereign.azurewebsites.net');
 const KEY=window.__GUARDIAN_API_KEY__||'';
 let forecastChart=null;
-let useMock=false;
 
 function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
 function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
 function navTo(id){const el=document.getElementById(id);if(el){el.scrollIntoView({behavior:'smooth',block:'start'})}}
-
-// ---- Mock Data ----
-function getMockReport(){
-    const months=['Jan','Fev','Mar','Abr','Mai','Jun'];
-    return {
-        success:true,
-        report:{
-            indicators:{
-                ebitda:187450.00,
-                lucroLiquido:124380.50,
-                margemLiquida:'18.7%',
-                margemBruta:'42.3%',
-                fluxoCaixa:156720.00
-            },
-            treasury:{
-                caixaAtual:892340.75,
-                caixaInicial:768320.75,
-                dataReferencia:'2026-01-01',
-                previsao30Dias:945000.00,
-                investimentos:[
-                    {id:'INV_001',nome:'CDB DI Liquidez Diaria',tipo:'CDB',saldoAtual:518365.58,taxaContratada:'100% CDI'},
-                    {id:'INV_002',nome:'CDB IPCA+ Venc. 2027',tipo:'CDB',saldoAtual:362770.83,taxaContratada:'IPCA + 6.5% a.a.'}
-                ],
-                totalInvestimentos:881136.41,
-                patrimonioTotal:1773477.16
-            },
-            dre:{
-                receitaBruta:665000.00,
-                deducoes:59850.00,
-                receitaLiquida:605150.00,
-                custosServicos:349173.50,
-                lucroBruto:255976.50,
-                despesasOperacionais:{
-                    administrativas:38500.00,
-                    imobiliarias:12800.00,
-                    utilidades:17226.50
-                },
-                ebitda:187450.00,
-                depreciacaoAmortizacao:8500.00,
-                ebit:178950.00,
-                resultadoFinanceiro:12400.00,
-                lucroAntesIR:166550.00,
-                irCSLL:42169.50,
-                lucroLiquido:124380.50,
-                margemBruta:'42.3%',
-                margemEbitda:'28.2%',
-                margemLiquida:'18.7%'
-            },
-            dfc:{
-                operacional:{
-                    recebimentosClientes:598500.00,
-                    pagamentosFornecedores:-285300.00,
-                    pagamentosDespesas:-156480.00,
-                    total:156720.00
-                },
-                investimento:{
-                    aquisicaoAtivos:-24500.00
-                },
-                financiamento:{
-                    total:-8200.00
-                },
-                variacaoLiquida:124020.00,
-                caixaInicial:768320.75,
-                caixaFinal:892340.75
-            },
-            forecast:months.map((m,i)=>{
-                const rec=580000+Math.round(Math.random()*120000);
-                const desp=380000+Math.round(Math.random()*80000);
-                return{month:m+'/26',receita:rec,despesas:desp,lucroLiquido:rec-desp,fluxoCaixa:rec-desp,caixaAcumulado:892340+((i+1)*85000)+Math.round(Math.random()*40000)}
-            }),
-            entradas:[
-                {classificacao:'Receita de Consultoria',tipo:'PIX',valor:85000.00,confianca:0.97,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Receita Gestao Patrimonial',tipo:'TED',valor:62500.00,confianca:0.95,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Receita Planej. Tributario',tipo:'PIX',valor:47800.00,confianca:0.93,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Receita Assessoria M&A',tipo:'TED',valor:125000.00,confianca:0.98,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Receita Due Diligence',tipo:'BOLETO',valor:38200.00,confianca:0.91,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Receita Holding Familiar',tipo:'PIX',valor:54300.00,confianca:0.94,audit:{alert:null,withinBudget:true}}
-            ],
-            saidas:[
-                {classificacao:'Folha de Pagamento',tipo:'DEBITO',valor:98500.00,confianca:0.99,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Aluguel Escritorio',tipo:'BOLETO',valor:12800.00,confianca:0.98,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Software & Licencas',tipo:'DEBITO',valor:8750.00,confianca:0.96,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Marketing Digital',tipo:'PIX',valor:15400.00,confianca:0.88,audit:{alert:'critical',withinBudget:false}},
-                {classificacao:'Honorarios Contabeis',tipo:'BOLETO',valor:6200.00,confianca:0.97,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Energia + Telecom',tipo:'DEBITO',valor:4850.00,confianca:0.95,audit:{alert:null,withinBudget:true}},
-                {classificacao:'Material de Escritorio',tipo:'PIX',valor:2340.00,confianca:0.92,audit:{alert:null,withinBudget:true}}
-            ],
-            categorized:[
-                {category:'Folha & Beneficios',total:98500,count:12},
-                {category:'Consultoria & Assessoria',total:85000,count:8},
-                {category:'Gestao Patrimonial',total:62500,count:5},
-                {category:'Marketing & Comercial',total:15400,count:7},
-                {category:'Infraestrutura',total:12800,count:3},
-                {category:'Tecnologia',total:8750,count:4},
-                {category:'Administrativo',total:6200,count:6}
-            ]
-        }
-    };
-}
-
-function getMockInbox(){
-    return {
-        items:[
-            {classificacao:'Receita Consultoria - Empresa ABC',tipo:'transaction',valor:45000.00,confianca:0.96,audit:{alert:null,withinBudget:true},needsReview:false,origem:'sync'},
-            {classificacao:'Pagamento Fornecedor - TechCorp',tipo:'transaction',valor:18500.00,confianca:0.72,audit:{alert:null,withinBudget:true},needsReview:true,origem:'sync'},
-            {classificacao:'Nota Fiscal #4521',tipo:'document',valor:32000.00,confianca:0.89,audit:{alert:null,withinBudget:true},needsReview:false,origem:'upload'},
-            {classificacao:'Marketing - Campanha Q1',tipo:'transaction',valor:22000.00,confianca:0.85,audit:{alert:'critical',withinBudget:false},needsReview:true,origem:'sync'},
-            {classificacao:'Receita Due Diligence - XYZ',tipo:'transaction',valor:67000.00,confianca:0.94,audit:{alert:null,withinBudget:true},needsReview:false,origem:'sync'}
-        ]
-    };
-}
 
 // Sidebar click delegation
 document.querySelector('.sidebar').addEventListener('click',function(e){
@@ -972,21 +860,16 @@ function openImportModal(){document.getElementById('import-modal').classList.add
 function closeModal(){document.getElementById('import-modal').classList.remove('open')}
 
 // ---- CC Config ----
-let localConfig={CC_SALDO_INICIAL:'768320.75',CC_DATA_REFERENCIA:'2026-01-01'};
+let localConfig={CC_SALDO_INICIAL:'',CC_DATA_REFERENCIA:''};
 
 function openCCConfigModal(){
-    // Load current config
-    if(useMock){
+    fetch(api('/api/guardianConfig'),{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).then(d=>{
+        const cfg=d.config||{};
+        Object.assign(localConfig,cfg);
+        loadCCConfigForm(cfg);
+    }).catch(()=>{
         loadCCConfigForm(localConfig);
-    }else{
-        fetch(api('/api/guardianConfig'),{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).then(d=>{
-            const cfg=d.config||{};
-            Object.assign(localConfig,cfg);
-            loadCCConfigForm(cfg);
-        }).catch(()=>{
-            loadCCConfigForm(localConfig);
-        });
-    }
+    });
     document.getElementById('cc-config-modal').classList.add('open');
 }
 
@@ -1005,15 +888,13 @@ async function submitCCConfig(){
     if(!data){toast('Informe a data de referencia.','err');return}
     localConfig.CC_SALDO_INICIAL=saldo;
     localConfig.CC_DATA_REFERENCIA=data;
-    if(!useMock){
-        try{
-            const r=await fetch(api('/api/guardianConfig'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({CC_SALDO_INICIAL:saldo,CC_DATA_REFERENCIA:data})});
-            if(!r.ok)throw new Error('Status '+r.status);
-        }catch(e){toast('Aviso: salvo localmente mas nao no servidor — '+e.message,'err')}
-    }
+    try{
+        const r=await fetch(api('/api/guardianConfig'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({CC_SALDO_INICIAL:saldo,CC_DATA_REFERENCIA:data})});
+        if(!r.ok)throw new Error('Status '+r.status);
+    }catch(e){toast('Aviso: erro ao salvar no servidor — '+e.message,'err')}
     toast('Saldo inicial configurado: R$ '+parseFloat(saldo).toLocaleString('pt-BR',{minimumFractionDigits:2})+' ref. '+data,'ok');
     closeCCConfigModal();
-    loadReport();
+    loadDashboard();
 }
 
 // ---- Investment Management ----
@@ -1054,7 +935,7 @@ async function submitNewAccount(){
         toast('Conta "'+nome+'" cadastrada com sucesso!','ok');
         closeAccountModal();
         document.getElementById('acct-nome').value='';document.getElementById('acct-saldo').value='';document.getElementById('acct-taxa').value='';
-        loadInvestments();loadReport();
+        loadDashboard();
     }catch(e){toast('Erro ao cadastrar conta: '+e.message,'err')}
 }
 
@@ -1075,7 +956,7 @@ async function submitNewMovement(){
         toast('Movimento registrado com sucesso!','ok');
         closeMovementModal();
         document.getElementById('mov-valor').value='';document.getElementById('mov-descricao').value='';
-        loadInvestments();loadReport();
+        loadDashboard();
     }catch(e){toast('Erro ao registrar movimento: '+e.message,'err')}
 }
 
@@ -1099,40 +980,9 @@ function renderMovements(movements,accounts){
         '</tbody></table>';
 }
 
-async function loadInvestments(){
-    try{
-        let d;
-        if(useMock){
-            // Use mock data inline
-            d={success:true,data:{
-                accounts:[
-                    {id:'INV_001',nome:'CDB DI Liquidez Diaria',tipo:'CDB',banco:'Inter',saldoInicial:500000,saldoAtual:518365.58,dataAbertura:'2025-06-01',taxaContratada:'100% CDI',ativo:true},
-                    {id:'INV_002',nome:'CDB IPCA+ Venc. 2027',tipo:'CDB',banco:'Inter',saldoInicial:350000,saldoAtual:362770.83,dataAbertura:'2025-03-15',taxaContratada:'IPCA + 6.5% a.a.',ativo:true}
-                ],
-                movements:[
-                    {id:'m1',contaId:'INV_001',data:'2026-02-02',tipo:'JUROS',valor:4875.00,descricao:'Rendimento CDI mensal - Fev/26'},
-                    {id:'m2',contaId:'INV_001',data:'2026-01-10',tipo:'TRANSFERENCIA_DA_CC',valor:30000.00,descricao:'Aporte adicional da conta corrente'},
-                    {id:'m3',contaId:'INV_001',data:'2026-01-02',tipo:'JUROS',valor:4833.33,descricao:'Rendimento CDI mensal - Jan/26'},
-                    {id:'m4',contaId:'INV_001',data:'2025-12-15',tipo:'TRANSFERENCIA_PARA_CC',valor:50000.00,descricao:'Resgate parcial para folha de pagamento'},
-                    {id:'m5',contaId:'INV_001',data:'2025-11-30',tipo:'IMPOSTO_IR',valor:3468.75,descricao:'IR retido come-cotas semestral (15%)'},
-                    {id:'m6',contaId:'INV_002',data:'2026-02-02',tipo:'JUROS',valor:3625.00,descricao:'Rendimento IPCA+ mensal - Fev/26'},
-                    {id:'m7',contaId:'INV_002',data:'2026-01-20',tipo:'TRANSFERENCIA_PARA_CC',valor:25000.00,descricao:'Resgate parcial para pagamento fornecedor'},
-                    {id:'m8',contaId:'INV_002',data:'2026-01-02',tipo:'JUROS',valor:3583.33,descricao:'Rendimento IPCA+ mensal - Jan/26'},
-                    {id:'m9',contaId:'INV_002',data:'2025-11-30',tipo:'IMPOSTO_IR',valor:2812.50,descricao:'IR retido come-cotas semestral (15%)'},
-                    {id:'m10',contaId:'INV_002',data:'2025-12-01',tipo:'JUROS',valor:3541.67,descricao:'Rendimento IPCA+ mensal - Dez/25'}
-                ]
-            }};
-        }else{
-            const r=await fetch(api('/api/guardianAreas/investimentos'),{signal:AbortSignal.timeout(5000)});
-            if(!r.ok)throw new Error('Status '+r.status);
-            d=await r.json();
-        }
-        investmentData=d.data||{accounts:[],movements:[]};
-        renderMovements(investmentData.movements,investmentData.accounts);
-    }catch(e){
-        console.warn('Investimentos:',e);
-        document.getElementById('inv-movements-body').innerHTML='<div class="empty-state" style="color:var(--t3)">Dados de investimento indisponiveis.</div>';
-    }
+function renderInvestmentsFromCache(data){
+    investmentData=data||{accounts:[],movements:[]};
+    renderMovements(investmentData.movements,investmentData.accounts);
 }
 
 // Auth
@@ -1162,10 +1012,8 @@ async function runSync(){
         if(!r.ok)throw new Error('Status '+r.status);
         const d=await r.json();
         if(d.success){
-            useMock=false;
-            const demoBanner=document.getElementById('demo-banner');if(demoBanner)demoBanner.remove();
             toast(d.summary.transactions+' transacoes e '+d.summary.documents+' documentos sincronizados.','ok');
-            loadAll();
+            loadDashboard();
         }
     }catch(e){toast('Erro ao sincronizar: '+e.message,'err')}
     finally{btn.disabled=false;btn.innerHTML='<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Sincronizar';lucide.createIcons()}
@@ -1319,26 +1167,30 @@ function renderPatrimonio(treasury){
     lucide.createIcons();
 }
 
-// ---- Data Loading ----
-async function loadInbox(){
-    const el=document.getElementById('inbox');
+// ---- Data Loading (Single BFF call) ----
+async function loadDashboard(){
     try{
-        let d;
-        if(useMock){d=getMockInbox()}
-        else{const r=await fetch(api('/api/guardianStatus'),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('Status '+r.status);d=await r.json()}
-        const items=d.items||[];
-        // Inbox badge
+        const r=await fetch(api('/api/guardianDashboard'),{signal:AbortSignal.timeout(15000)});
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        if(!d.success)throw new Error(d.error||'Erro ao carregar dashboard');
+
+        // ---- Inbox ----
+        const el=document.getElementById('inbox');
+        const items=d.inbox||[];
         const badge=document.getElementById('inbox-badge');
         if(items.length>0){badge.style.display='';badge.textContent=items.length}else{badge.style.display='none'}
-        if(!items.length){el.innerHTML='<div class="empty-state">Nenhum item pendente de decisao.</div>';return}
-        el.innerHTML=items.map(i=>{
-            const cls=esc(String(i.classificacao||''));const val=typeof i.valor==='number'?brl(i.valor):'--';
-            const isCredit=i.classificacao&&i.classificacao.includes('Receita');const isDoc=i.tipo==='document';
-            const dotCls=isDoc?'doc':(isCredit?'in':'out');
-            const over=i.audit&&i.audit.alert==='critical';const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
-            let tag='';if(over)tag='<span class="tag tag-alert">OVER BUDGET</span>';else if(i.needsReview)tag='<span class="tag tag-review">REVISAR</span>';else if(conf>=90)tag='<span class="tag tag-auto">AUTO</span>';
-            return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo||'')+'</span>'+(i.origem==='upload'?'<span>upload</span>':'')+tag+'</div></div></div><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+val+'</div><div class="tx-conf">'+conf+'%</div></div></div>'
-        }).join('');
+        if(!items.length){el.innerHTML='<div class="empty-state">Nenhum item pendente de decisao.</div>'}
+        else{
+            el.innerHTML=items.map(i=>{
+                const cls=esc(String(i.classificacao||''));const val=typeof i.valor==='number'?brl(i.valor):'--';
+                const isCredit=i.classificacao&&i.classificacao.includes('Receita');const isDoc=i.tipo==='document';
+                const dotCls=isDoc?'doc':(isCredit?'in':'out');
+                const over=i.audit&&i.audit.alert==='critical';const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+                let tag='';if(over)tag='<span class="tag tag-alert">OVER BUDGET</span>';else if(i.needsReview)tag='<span class="tag tag-review">REVISAR</span>';else if(conf>=90)tag='<span class="tag tag-auto">AUTO</span>';
+                return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+esc(i.tipo||'')+'</span>'+(i.origem==='upload'?'<span>upload</span>':'')+tag+'</div></div></div><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+val+'</div><div class="tx-conf">'+conf+'%</div></div></div>'
+            }).join('');
+        }
         // Auto rate
         const auto=items.filter(i=>i.confianca>.9&&!i.needsReview).length;
         const rate=items.length>0?Math.round((auto/items.length)*100):0;
@@ -1356,20 +1208,8 @@ async function loadInbox(){
                 '<span>'+ok.length+'/'+items.length+' auditados</span>'+
                 '<span>Taxa: '+rate+'%</span>'+
             '</div>';
-        document.getElementById('last-sync').textContent='Atualizado em '+new Date().toLocaleString('pt-BR');
-        lucide.createIcons();
-    }catch(e){
-        if(!useMock){useMock=true;console.info('Guardian: APIs indisponiveis, usando dados demonstrativos.');loadInbox();return}
-        el.innerHTML='<div class="empty-state" style="color:var(--danger)">Erro: '+esc(e.message)+'</div>'
-    }
-}
 
-async function loadReport(){
-    try{
-        let d;
-        if(useMock){d=getMockReport()}
-        else{const r=await fetch(api('/api/guardianReports'),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('Status '+r.status);d=await r.json()}
-        if(!d.success)throw new Error(d.error||'Erro');
+        // ---- Report ----
         const rp=d.report;
         document.getElementById('k-ebitda').textContent=brl(rp.indicators.ebitda);
         document.getElementById('k-lucro').textContent=brl(rp.indicators.lucroLiquido);
@@ -1378,35 +1218,32 @@ async function loadReport(){
         document.getElementById('k-fc').textContent=brl(rp.indicators.fluxoCaixa);
         document.getElementById('k-caixa').textContent=brl(rp.treasury.caixaAtual);
         document.getElementById('k-caixa-sub').textContent='Proj. 30d: '+brl(rp.treasury.previsao30Dias);
-        // Patrimonio
         renderPatrimonio(rp.treasury);
         renderDRE(rp.dre);renderDFC(rp.dfc);renderForecast(rp.forecast);
         renderTxList(document.getElementById('entradas-list'),rp.entradas,'in');
         renderTxList(document.getElementById('saidas-list'),rp.saidas,'out');
         renderCats(rp.categorized);
-        if(useMock){
-            document.getElementById('last-sync').textContent='Dados demonstrativos — Conecte as APIs para dados reais';
-            document.getElementById('dot-inter').classList.remove('live');
-            document.getElementById('dot-graph').classList.remove('live');
-            document.getElementById('dot-ai').classList.remove('live');
-            if(!document.getElementById('demo-banner')){
-                const banner=document.createElement('div');banner.id='demo-banner';banner.className='demo-banner';
-                banner.innerHTML='<div class="demo-dot"></div><span><strong>Modo Demonstracao</strong> — Exibindo dados simulados. Conecte as APIs do Azure para dados em tempo real.</span>';
-                document.querySelector('.topbar').after(banner);
-            }
-        }else{
-            document.getElementById('dot-inter').classList.add('live');
-            document.getElementById('dot-ai').classList.add('live');
-            document.getElementById('dot-graph').classList.add('live');
-        }
+
+        // ---- Investments ----
+        renderInvestmentsFromCache(d.investments);
+
+        // ---- Status ----
+        document.getElementById('dot-inter').classList.add('live');
+        document.getElementById('dot-ai').classList.add('live');
+        document.getElementById('dot-graph').classList.add('live');
+        document.getElementById('last-sync').textContent='Atualizado em '+new Date().toLocaleString('pt-BR');
+        lucide.createIcons();
     }catch(e){
-        if(!useMock){useMock=true;console.info('Guardian: APIs indisponiveis, usando dados demonstrativos.');loadReport();return}
-        console.warn('Report:',e)
+        console.error('Dashboard:',e);
+        document.getElementById('last-sync').textContent='Erro ao carregar: '+e.message;
+        document.getElementById('dot-inter').classList.remove('live');
+        document.getElementById('dot-graph').classList.remove('live');
+        document.getElementById('dot-ai').classList.remove('live');
     }
 }
 
-function loadAll(){loadInbox();loadReport();loadInvestments()}
-function generateReport(){loadReport();toast('Relatorio atualizado.','ok')}
+function loadAll(){loadDashboard()}
+function generateReport(){loadDashboard();toast('Relatorio atualizado.','ok')}
 
 // ---- Active sidebar nav ----
 const observer=new IntersectionObserver(entries=>{
