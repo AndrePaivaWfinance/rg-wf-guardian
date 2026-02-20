@@ -27,8 +27,8 @@ interface InterTokenResponse {
 }
 
 export class InterConnector {
-    private readonly baseUrl = 'https://cdpj.inter.co/banking/v2';
-    private readonly tokenUrl = 'https://cdpj.inter.co/oauth/v2/token';
+    private readonly baseUrl: string;
+    private readonly tokenUrl: string;
     private token: string | null = null;
     private tokenExpires: number = 0;
 
@@ -38,8 +38,16 @@ export class InterConnector {
         private readonly certBase64: string = process.env.INTER_CERT_BASE64 || '',
         private readonly keyBase64: string = process.env.INTER_KEY_BASE64 || '',
         private readonly certPath: string = process.env.INTER_CERT_PATH || '',
-        private readonly keyPath: string = process.env.INTER_KEY_PATH || ''
-    ) { }
+        private readonly keyPath: string = process.env.INTER_KEY_PATH || '',
+        private readonly contaCorrente: string = process.env.INTER_CONTA_CORRENTE || '',
+        private readonly environment: 'sandbox' | 'production' = (process.env.INTER_ENVIRONMENT as 'sandbox' | 'production') || 'production'
+    ) {
+        const host = this.environment === 'sandbox'
+            ? 'https://cdpj-sandbox.partners.bancointer.com.br'
+            : 'https://cdpj.partners.bancointer.com.br';
+        this.baseUrl = `${host}/banking/v2`;
+        this.tokenUrl = `${host}/oauth/v2/token`;
+    }
 
     /** Returns true when real Inter API credentials are configured */
     private isConfigured(): boolean {
