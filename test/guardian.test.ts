@@ -76,7 +76,7 @@ describe('Types', () => {
         // After hydration, audit object is restored
         const hydrated = hydrateAuth({ ...auth });
         expect(hydrated.audit?.alert).toBe('none');
-        expect(auth.needsReview).toBe(false);
+        expect(auth.needsReview).toBe(true); // All transactions need user approval
     });
 });
 
