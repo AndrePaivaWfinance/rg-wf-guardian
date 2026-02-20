@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGuardianAuthorizations } from '../storage/tableClient';
+import { getGuardianAuthorizations, getApprovedAuthorizations } from '../storage/tableClient';
 import { getConfig, getCadastroRecords } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { InterConnector } from '../guardian/interConnector';
@@ -304,7 +304,7 @@ function formatBRL(v: number): string {
 function buildMonthlyHistory(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>) {
     const months: Record<string, { receita: number; despesas: number }> = {};
     for (const item of items) {
-        const date = item.data || item.criadoEm?.split('T')[0] || '';
+        const date = item.dataCompetencia || item.data || item.criadoEm?.split('T')[0] || '';
         if (!date) continue;
         const monthKey = date.substring(0, 7); // YYYY-MM
         if (!months[monthKey]) months[monthKey] = { receita: 0, despesas: 0 };
@@ -329,7 +329,9 @@ export async function guardianDashboardHandler(
     context.log('BFF: Carregando dashboard completo...');
 
     try {
-        const [items, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
+        // Fetch approved items (for calculations) and pending items (for review) in parallel
+        const [approvedItems, pendingItems, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
+            getApprovedAuthorizations(),
             getGuardianAuthorizations(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
@@ -341,6 +343,9 @@ export async function guardianDashboardHandler(
         // Build category lookup for DRE classification
         const catMap = buildCatLookup(categorias);
 
+        // Only APPROVED items feed into DRE/DFC calculations
+        const items = approvedItems;
+
         // Categorize items using the catMap
         const isReceita = (i: GuardianAuthorization) => {
             const cat = catMap.get(i.classificacao);
@@ -348,10 +353,10 @@ export async function guardianDashboardHandler(
         };
         const isDespesa = (i: GuardianAuthorization) => {
             const cat = catMap.get(i.classificacao);
-            return cat?.tipo === 'DESPESA_DIRETA' || cat?.tipo === 'DESPESA_INDIRETA' || cat?.tipo === 'DESPESA_FINANCEIRA';
+            return cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA';
         };
 
-        // KPIs (using catMap for proper classification)
+        // KPIs (using catMap for proper classification) — only from approved
         const receitaDireta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
         const custoVariavel = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
         const custoFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
@@ -376,7 +381,7 @@ export async function guardianDashboardHandler(
 
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
 
-        // Build financial statements using category map
+        // Build financial statements using category map — ONLY approved items
         const dre = buildDRE(items, catMap);
         const dfc = buildDFC(items, caixaAtual, ccSaldoInicial, items, catMap);
         const forecast = buildForecast(items, caixaAtual, catMap);
@@ -384,7 +389,7 @@ export async function guardianDashboardHandler(
         const insights = buildInsights(items, kpis, caixaAtual, catMap);
         const monthlyHistory = buildMonthlyHistory(items, catMap);
 
-        // Weekly breakdown
+        // Weekly breakdown (from approved only)
         const now = new Date();
         const weekStart = new Date(now);
         weekStart.setDate(now.getDate() - now.getDay()); // Sunday
@@ -400,10 +405,7 @@ export async function guardianDashboardHandler(
             return d.startsWith(monthStartStr);
         });
 
-        // Pending approvals
-        const pendingApproval = items.filter(i => i.needsReview);
-
-        // Payables / Receivables (using catMap)
+        // Payables / Receivables (using catMap, from approved)
         const jaPago = monthItems.filter(i => {
             const cat = catMap.get(i.classificacao);
             return cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA';
@@ -425,6 +427,24 @@ export async function guardianDashboardHandler(
 
         const automatedCount = items.filter(i => !i.needsReview).length;
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
+
+        // ---- Transações Encontradas (pending review) ----
+        const transacoesEncontradas = pendingItems.map(i => ({
+            id: i.id,
+            descricao: i.descricao || '',
+            classificacao: i.classificacao,
+            valor: i.valor,
+            confianca: i.confianca,
+            sugestaoIA: i.sugestaoIA || '',
+            sugestao: i.sugestao,
+            origem: i.origem || '',
+            data: i.data || '',
+            dataCompetencia: i.dataCompetencia || '',
+            dataVencimento: i.dataVencimento || '',
+            dataInclusao: i.dataInclusao || '',
+            dataPagamento: i.dataPagamento || '',
+            audit: i.audit,
+        }));
 
         return {
             status: 200,
@@ -471,11 +491,12 @@ export async function guardianDashboardHandler(
                     categorias: categorias.filter(c => c.ativa).map(c => ({
                         id: c.id, nome: c.nome, tipo: c.tipo, grupo: c.grupo, orcamentoMensal: c.orcamentoMensal,
                     })),
-                    pendingApproval: pendingApproval.map(i => ({
-                        id: i.id, classificacao: i.classificacao, tipo: i.tipo, valor: i.valor,
-                        confianca: i.confianca, descricao: i.descricao || '', data: i.data || '',
-                        sugestao: i.sugestao, audit: i.audit, origem: i.origem,
-                    })),
+
+                    // Transações encontradas pelo sync — aguardando aprovação
+                    transacoesEncontradas,
+                    totalPendentes: transacoesEncontradas.length,
+                    totalPendentesValor: transacoesEncontradas.reduce((s, i) => s + i.valor, 0),
+
                     weekSummary: {
                         entradas: weekItems.filter(i => {
                             const c = catMap.get(i.classificacao);
@@ -487,8 +508,16 @@ export async function guardianDashboardHandler(
                         }).reduce((s, i) => s + i.valor, 0),
                         count: weekItems.length,
                     },
-                    jaPago: jaPago.map(i => ({ id: i.id, classificacao: i.classificacao, valor: i.valor, descricao: i.descricao || '', data: i.data || '' })),
-                    jaRecebido: jaRecebido.map(i => ({ id: i.id, classificacao: i.classificacao, valor: i.valor, descricao: i.descricao || '', data: i.data || '' })),
+                    jaPago: jaPago.map(i => ({
+                        id: i.id, classificacao: i.classificacao, valor: i.valor,
+                        descricao: i.descricao || '', data: i.data || '',
+                        dataCompetencia: i.dataCompetencia || '', dataPagamento: i.dataPagamento || '',
+                    })),
+                    jaRecebido: jaRecebido.map(i => ({
+                        id: i.id, classificacao: i.classificacao, valor: i.valor,
+                        descricao: i.descricao || '', data: i.data || '',
+                        dataCompetencia: i.dataCompetencia || '', dataPagamento: i.dataPagamento || '',
+                    })),
                     totalJaPago,
                     totalJaRecebido,
                     taxaAutomacao: automationRate,
