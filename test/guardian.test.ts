@@ -4,6 +4,8 @@ import { toGuardianAuth, hydrateAuth, VALID_DOC_TYPES } from '../src/shared/type
 import { GuardianAgents, AnalysisResult } from '../src/guardian/guardianAgents';
 import { InterConnector } from '../src/guardian/interConnector';
 import { EmailListener } from '../src/guardian/emailListener';
+import { OperacoesProject, MarketingCampaign, ComercialDeal } from '../src/shared/areas';
+import { getAreaRecords, createAreaRecord, updateAreaRecord, deleteAreaRecord } from '../src/storage/areaTableClient';
 
 describe('Utils', () => {
     it('generateId produces unique, non-empty IDs with correct prefix', () => {
@@ -234,6 +236,177 @@ describe('GuardianAgents', () => {
         expect(kpis.revenue).toBe(10000);
         expect(kpis.opExpenses).toBe(3000);
         expect(kpis.status).toBe('Healthy');
+    });
+});
+
+describe('Area Storage - Operacoes', () => {
+    it('creates and retrieves operacoes records', async () => {
+        const project: OperacoesProject = {
+            id: generateId('OP'),
+            nome: 'Teste BPO',
+            cliente: 'Empresa Teste',
+            responsavel: 'Tester',
+            status: 'em_andamento',
+            prioridade: 'alta',
+            dataInicio: '2026-02-01',
+            dataPrevisao: '2026-04-01',
+            progresso: 50,
+            horasEstimadas: 200,
+            horasRealizadas: 100,
+            valorContrato: 50000,
+            tags: ['teste'],
+        };
+
+        await createAreaRecord('operacoes', project);
+        const records = await getAreaRecords<OperacoesProject>('operacoes');
+        expect(records.length).toBeGreaterThan(0);
+        const found = records.find(r => r.id === project.id);
+        expect(found).toBeDefined();
+        expect(found!.nome).toBe('Teste BPO');
+        expect(found!.valorContrato).toBe(50000);
+    });
+
+    it('updates operacoes records', async () => {
+        const project: OperacoesProject = {
+            id: generateId('OP'),
+            nome: 'Update Test',
+            cliente: 'Cli',
+            responsavel: 'R',
+            status: 'backlog',
+            prioridade: 'media',
+            dataInicio: '2026-02-01',
+            dataPrevisao: '2026-03-01',
+            progresso: 0,
+            horasEstimadas: 100,
+            horasRealizadas: 0,
+            valorContrato: 20000,
+            tags: [],
+        };
+
+        await createAreaRecord('operacoes', project);
+        project.status = 'em_andamento';
+        project.progresso = 30;
+        await updateAreaRecord('operacoes', project);
+
+        const records = await getAreaRecords<OperacoesProject>('operacoes');
+        const found = records.find(r => r.id === project.id);
+        expect(found!.status).toBe('em_andamento');
+        expect(found!.progresso).toBe(30);
+    });
+
+    it('deletes operacoes records', async () => {
+        const project: OperacoesProject = {
+            id: generateId('OP'),
+            nome: 'Delete Test',
+            cliente: 'Cli',
+            responsavel: 'R',
+            status: 'backlog',
+            prioridade: 'baixa',
+            dataInicio: '2026-02-01',
+            dataPrevisao: '2026-03-01',
+            progresso: 0,
+            horasEstimadas: 50,
+            horasRealizadas: 0,
+            valorContrato: 10000,
+            tags: [],
+        };
+
+        await createAreaRecord('operacoes', project);
+        await deleteAreaRecord('operacoes', project.id);
+
+        const records = await getAreaRecords<OperacoesProject>('operacoes');
+        const found = records.find(r => r.id === project.id);
+        expect(found).toBeUndefined();
+    });
+});
+
+describe('Area Storage - Marketing', () => {
+    it('creates and retrieves marketing campaigns', async () => {
+        const campaign: MarketingCampaign = {
+            id: generateId('MKT'),
+            nome: 'Teste Google Ads',
+            canal: 'google_ads',
+            status: 'ativa',
+            orcamento: 5000,
+            gastoAtual: 2500,
+            dataInicio: '2026-02-01',
+            leads: 30,
+            conversoes: 3,
+            impressoes: 10000,
+            cliques: 500,
+            cpl: 83.33,
+            cpa: 833.33,
+            roi: 250,
+        };
+
+        await createAreaRecord('marketing', campaign);
+        const records = await getAreaRecords<MarketingCampaign>('marketing');
+        const found = records.find(r => r.id === campaign.id);
+        expect(found).toBeDefined();
+        expect(found!.canal).toBe('google_ads');
+        expect(found!.leads).toBe(30);
+    });
+});
+
+describe('Area Storage - Comercial', () => {
+    it('creates and retrieves comercial deals', async () => {
+        const deal: ComercialDeal = {
+            id: generateId('DEAL'),
+            empresa: 'Empresa Teste',
+            contato: 'Fulano',
+            servico: 'BPO Financeiro',
+            estagio: 'proposta',
+            valor: 120000,
+            recorrencia: 'mensal',
+            probabilidade: 60,
+            responsavel: 'Tester',
+            dataCriacao: '2026-02-01',
+            dataPrevisaoFechamento: '2026-04-01',
+            origem: 'inbound',
+        };
+
+        await createAreaRecord('comercial', deal);
+        const records = await getAreaRecords<ComercialDeal>('comercial');
+        const found = records.find(r => r.id === deal.id);
+        expect(found).toBeDefined();
+        expect(found!.estagio).toBe('proposta');
+        expect(found!.valor).toBe(120000);
+    });
+
+    it('handles deal lifecycle (create -> update stage -> close)', async () => {
+        const deal: ComercialDeal = {
+            id: generateId('DEAL'),
+            empresa: 'Lifecycle Test',
+            contato: 'Contact',
+            servico: 'Consultoria',
+            estagio: 'prospeccao',
+            valor: 80000,
+            recorrencia: 'unico',
+            probabilidade: 20,
+            responsavel: 'Tester',
+            dataCriacao: '2026-01-15',
+            dataPrevisaoFechamento: '2026-03-15',
+            origem: 'outbound',
+        };
+
+        await createAreaRecord('comercial', deal);
+
+        // Move to negociacao
+        deal.estagio = 'negociacao';
+        deal.probabilidade = 70;
+        await updateAreaRecord('comercial', deal);
+
+        // Close as won
+        deal.estagio = 'fechado_ganho';
+        deal.probabilidade = 100;
+        deal.dataFechamento = '2026-02-20';
+        await updateAreaRecord('comercial', deal);
+
+        const records = await getAreaRecords<ComercialDeal>('comercial');
+        const found = records.find(r => r.id === deal.id);
+        expect(found!.estagio).toBe('fechado_ganho');
+        expect(found!.probabilidade).toBe(100);
+        expect(found!.dataFechamento).toBe('2026-02-20');
     });
 });
 

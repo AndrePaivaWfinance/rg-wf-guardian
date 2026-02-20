@@ -31,11 +31,12 @@ export async function guardianSyncHandler(
 
         const balance = balanceResult.status === 'fulfilled' ? balanceResult.value : { disponivel: 0, reservado: 0, total: 0, dataHora: nowISO() };
         if (balanceResult.status === 'rejected') logger.warn('Inter balance indisponível: ' + String(balanceResult.reason));
-        if (txs.status === 'rejected') throw new Error('Falha ao buscar extrato: ' + String(txs.reason));
-        if (docs.status === 'rejected') throw new Error('Falha ao buscar emails: ' + String(docs.reason));
 
-        const transactions = txs.value;
-        const documents = docs.value;
+        const transactions = txs.status === 'fulfilled' ? txs.value : [];
+        if (txs.status === 'rejected') logger.warn('Inter extrato indisponível (degraded): ' + String(txs.reason));
+
+        const documents = docs.status === 'fulfilled' ? docs.value : [];
+        if (docs.status === 'rejected') logger.warn('Graph emails indisponível (degraded): ' + String(docs.reason));
 
         const docResults = (await Promise.all(documents.map(d => agents.extractData(d)))).flat();
         const txResults = await Promise.all(transactions.map(t => agents.classifyTransaction(t)));

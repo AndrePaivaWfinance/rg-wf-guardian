@@ -16,6 +16,10 @@
             "allowedRoles": ["authenticated"]
         },
         {
+            "route": "/api/guardianUpload",
+            "allowedRoles": ["authenticated"]
+        },
+        {
             "route": "/api/guardianImport",
             "allowedRoles": ["authenticated"]
         },
@@ -26,6 +30,16 @@
         {
             "route": "/api/guardianReports",
             "allowedRoles": ["anonymous", "authenticated"]
+        },
+        {
+            "route": "/api/guardianAreas/*",
+            "methods": ["GET"],
+            "allowedRoles": ["anonymous", "authenticated"]
+        },
+        {
+            "route": "/api/guardianAreas/*",
+            "methods": ["POST"],
+            "allowedRoles": ["authenticated"]
         },
         {
             "route": "/.auth/login/aad",
@@ -57,6 +71,6 @@
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://func-guardian-sovereign.azurewebsites.net"
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://func-guardian-sovereign.azurewebsites.net"
     }
 }
