@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations, getApprovedAuthorizations } from '../storage/tableClient';
 import { getConfig, getCadastroRecords } from '../storage/areaTableClient';
+import { seedCategoriasIfEmpty } from './guardianCadastros';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
@@ -335,7 +336,7 @@ export async function guardianDashboardHandler(
             getGuardianAuthorizations(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
-            getCadastroRecords<Categoria>('categorias'),
+            seedCategoriasIfEmpty(),
         ]);
 
         const inter = new InterConnector();
