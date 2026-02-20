@@ -19,9 +19,10 @@ export async function guardianSyncHandler(
     const agents = new GuardianAgents();
 
     try {
-        // Use rolling 30-day window instead of hardcoded start date
-        const endDate = nowISO().split('T')[0];
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        // Accept custom date range via query params, default to 30-day rolling window
+        const endDate = request.query.get('dataFim') || nowISO().split('T')[0];
+        const startDate = request.query.get('dataInicio') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        context.log(`Período: ${startDate} até ${endDate}`);
 
         const [balanceResult, txs, docs] = await Promise.allSettled([
             inter.getBalance(),
@@ -58,6 +59,7 @@ export async function guardianSyncHandler(
             jsonBody: {
                 success: true,
                 summary: {
+                    periodo: { de: startDate, ate: endDate },
                     balance: balance.total,
                     transactions: txResults.length,
                     documents: docResults.length,
