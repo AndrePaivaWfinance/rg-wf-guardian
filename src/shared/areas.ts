@@ -165,12 +165,51 @@ export interface InvestmentData {
 
 // ============ CADASTROS ============
 
-export type CategoriaTipo = 'receita' | 'despesa' | 'investimento' | 'financiamento';
+/**
+ * Tipos contabeis alinhados ao DRE:
+ *
+ * RECEITA_DIRETA      → Receita Bruta Operacional (vendas, servicos)
+ * RECEITA_FINANCEIRA  → Resultado Financeiro (rendimentos, juros recebidos)
+ * DESPESA_DIRETA      → CSP — Custo dos Servicos Prestados (pessoal tecnico, infra, ferramentas)
+ * DESPESA_INDIRETA    → SG&A — Despesas Operacionais (admin, mkt, aluguel, utilidades)
+ * DESPESA_FINANCEIRA  → Resultado Financeiro negativo (juros, tarifas, IOF)
+ */
+export type CategoriaTipo =
+    | 'RECEITA_DIRETA'
+    | 'RECEITA_FINANCEIRA'
+    | 'DESPESA_DIRETA'
+    | 'DESPESA_INDIRETA'
+    | 'DESPESA_FINANCEIRA';
+
+/** Grupo contabil dentro do DRE para sub-agrupamento */
+export type CategoriaGrupo =
+    // Receitas
+    | 'Receita de Servicos'
+    | 'Outras Receitas Operacionais'
+    | 'Rendimentos Financeiros'
+    | 'Juros Ativos'
+    // CSP (Despesa Direta)
+    | 'Pessoal Tecnico'
+    | 'Infraestrutura e Hosting'
+    | 'Ferramentas de Producao'
+    | 'Subcontratacao'
+    // SG&A (Despesa Indireta)
+    | 'Marketing e Comercial'
+    | 'Administrativo'
+    | 'Ocupacao'
+    | 'Utilidades'
+    | 'Servicos Terceirizados'
+    | 'Impostos e Taxas'
+    // Despesas Financeiras
+    | 'Juros e Encargos'
+    | 'Tarifas Bancarias'
+    | 'Outros';
 
 export interface Categoria {
     id: string;
     nome: string;
     tipo: CategoriaTipo;
+    grupo: CategoriaGrupo;
     orcamentoMensal: number;
     ativa: boolean;
     criadoEm: string;

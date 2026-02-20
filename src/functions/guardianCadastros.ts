@@ -12,32 +12,73 @@ const logger = createLogger('GuardianCadastros');
 
 const VALID_TIPOS: CadastroType[] = ['categorias', 'contas', 'clientes', 'fornecedores'];
 
-// Default categories seeded on first GET if table is empty
+/**
+ * Plano de Contas padrao — alinhado ao DRE
+ *
+ * DRE Structure:
+ * (+) Receita Bruta ................... RECEITA_DIRETA
+ * (-) Deducoes s/ Receita ............. (calculado: impostos ~9.25%)
+ * (=) Receita Liquida
+ * (-) CSP — Custo Servicos Prestados .. DESPESA_DIRETA
+ * (=) Lucro Bruto
+ * (-) Despesas Operacionais (SG&A) .... DESPESA_INDIRETA
+ * (=) EBITDA
+ * (-) D&A ............................. (estimado)
+ * (=) EBIT
+ * (+) Receitas Financeiras ............ RECEITA_FINANCEIRA
+ * (-) Despesas Financeiras ............ DESPESA_FINANCEIRA
+ * (=) Resultado Antes do IR
+ * (-) IR/CSLL ......................... (calculado: ~34%)
+ * (=) Lucro Liquido
+ */
 const DEFAULT_CATEGORIAS: Omit<Categoria, 'id' | 'criadoEm'>[] = [
-    // Receitas
-    { nome: 'Receita Operacional', tipo: 'receita', orcamentoMensal: 0, ativa: true },
-    { nome: 'Receita Financeira', tipo: 'receita', orcamentoMensal: 0, ativa: true },
-    { nome: 'Rendimento Investimento', tipo: 'receita', orcamentoMensal: 0, ativa: true },
-    // Despesas
-    { nome: 'Folha de Pagamento', tipo: 'despesa', orcamentoMensal: 15000, ativa: true },
-    { nome: 'Infraestrutura Cloud', tipo: 'despesa', orcamentoMensal: 500, ativa: true },
-    { nome: 'Software ERP', tipo: 'despesa', orcamentoMensal: 300, ativa: true },
-    { nome: 'Marketing Digital', tipo: 'despesa', orcamentoMensal: 2000, ativa: true },
-    { nome: 'Contabilidade', tipo: 'despesa', orcamentoMensal: 500, ativa: true },
-    { nome: 'Fatura Cartao', tipo: 'despesa', orcamentoMensal: 3000, ativa: true },
-    { nome: 'Despesas Imobiliarias', tipo: 'despesa', orcamentoMensal: 5000, ativa: true },
-    { nome: 'Utilidades', tipo: 'despesa', orcamentoMensal: 1000, ativa: true },
-    { nome: 'Servicos Financeiros', tipo: 'despesa', orcamentoMensal: 1000, ativa: true },
-    { nome: 'Fornecedores', tipo: 'despesa', orcamentoMensal: 2000, ativa: true },
-    { nome: 'Pagamentos Diversos', tipo: 'despesa', orcamentoMensal: 1000, ativa: true },
-    { nome: 'Transferencias', tipo: 'despesa', orcamentoMensal: 0, ativa: true },
-    { nome: 'Despesas Administrativas', tipo: 'despesa', orcamentoMensal: 500, ativa: true },
-    { nome: 'Despesas Nao Classificadas', tipo: 'despesa', orcamentoMensal: 0, ativa: true },
-    { nome: 'Nota Fiscal Servico', tipo: 'despesa', orcamentoMensal: 0, ativa: true },
-    { nome: 'Infraestrutura / AWS', tipo: 'despesa', orcamentoMensal: 500, ativa: true },
-    // Investimentos
-    { nome: 'Aplicacao Investimento', tipo: 'investimento', orcamentoMensal: 0, ativa: true },
-    { nome: 'Resgate Investimento', tipo: 'investimento', orcamentoMensal: 0, ativa: true },
+    // ===== RECEITA_DIRETA — Receita Bruta Operacional =====
+    { nome: 'Receita de Servicos',          tipo: 'RECEITA_DIRETA',     grupo: 'Receita de Servicos',          orcamentoMensal: 0, ativa: true },
+    { nome: 'Receita de Projetos',          tipo: 'RECEITA_DIRETA',     grupo: 'Receita de Servicos',          orcamentoMensal: 0, ativa: true },
+    { nome: 'Receita Recorrente',           tipo: 'RECEITA_DIRETA',     grupo: 'Receita de Servicos',          orcamentoMensal: 0, ativa: true },
+    { nome: 'Outras Receitas Operacionais', tipo: 'RECEITA_DIRETA',     grupo: 'Outras Receitas Operacionais', orcamentoMensal: 0, ativa: true },
+
+    // ===== RECEITA_FINANCEIRA — Resultado Financeiro (+) =====
+    { nome: 'Rendimento Investimento',      tipo: 'RECEITA_FINANCEIRA', grupo: 'Rendimentos Financeiros',      orcamentoMensal: 0, ativa: true },
+    { nome: 'Juros Recebidos',              tipo: 'RECEITA_FINANCEIRA', grupo: 'Juros Ativos',                 orcamentoMensal: 0, ativa: true },
+    { nome: 'Resgate Investimento',         tipo: 'RECEITA_FINANCEIRA', grupo: 'Rendimentos Financeiros',      orcamentoMensal: 0, ativa: true },
+
+    // ===== DESPESA_DIRETA — CSP (Custo dos Servicos Prestados) =====
+    { nome: 'Folha de Pagamento',           tipo: 'DESPESA_DIRETA',     grupo: 'Pessoal Tecnico',              orcamentoMensal: 15000, ativa: true },
+    { nome: 'Encargos Trabalhistas',        tipo: 'DESPESA_DIRETA',     grupo: 'Pessoal Tecnico',              orcamentoMensal: 5000,  ativa: true },
+    { nome: 'Infraestrutura Cloud',         tipo: 'DESPESA_DIRETA',     grupo: 'Infraestrutura e Hosting',     orcamentoMensal: 500,   ativa: true },
+    { nome: 'Infraestrutura / AWS',         tipo: 'DESPESA_DIRETA',     grupo: 'Infraestrutura e Hosting',     orcamentoMensal: 500,   ativa: true },
+    { nome: 'Software ERP',                 tipo: 'DESPESA_DIRETA',     grupo: 'Ferramentas de Producao',      orcamentoMensal: 300,   ativa: true },
+    { nome: 'Licencas e Ferramentas',       tipo: 'DESPESA_DIRETA',     grupo: 'Ferramentas de Producao',      orcamentoMensal: 200,   ativa: true },
+    { nome: 'Subcontratacao / Freelancers', tipo: 'DESPESA_DIRETA',     grupo: 'Subcontratacao',               orcamentoMensal: 0,     ativa: true },
+
+    // ===== DESPESA_INDIRETA — SG&A (Despesas Operacionais) =====
+    { nome: 'Marketing Digital',            tipo: 'DESPESA_INDIRETA',   grupo: 'Marketing e Comercial',        orcamentoMensal: 2000, ativa: true },
+    { nome: 'Eventos e Patrocinios',        tipo: 'DESPESA_INDIRETA',   grupo: 'Marketing e Comercial',        orcamentoMensal: 500,  ativa: true },
+    { nome: 'Contabilidade',                tipo: 'DESPESA_INDIRETA',   grupo: 'Servicos Terceirizados',       orcamentoMensal: 500,  ativa: true },
+    { nome: 'Consultoria Juridica',         tipo: 'DESPESA_INDIRETA',   grupo: 'Servicos Terceirizados',       orcamentoMensal: 0,    ativa: true },
+    { nome: 'Aluguel',                      tipo: 'DESPESA_INDIRETA',   grupo: 'Ocupacao',                     orcamentoMensal: 3000, ativa: true },
+    { nome: 'Condominio',                   tipo: 'DESPESA_INDIRETA',   grupo: 'Ocupacao',                     orcamentoMensal: 800,  ativa: true },
+    { nome: 'IPTU',                         tipo: 'DESPESA_INDIRETA',   grupo: 'Ocupacao',                     orcamentoMensal: 200,  ativa: true },
+    { nome: 'Energia',                      tipo: 'DESPESA_INDIRETA',   grupo: 'Utilidades',                   orcamentoMensal: 400,  ativa: true },
+    { nome: 'Telefone / Internet',          tipo: 'DESPESA_INDIRETA',   grupo: 'Utilidades',                   orcamentoMensal: 300,  ativa: true },
+    { nome: 'Material de Escritorio',       tipo: 'DESPESA_INDIRETA',   grupo: 'Administrativo',               orcamentoMensal: 200,  ativa: true },
+    { nome: 'Despesas Administrativas',     tipo: 'DESPESA_INDIRETA',   grupo: 'Administrativo',               orcamentoMensal: 500,  ativa: true },
+    { nome: 'Seguros',                      tipo: 'DESPESA_INDIRETA',   grupo: 'Administrativo',               orcamentoMensal: 300,  ativa: true },
+    { nome: 'Impostos e Taxas',             tipo: 'DESPESA_INDIRETA',   grupo: 'Impostos e Taxas',             orcamentoMensal: 0,    ativa: true },
+    { nome: 'Fornecedores',                 tipo: 'DESPESA_INDIRETA',   grupo: 'Servicos Terceirizados',       orcamentoMensal: 2000, ativa: true },
+    { nome: 'Pagamentos Diversos',          tipo: 'DESPESA_INDIRETA',   grupo: 'Outros',                       orcamentoMensal: 1000, ativa: true },
+    { nome: 'Despesas Nao Classificadas',   tipo: 'DESPESA_INDIRETA',   grupo: 'Outros',                       orcamentoMensal: 0,    ativa: true },
+
+    // ===== DESPESA_FINANCEIRA — Resultado Financeiro (-) =====
+    { nome: 'Fatura Cartao',                tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 3000, ativa: true },
+    { nome: 'Juros e Multas',               tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 0,    ativa: true },
+    { nome: 'IOF',                          tipo: 'DESPESA_FINANCEIRA', grupo: 'Juros e Encargos',             orcamentoMensal: 0,    ativa: true },
+    { nome: 'Tarifas Bancarias',            tipo: 'DESPESA_FINANCEIRA', grupo: 'Tarifas Bancarias',            orcamentoMensal: 100,  ativa: true },
+    { nome: 'Servicos Financeiros',         tipo: 'DESPESA_FINANCEIRA', grupo: 'Tarifas Bancarias',            orcamentoMensal: 1000, ativa: true },
+    { nome: 'Aplicacao Investimento',       tipo: 'DESPESA_FINANCEIRA', grupo: 'Outros',                       orcamentoMensal: 0,    ativa: true },
+    { nome: 'Transferencias',               tipo: 'DESPESA_FINANCEIRA', grupo: 'Outros',                       orcamentoMensal: 0,    ativa: true },
+    { nome: 'Nota Fiscal Servico',          tipo: 'DESPESA_INDIRETA',   grupo: 'Servicos Terceirizados',       orcamentoMensal: 0,    ativa: true },
 ];
 
 async function seedCategoriasIfEmpty(): Promise<Categoria[]> {
