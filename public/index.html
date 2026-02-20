@@ -237,6 +237,23 @@
         .form-group { margin-bottom:12px; }
         .form-group label { display:block; font-size:11px; font-weight:600; color:var(--t3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
 
+        /* ---- Cadastro table ---- */
+        .cad-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+        .cad-tbl th { text-align:left; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--t3); padding:10px 12px; border-bottom:1px solid var(--border); background:var(--bg); }
+        .cad-tbl td { padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+        .cad-tbl tr:last-child td { border-bottom:none; }
+        .cad-tbl tr:hover td { background:var(--hover); }
+        .cad-tbl .num { text-align:right; font-family:'JetBrains Mono',monospace; }
+        .cad-tbl .acts { text-align:right; white-space:nowrap; }
+        .badge { display:inline-block; font-size:9px; padding:2px 8px; border-radius:4px; font-weight:600; letter-spacing:0.3px; }
+        .badge-receita { background:var(--success-dim); color:var(--success); }
+        .badge-despesa { background:var(--danger-dim); color:var(--danger); }
+        .badge-investimento { background:var(--info-dim); color:var(--info); }
+        .badge-financiamento { background:var(--warn-dim); color:var(--warn); }
+        .badge-ativa { background:var(--success-dim); color:var(--success); }
+        .badge-inativa { background:var(--bg); color:var(--t4); }
+        .reclass-select { padding:4px 8px; font-size:11px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--t1); cursor:pointer; max-width:160px; }
+
         /* ---- Responsive ---- */
         @media (max-width:1280px) { .kpi-grid { grid-template-columns:repeat(3,1fr); } }
         @media (max-width:1024px) { .sidebar { display:none; } .main { margin-left:0; max-width:100%; } }
@@ -376,6 +393,12 @@
             <div class="empty-state"><span class="spinner"></span></div>
         </div>
 
+        <!-- Categorias -->
+        <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
+        <div class="card" style="padding:0;overflow:hidden">
+            <div id="categorias-list"><div class="empty-state"><span class="spinner"></span></div></div>
+        </div>
+
         <!-- Upload -->
         <div class="section-title"><i data-lucide="upload-cloud"></i> Upload de Documentos</div>
         <div class="card">
@@ -440,6 +463,40 @@
 </div>
 
 <div id="toasts" class="toast-c"></div>
+
+<!-- Modal: Categoria -->
+<div id="modal-categoria" class="modal-bg" onclick="if(event.target===this)closeCategoriaModal()">
+    <div class="modal">
+        <h3 id="modal-cat-title">Nova Categoria</h3>
+        <p>Preencha os dados da categoria financeira.</p>
+        <form id="cat-form" onsubmit="saveCategoria(event)">
+            <input type="hidden" id="cat-id">
+            <div class="form-group">
+                <label>Nome</label>
+                <input type="text" id="cat-nome" placeholder="Ex: Marketing Digital" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="cat-tipo">
+                        <option value="despesa">Despesa</option>
+                        <option value="receita">Receita</option>
+                        <option value="investimento">Investimento</option>
+                        <option value="financiamento">Financiamento</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Orcamento Mensal (R$)</label>
+                    <input type="number" id="cat-orcamento" step="0.01" value="0" min="0">
+                </div>
+            </div>
+            <div class="modal-acts">
+                <button type="button" class="btn btn-outline" onclick="closeCategoriaModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
 const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'?'http://localhost:7071':'https://func-guardian-sovereign.azurewebsites.net');
@@ -635,13 +692,14 @@ function renderCats(cats){
 function renderApprovalList(items){
     const el=document.getElementById('approval-list');
     if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma transacao pendente de aprovacao.</div>';return}
+    const catOpts=categoriasCache.map(c=>'<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>').join('');
     el.innerHTML=items.map(i=>{
         const cls=esc(i.classificacao||'');
         const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
         const isCredit=i.classificacao&&i.classificacao.includes('Receita');
         const dotCls=isCredit?'in':'out';
         const desc=i.descricao?esc(i.descricao):'';
-        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span><span class="tag tag-review">'+conf+'% conf.</span></div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+brl(i.valor)+'</div></div><div class="tx-actions"><button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Aprovar</button><button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button></div></div></div>'
+        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span><span class="tag tag-review">'+conf+'% conf.</span></div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+brl(i.valor)+'</div></div><div class="tx-actions"><select class="reclass-select" onchange="reclassifyItem(\''+esc(i.id)+'\',this)"><option value="">Reclassificar...</option>'+catOpts+'</select><button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Aprovar</button><button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button></div></div></div>'
     }).join('');
 }
 
@@ -708,6 +766,7 @@ async function loadDashboard(){
         const badge=document.getElementById('approval-badge');
         if(s.pendingApproval.length>0){badge.style.display='';badge.textContent=s.pendingApproval.length}else{badge.style.display='none'}
 
+        renderCategorias(s.categorias||[]);
         renderApprovalList(s.pendingApproval);
         renderTxList('ja-pago-list',s.jaPago,'out');
         renderTxList('ja-recebido-list',s.jaRecebido,'in');
@@ -733,6 +792,84 @@ async function loadDashboard(){
         document.getElementById('dot-graph').classList.remove('live');
         document.getElementById('dot-ai').classList.remove('live');
     }
+}
+
+// ---- Categorias CRUD ----
+let categoriasCache=[];
+
+function renderCategorias(cats){
+    categoriasCache=cats||[];
+    const el=document.getElementById('categorias-list');
+    if(!cats||!cats.length){el.innerHTML='<div class="empty-state">Nenhuma categoria cadastrada.</div>';return}
+    let html='<table class="cad-tbl"><thead><tr><th>Nome</th><th>Tipo</th><th>Orcamento Mensal</th><th style="text-align:right">Acoes</th></tr></thead><tbody>';
+    cats.forEach(c=>{
+        html+='<tr><td>'+esc(c.nome)+'</td><td><span class="badge badge-'+esc(c.tipo)+'">'+esc(c.tipo)+'</span></td><td class="num">'+brl(c.orcamentoMensal)+'</td><td class="acts"><button class="btn btn-outline btn-sm" onclick="openCategoriaModal(\''+esc(c.id)+'\')">Editar</button> <button class="btn btn-danger btn-sm" onclick="deleteCategoria(\''+esc(c.id)+'\')">Desativar</button></td></tr>';
+    });
+    html+='</tbody></table>';
+    el.innerHTML=html;
+}
+
+function openCategoriaModal(editId){
+    const m=document.getElementById('modal-categoria');
+    const title=document.getElementById('modal-cat-title');
+    const form=document.getElementById('cat-form');
+    form.reset();
+    if(editId){
+        const c=categoriasCache.find(x=>x.id===editId);
+        if(c){
+            title.textContent='Editar Categoria';
+            document.getElementById('cat-id').value=c.id;
+            document.getElementById('cat-nome').value=c.nome;
+            document.getElementById('cat-tipo').value=c.tipo;
+            document.getElementById('cat-orcamento').value=c.orcamentoMensal||0;
+        }
+    }else{
+        title.textContent='Nova Categoria';
+        document.getElementById('cat-id').value='CAT_'+Date.now();
+    }
+    m.classList.add('open');
+}
+
+function closeCategoriaModal(){document.getElementById('modal-categoria').classList.remove('open')}
+
+async function saveCategoria(e){
+    e.preventDefault();
+    const id=document.getElementById('cat-id').value;
+    const nome=document.getElementById('cat-nome').value.trim();
+    const tipo=document.getElementById('cat-tipo').value;
+    const orcamento=parseFloat(document.getElementById('cat-orcamento').value)||0;
+    if(!nome){toast('Nome e obrigatorio.','err');return}
+    const exists=categoriasCache.find(c=>c.id===id);
+    const action=exists?'update':'create';
+    const record={id,nome,tipo,orcamentoMensal:orcamento,ativa:true,criadoEm:exists?exists.criadoEm:new Date().toISOString()};
+    try{
+        const r=await fetch(api('/api/guardianCadastros/categorias'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,record})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Categoria salva.','ok');closeCategoriaModal();loadDashboard();
+    }catch(err){toast('Erro: '+err.message,'err')}
+}
+
+async function deleteCategoria(id){
+    if(!confirm('Desativar esta categoria?'))return;
+    const cat=categoriasCache.find(c=>c.id===id);
+    if(cat){
+        const record={...cat,ativa:false};
+        try{
+            const r=await fetch(api('/api/guardianCadastros/categorias'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',record})});
+            if(!r.ok)throw new Error('Status '+r.status);
+            toast('Categoria desativada.','ok');loadDashboard();
+        }catch(err){toast('Erro: '+err.message,'err')}
+    }
+}
+
+async function reclassifyItem(id,selectEl){
+    const newCat=selectEl.value;
+    if(!newCat)return;
+    try{
+        const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'reclassify',classificacao:newCat})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Transacao reclassificada para: '+newCat,'ok');loadDashboard();
+    }catch(err){toast('Erro: '+err.message,'err')}
 }
 
 // Init

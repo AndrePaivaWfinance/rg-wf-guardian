@@ -1,11 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getAreaRecords, getInvestmentMovements, getConfig } from '../storage/areaTableClient';
+import { getAreaRecords, getInvestmentMovements, getConfig, getCadastroRecords } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
-import { InvestmentAccount, InvestmentMovement } from '../shared/areas';
+import { InvestmentAccount, InvestmentMovement, Categoria } from '../shared/areas';
 
 const logger = createLogger('GuardianDashboard');
 
@@ -227,12 +227,13 @@ export async function guardianDashboardHandler(
     context.log('BFF: Carregando dashboard completo...');
 
     try {
-        const [items, investAcctsRaw, investMovsRaw, ccSaldoInicialStr, ccDataRef] = await Promise.all([
+        const [items, investAcctsRaw, investMovsRaw, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
             getGuardianAuthorizations(),
             getAreaRecords<InvestmentAccount>('investimentos'),
             getInvestmentMovements(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
+            getCadastroRecords<Categoria>('categorias'),
         ]);
 
         const agents = new GuardianAgents();
@@ -368,6 +369,9 @@ export async function guardianDashboardHandler(
 
                 // ---- SEMANAL PAGE ----
                 semanal: {
+                    categorias: categorias.filter(c => c.ativa).map(c => ({
+                        id: c.id, nome: c.nome, tipo: c.tipo, orcamentoMensal: c.orcamentoMensal,
+                    })),
                     pendingApproval: pendingApproval.map(i => ({
                         id: i.id, classificacao: i.classificacao, tipo: i.tipo, valor: i.valor,
                         confianca: i.confianca, descricao: i.descricao || '', data: i.data || '',

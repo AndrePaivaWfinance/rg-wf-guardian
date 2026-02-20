@@ -163,6 +163,21 @@ export interface InvestmentData {
     kpis: InvestmentKPIs;
 }
 
+// ============ CADASTROS ============
+
+export type CategoriaTipo = 'receita' | 'despesa' | 'investimento' | 'financiamento';
+
+export interface Categoria {
+    id: string;
+    nome: string;
+    tipo: CategoriaTipo;
+    orcamentoMensal: number;
+    ativa: boolean;
+    criadoEm: string;
+}
+
+export type CadastroType = 'categorias' | 'contas' | 'clientes' | 'fornecedores';
+
 // ============ UNIFIED ============
 
 export interface AreaResponse {
