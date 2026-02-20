@@ -137,20 +137,33 @@ describe('GuardianAgents', () => {
         expect(results[0].classification).toBe('Nota Fiscal Servico');
     });
 
-    it('classifyTransaction classifies CREDITO as Receita', async () => {
+    it('classifyTransaction classifies PIX RECEBIDO as Receita', async () => {
         const tx = {
             id: 'TX_1',
             data: '2026-01-15',
             tipo: 'CREDITO' as const,
             valor: 5000,
-            descricao: 'PIX RECEBIDO - CLIENTE',
+            descricao: 'PIX RECEBIDO - CLIENTE BPO',
         };
         const result = await agents.classifyTransaction(tx);
         expect(result.classification).toBe('Receita Operacional');
-        expect(result.confidence).toBe(1.0);
+        expect(result.confidence).toBe(0.90);
     });
 
-    it('classifyTransaction classifies DEBITO as Despesa', async () => {
+    it('classifyTransaction classifies CDB resgate correctly', async () => {
+        const tx = {
+            id: 'TX_R',
+            data: '2026-01-15',
+            tipo: 'CREDITO' as const,
+            valor: 2500,
+            descricao: 'RESGATE - CDB DI LIQ BANCO INTER SA',
+        };
+        const result = await agents.classifyTransaction(tx);
+        expect(result.classification).toBe('Resgate Investimento');
+        expect(result.confidence).toBe(0.98);
+    });
+
+    it('classifyTransaction classifies DEBITO as Pagamentos Diversos', async () => {
         const tx = {
             id: 'TX_2',
             data: '2026-01-15',
@@ -159,17 +172,30 @@ describe('GuardianAgents', () => {
             descricao: 'PAGAMENTO DIVERSOS',
         };
         const result = await agents.classifyTransaction(tx);
-        expect(result.classification).toBe('Despesas Administrativas');
-        expect(result.needsReview).toBe(true);
+        expect(result.classification).toBe('Pagamentos Diversos');
+        expect(result.confidence).toBe(0.80);
+    });
+
+    it('classifyTransaction classifies known vendor Serasa', async () => {
+        const tx = {
+            id: 'TX_S',
+            data: '2026-01-15',
+            tipo: 'DEBITO' as const,
+            valor: 64.99,
+            descricao: 'PIX ENVIADO - Cp :90400888-SERASA SA',
+        };
+        const result = await agents.classifyTransaction(tx);
+        expect(result.classification).toBe('Servicos Financeiros');
+        expect(result.confidence).toBe(0.95);
     });
 
     it('audit flags over-budget items', async () => {
         const result: AnalysisResult = {
             id: 'AUD_1',
-            type: 'document',
-            classification: 'Infraestrutura / AWS',
+            type: 'transaction',
+            classification: 'Infraestrutura Cloud',
             confidence: 0.98,
-            value: 1500, // over 1000 budget
+            value: 800, // over 500 budget
             needsReview: false,
             suggestedAction: 'approve',
         };
@@ -184,10 +210,10 @@ describe('GuardianAgents', () => {
     it('audit allows within-budget items', async () => {
         const result: AnalysisResult = {
             id: 'AUD_2',
-            type: 'document',
-            classification: 'Infraestrutura / AWS',
+            type: 'transaction',
+            classification: 'Infraestrutura Cloud',
             confidence: 0.98,
-            value: 500, // under 1000 budget
+            value: 300, // under 500 budget
             needsReview: false,
             suggestedAction: 'approve',
         };

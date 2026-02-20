@@ -145,7 +145,7 @@ export class InterConnector {
             data: tx.dataEntrada,
             tipo: (tx.tipoOperacao === 'C' ? 'CREDITO' : 'DEBITO') as 'CREDITO' | 'DEBITO',
             valor: parseFloat(tx.valor),
-            descricao: tx.titulo || tx.descricao,
+            descricao: tx.descricao || tx.titulo,
             cpfCnpj: tx.cpfCnpj,
         }));
     }
