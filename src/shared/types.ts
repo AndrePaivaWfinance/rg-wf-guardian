@@ -26,6 +26,8 @@ export interface GuardianAuthorization {
     criadoEm: string;
     sugestao: 'approve' | 'investigate' | 'archive';
     origem?: string;
+    descricao?: string;
+    data?: string;
     /** Stored as JSON string in Table Storage, parsed back on read */
     auditJson?: string;
     /** Transient — populated after parsing auditJson */
@@ -58,7 +60,9 @@ export interface KPIResult {
 export function toGuardianAuth(
     res: AnalysisResult,
     criadoEm: string,
-    origem?: string
+    origem?: string,
+    descricao?: string,
+    data?: string
 ): GuardianAuthorization {
     return {
         id: res.id,
@@ -71,6 +75,8 @@ export function toGuardianAuth(
         criadoEm,
         sugestao: res.suggestedAction,
         origem: origem || '',
+        descricao: descricao || '',
+        data: data || criadoEm.split('T')[0],
         auditJson: res.audit ? JSON.stringify(res.audit) : undefined,
         needsReview: res.needsReview,
     };

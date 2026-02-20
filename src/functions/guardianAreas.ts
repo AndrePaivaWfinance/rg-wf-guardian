@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { createLogger, nowISO, generateId, safeErrorMessage } from '../shared/utils';
+import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import {
     AreaType,
     AreaResponse,
@@ -152,108 +152,6 @@ function recalcAccountBalance(account: InvestmentAccount, movements: InvestmentM
     return Math.round(saldo * 100) / 100;
 }
 
-// ============ MOCK DATA ============
-
-function getMockOperacoes(): OperacoesProject[] {
-    return [
-        { id: generateId('OP'), nome: 'BPO Financeiro - Grupo Alfa', cliente: 'Grupo Alfa', responsavel: 'Ana Silva', status: 'em_andamento', prioridade: 'alta', dataInicio: '2026-01-10', dataPrevisao: '2026-03-30', progresso: 65, horasEstimadas: 480, horasRealizadas: 312, valorContrato: 185000, tags: ['bpo', 'financeiro'] },
-        { id: generateId('OP'), nome: 'Holding Familiar - Familia Souza', cliente: 'Familia Souza', responsavel: 'Carlos Mendes', status: 'em_andamento', prioridade: 'critica', dataInicio: '2026-01-05', dataPrevisao: '2026-06-30', progresso: 35, horasEstimadas: 960, horasRealizadas: 336, valorContrato: 420000, tags: ['holding', 'sucessao'] },
-        { id: generateId('OP'), nome: 'Due Diligence - TechStart', cliente: 'TechStart Ltda', responsavel: 'Marina Costa', status: 'concluido', prioridade: 'alta', dataInicio: '2025-11-01', dataPrevisao: '2026-01-31', dataConclusao: '2026-01-28', progresso: 100, horasEstimadas: 320, horasRealizadas: 298, valorContrato: 95000, tags: ['due-diligence', 'm&a'] },
-        { id: generateId('OP'), nome: 'Planejamento Tributario - IndCo', cliente: 'IndCo S.A.', responsavel: 'Roberto Leal', status: 'em_andamento', prioridade: 'media', dataInicio: '2026-02-01', dataPrevisao: '2026-04-15', progresso: 20, horasEstimadas: 200, horasRealizadas: 40, valorContrato: 72000, tags: ['tributario', 'planejamento'] },
-        { id: generateId('OP'), nome: 'Reestruturacao Societaria - LogBR', cliente: 'LogBR Transportes', responsavel: 'Ana Silva', status: 'bloqueado', prioridade: 'alta', dataInicio: '2026-01-15', dataPrevisao: '2026-05-30', progresso: 45, horasEstimadas: 640, horasRealizadas: 288, valorContrato: 250000, tags: ['societario', 'reestruturacao'] },
-        { id: generateId('OP'), nome: 'Consultoria Gestao - Padaria Pao Quente', cliente: 'Padaria Pao Quente', responsavel: 'Carlos Mendes', status: 'concluido', prioridade: 'baixa', dataInicio: '2025-10-01', dataPrevisao: '2025-12-31', dataConclusao: '2025-12-20', progresso: 100, horasEstimadas: 120, horasRealizadas: 108, valorContrato: 28000, tags: ['consultoria', 'gestao'] },
-        { id: generateId('OP'), nome: 'Assessoria M&A - FoodTech + DeliverCo', cliente: 'FoodTech', responsavel: 'Marina Costa', status: 'em_andamento', prioridade: 'critica', dataInicio: '2026-02-10', dataPrevisao: '2026-08-30', progresso: 10, horasEstimadas: 800, horasRealizadas: 80, valorContrato: 350000, tags: ['m&a', 'assessoria'] },
-    ];
-}
-
-function getMockMarketing(): MarketingCampaign[] {
-    return [
-        { id: generateId('MKT'), nome: 'Google Ads - Holding Familiar', canal: 'google_ads', status: 'ativa', orcamento: 8000, gastoAtual: 5200, dataInicio: '2026-01-15', leads: 47, conversoes: 6, impressoes: 24500, cliques: 820, cpl: 110.64, cpa: 866.67, roi: 340 },
-        { id: generateId('MKT'), nome: 'LinkedIn - C-Level BPO', canal: 'linkedin', status: 'ativa', orcamento: 12000, gastoAtual: 7800, dataInicio: '2026-01-01', leads: 32, conversoes: 4, impressoes: 18200, cliques: 540, cpl: 243.75, cpa: 1950, roi: 280 },
-        { id: generateId('MKT'), nome: 'Meta Ads - Awareness Wfinance', canal: 'meta_ads', status: 'ativa', orcamento: 5000, gastoAtual: 3100, dataInicio: '2026-02-01', leads: 85, conversoes: 2, impressoes: 62000, cliques: 2100, cpl: 36.47, cpa: 1550, roi: 120 },
-        { id: generateId('MKT'), nome: 'Webinar Planej. Tributario', canal: 'eventos', status: 'finalizada', orcamento: 3500, gastoAtual: 3200, dataInicio: '2025-12-01', dataFim: '2025-12-15', leads: 120, conversoes: 8, impressoes: 4500, cliques: 890, cpl: 26.67, cpa: 400, roi: 520 },
-        { id: generateId('MKT'), nome: 'Email Nurture - Base Existente', canal: 'email', status: 'ativa', orcamento: 1500, gastoAtual: 800, dataInicio: '2026-01-10', leads: 22, conversoes: 5, impressoes: 3200, cliques: 480, cpl: 36.36, cpa: 160, roi: 890 },
-        { id: generateId('MKT'), nome: 'Programa de Indicacao', canal: 'indicacao', status: 'ativa', orcamento: 15000, gastoAtual: 6500, dataInicio: '2025-11-01', leads: 18, conversoes: 9, impressoes: 0, cliques: 0, cpl: 361.11, cpa: 722.22, roi: 620 },
-    ];
-}
-
-function getMockComercial(): ComercialDeal[] {
-    return [
-        { id: generateId('DEAL'), empresa: 'Construtora Horizonte', contato: 'Ricardo Pimentel', servico: 'BPO Financeiro', estagio: 'negociacao', valor: 240000, recorrencia: 'mensal', probabilidade: 75, responsavel: 'Andre Paiva', dataCriacao: '2026-01-20', dataPrevisaoFechamento: '2026-03-15', origem: 'inbound' },
-        { id: generateId('DEAL'), empresa: 'Farmacia Popular Rede', contato: 'Juliana Matos', servico: 'Holding Familiar', estagio: 'proposta', valor: 180000, recorrencia: 'unico', probabilidade: 50, responsavel: 'Andre Paiva', dataCriacao: '2026-02-05', dataPrevisaoFechamento: '2026-04-01', origem: 'indicacao' },
-        { id: generateId('DEAL'), empresa: 'AutoParts Brasil', contato: 'Fernando Gomes', servico: 'Planejamento Tributario', estagio: 'qualificacao', valor: 85000, recorrencia: 'anual', probabilidade: 30, responsavel: 'Carlos Mendes', dataCriacao: '2026-02-10', dataPrevisaoFechamento: '2026-05-30', origem: 'outbound' },
-        { id: generateId('DEAL'), empresa: 'Grupo Viver Bem', contato: 'Patricia Lima', servico: 'Assessoria M&A', estagio: 'prospeccao', valor: 450000, recorrencia: 'unico', probabilidade: 15, responsavel: 'Marina Costa', dataCriacao: '2026-02-15', dataPrevisaoFechamento: '2026-07-30', origem: 'evento' },
-        { id: generateId('DEAL'), empresa: 'Logistica Express', contato: 'Marcos Tavares', servico: 'Reestruturacao Societaria', estagio: 'negociacao', valor: 320000, recorrencia: 'unico', probabilidade: 80, responsavel: 'Ana Silva', dataCriacao: '2025-12-10', dataPrevisaoFechamento: '2026-03-01', origem: 'indicacao' },
-        { id: generateId('DEAL'), empresa: 'TechFood Delivery', contato: 'Bruno Almeida', servico: 'BPO Financeiro', estagio: 'fechado_ganho', valor: 156000, recorrencia: 'mensal', probabilidade: 100, responsavel: 'Andre Paiva', dataCriacao: '2025-11-01', dataPrevisaoFechamento: '2026-01-31', dataFechamento: '2026-01-25', origem: 'inbound' },
-        { id: generateId('DEAL'), empresa: 'Clinica Saude Total', contato: 'Dr. Eduardo Reis', servico: 'Consultoria Gestao', estagio: 'fechado_ganho', valor: 72000, recorrencia: 'trimestral', probabilidade: 100, responsavel: 'Carlos Mendes', dataCriacao: '2025-12-15', dataPrevisaoFechamento: '2026-02-15', dataFechamento: '2026-02-10', origem: 'indicacao' },
-        { id: generateId('DEAL'), empresa: 'Mercado Online BR', contato: 'Camila Torres', servico: 'Due Diligence', estagio: 'fechado_perdido', valor: 110000, recorrencia: 'unico', probabilidade: 0, responsavel: 'Marina Costa', dataCriacao: '2025-10-20', dataPrevisaoFechamento: '2026-01-15', dataFechamento: '2026-01-10', motivoPerda: 'Orcamento insuficiente do cliente', origem: 'outbound' },
-    ];
-}
-
-function getMockInvestmentAccounts(): InvestmentAccount[] {
-    return [
-        {
-            id: 'INV_001',
-            nome: 'CDB DI Liquidez Diaria',
-            tipo: 'CDB',
-            banco: 'Inter',
-            saldoInicial: 500000.00,
-            saldoAtual: 0, // will be recalculated
-            dataAbertura: '2025-06-01',
-            taxaContratada: '100% CDI',
-            ativo: true,
-        },
-        {
-            id: 'INV_002',
-            nome: 'CDB IPCA+ Venc. 2027',
-            tipo: 'CDB',
-            banco: 'Inter',
-            saldoInicial: 350000.00,
-            saldoAtual: 0, // will be recalculated
-            dataAbertura: '2025-03-15',
-            taxaContratada: 'IPCA + 6.5% a.a.',
-            ativo: true,
-        },
-    ];
-}
-
-function getMockInvestmentMovements(): InvestmentMovement[] {
-    return [
-        // CDB DI - rendimentos mensais
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-07-01', tipo: 'JUROS', valor: 4583.33, descricao: 'Rendimento CDI mensal - Jul/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-08-01', tipo: 'JUROS', valor: 4625.00, descricao: 'Rendimento CDI mensal - Ago/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-09-01', tipo: 'JUROS', valor: 4666.67, descricao: 'Rendimento CDI mensal - Set/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-10-01', tipo: 'JUROS', valor: 4708.33, descricao: 'Rendimento CDI mensal - Out/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-11-01', tipo: 'JUROS', valor: 4750.00, descricao: 'Rendimento CDI mensal - Nov/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-12-01', tipo: 'JUROS', valor: 4791.67, descricao: 'Rendimento CDI mensal - Dez/25' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-01-02', tipo: 'JUROS', valor: 4833.33, descricao: 'Rendimento CDI mensal - Jan/26' },
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-02-02', tipo: 'JUROS', valor: 4875.00, descricao: 'Rendimento CDI mensal - Fev/26' },
-        // CDB DI - impostos semestrais (come-cotas)
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-11-30', tipo: 'IMPOSTO_IR', valor: 3468.75, descricao: 'IR retido come-cotas semestral (15%)' },
-        // CDB DI - transferencia para CC
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-12-15', tipo: 'TRANSFERENCIA_PARA_CC', valor: 50000.00, descricao: 'Resgate parcial para folha de pagamento' },
-        // CDB DI - aporte extra
-        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-01-10', tipo: 'TRANSFERENCIA_DA_CC', valor: 30000.00, descricao: 'Aporte adicional da conta corrente' },
-
-        // CDB IPCA+ - rendimentos mensais
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-04-01', tipo: 'JUROS', valor: 3208.33, descricao: 'Rendimento IPCA+ mensal - Abr/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-05-01', tipo: 'JUROS', valor: 3250.00, descricao: 'Rendimento IPCA+ mensal - Mai/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-06-01', tipo: 'JUROS', valor: 3291.67, descricao: 'Rendimento IPCA+ mensal - Jun/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-07-01', tipo: 'JUROS', valor: 3333.33, descricao: 'Rendimento IPCA+ mensal - Jul/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-08-01', tipo: 'JUROS', valor: 3375.00, descricao: 'Rendimento IPCA+ mensal - Ago/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-09-01', tipo: 'JUROS', valor: 3416.67, descricao: 'Rendimento IPCA+ mensal - Set/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-10-01', tipo: 'JUROS', valor: 3458.33, descricao: 'Rendimento IPCA+ mensal - Out/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-11-01', tipo: 'JUROS', valor: 3500.00, descricao: 'Rendimento IPCA+ mensal - Nov/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-12-01', tipo: 'JUROS', valor: 3541.67, descricao: 'Rendimento IPCA+ mensal - Dez/25' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-01-02', tipo: 'JUROS', valor: 3583.33, descricao: 'Rendimento IPCA+ mensal - Jan/26' },
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-02-02', tipo: 'JUROS', valor: 3625.00, descricao: 'Rendimento IPCA+ mensal - Fev/26' },
-        // CDB IPCA+ - impostos
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-11-30', tipo: 'IMPOSTO_IR', valor: 2812.50, descricao: 'IR retido come-cotas semestral (15%)' },
-        // CDB IPCA+ - transferencia para CC
-        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-01-20', tipo: 'TRANSFERENCIA_PARA_CC', valor: 25000.00, descricao: 'Resgate parcial para pagamento fornecedor' },
-    ];
-}
-
 // ============ HANDLERS ============
 
 export async function guardianAreasGetHandler(
@@ -272,49 +170,21 @@ export async function guardianAreasGetHandler(
         let response: AreaResponse;
 
         if (area === 'operacoes') {
-            let projects = await getAreaRecords<OperacoesProject>(area);
-            if (projects.length === 0) {
-                context.log('Operacoes: storage vazio, executando seed inicial...');
-                projects = getMockOperacoes();
-                await Promise.all(projects.map(p => createAreaRecord(area, p)));
-                context.log(`Operacoes: seed concluido — ${projects.length} projetos persistidos.`);
-            }
+            const projects = await getAreaRecords<OperacoesProject>(area);
             const data: OperacoesData = { projects, kpis: calcOperacoesKPIs(projects) };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'marketing') {
-            let campaigns = await getAreaRecords<MarketingCampaign>(area);
-            if (campaigns.length === 0) {
-                context.log('Marketing: storage vazio, executando seed inicial...');
-                campaigns = getMockMarketing();
-                await Promise.all(campaigns.map(c => createAreaRecord(area, c)));
-                context.log(`Marketing: seed concluido — ${campaigns.length} campanhas persistidas.`);
-            }
+            const campaigns = await getAreaRecords<MarketingCampaign>(area);
             const data: MarketingData = { campaigns, kpis: calcMarketingKPIs(campaigns) };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'comercial') {
-            let deals = await getAreaRecords<ComercialDeal>(area);
-            if (deals.length === 0) {
-                context.log('Comercial: storage vazio, executando seed inicial...');
-                deals = getMockComercial();
-                await Promise.all(deals.map(d => createAreaRecord(area, d)));
-                context.log(`Comercial: seed concluido — ${deals.length} deals persistidos.`);
-            }
+            const deals = await getAreaRecords<ComercialDeal>(area);
             const data: ComercialData = { deals, kpis: calcComercialKPIs(deals) };
             response = { area, generatedAt: nowISO(), data };
         } else {
             // investimentos
-            let accounts = await getAreaRecords<InvestmentAccount>(area);
-            let movements = await getInvestmentMovements();
-            if (accounts.length === 0) {
-                // Seed: persist mock data to storage so the cycle is complete
-                context.log('Investimentos: storage vazio, executando seed inicial...');
-                accounts = getMockInvestmentAccounts();
-                movements = getMockInvestmentMovements();
-                await Promise.all(accounts.map(a => createAreaRecord(area, a)));
-                await Promise.all(movements.map(m => createInvestmentMovement(m)));
-                context.log(`Investimentos: seed concluido — ${accounts.length} contas, ${movements.length} movimentos persistidos.`);
-            }
-            // Recalculate balances from movements
+            const accounts = await getAreaRecords<InvestmentAccount>(area);
+            const movements = await getInvestmentMovements();
             for (const acct of accounts) {
                 acct.saldoAtual = recalcAccountBalance(acct, movements);
             }

@@ -78,15 +78,15 @@ export class GuardianAgents {
             return this.extractWithAI(attachments);
         }
 
-        logger.warn('Azure AI Document Intelligence não configurado — usando dados mock');
+        logger.warn('Azure AI Document Intelligence não configurado — documento pendente de OCR');
         return attachments.map(att => ({
             id: generateId('EXT'),
             type: 'document' as const,
-            classification: att.type.includes('xml') ? 'Nota Fiscal Servico' : 'Infraestrutura / AWS',
-            confidence: 0.985,
-            value: 924.10,
-            needsReview: false,
-            suggestedAction: 'approve' as const,
+            classification: 'Documento Pendente OCR',
+            confidence: 0.0,
+            value: 0,
+            needsReview: true,
+            suggestedAction: 'investigate' as const,
         }));
     }
 
@@ -247,27 +247,107 @@ export class GuardianAgents {
 
     async classifyTransaction(tx: InterTransaction): Promise<AnalysisResult> {
         logger.info(`Classifying transaction: ${tx.descricao}`);
-        let confidence = 0.85;
-        if (tx.descricao.includes('PIX RECEBIDO')) confidence = 1.0;
-        if (tx.descricao.includes('CONDOMINIO')) confidence = 0.95;
+        const desc = tx.descricao.toUpperCase();
+        const { classification, confidence } = this.classifyByDescription(desc, tx.tipo);
 
         return {
             id: 'CLASS_' + tx.id,
             type: 'transaction',
-            classification: tx.tipo === 'CREDITO' ? 'Receita Operacional' : 'Despesas Administrativas',
+            classification,
             confidence,
             value: tx.valor,
-            needsReview: confidence < 0.90,
-            suggestedAction: confidence >= 0.90 ? 'archive' : 'investigate',
+            needsReview: true, // All transactions come for approval so AI can learn
+            suggestedAction: confidence >= 0.90 ? 'approve' : 'investigate',
         };
+    }
+
+    /** Rule-based classifier for Inter bank transactions */
+    private classifyByDescription(desc: string, tipo: 'CREDITO' | 'DEBITO'): { classification: string; confidence: number } {
+        // ---- Investment movements ----
+        if (desc.includes('RESGATE') && desc.includes('CDB'))
+            return { classification: 'Resgate Investimento', confidence: 0.98 };
+        if (desc.includes('APLICACAO') && (desc.includes('CDB') || desc.includes('FUNDO')))
+            return { classification: 'Aplicacao Investimento', confidence: 0.98 };
+        if (desc.includes('RENDIMENTO') || desc.includes('JUROS'))
+            return { classification: 'Rendimento Investimento', confidence: 0.97 };
+
+        // ---- Card payments ----
+        if (desc.includes('FATURA') && desc.includes('INTER'))
+            return { classification: 'Fatura Cartao', confidence: 0.98 };
+        if (desc.includes('FATURA') && desc.includes('CARTAO'))
+            return { classification: 'Fatura Cartao', confidence: 0.97 };
+
+        // ---- Known vendors (by CNPJ/name patterns) ----
+        if (desc.includes('SERASA'))
+            return { classification: 'Servicos Financeiros', confidence: 0.95 };
+        if (desc.includes('CONTROLLE') || desc.includes('CONTABILIZEI') || desc.includes('CONTMATIC'))
+            return { classification: 'Contabilidade', confidence: 0.95 };
+        if (desc.includes('OMIEXPERIENCE') || desc.includes('OMIE'))
+            return { classification: 'Software ERP', confidence: 0.95 };
+        if (desc.includes('EBANX'))
+            return { classification: 'Servicos Financeiros', confidence: 0.93 };
+        if (desc.includes('GOOGLE') || desc.includes('META') || desc.includes('FACEBOOK'))
+            return { classification: 'Marketing Digital', confidence: 0.95 };
+        if (desc.includes('AWS') || desc.includes('AMAZON') || desc.includes('AZURE') || desc.includes('HEROKU'))
+            return { classification: 'Infraestrutura Cloud', confidence: 0.96 };
+
+        // ---- Payroll / HR ----
+        if (desc.includes('SALARIO') || desc.includes('FOLHA') || desc.includes('INSS') || desc.includes('FGTS'))
+            return { classification: 'Folha de Pagamento', confidence: 0.97 };
+
+        // ---- Utilities ----
+        if (desc.includes('ENERGIA') || desc.includes('CEMIG') || desc.includes('ENEL') || desc.includes('CPFL'))
+            return { classification: 'Utilidades', confidence: 0.95 };
+        if (desc.includes('TELEFONE') || desc.includes('INTERNET') || desc.includes('VIVO') || desc.includes('CLARO') || desc.includes('TIM'))
+            return { classification: 'Utilidades', confidence: 0.95 };
+
+        // ---- Real estate ----
+        if (desc.includes('ALUGUEL') || desc.includes('CONDOMINIO') || desc.includes('IPTU'))
+            return { classification: 'Despesas Imobiliarias', confidence: 0.96 };
+
+        // ---- Transfer types ----
+        if (desc.includes('TRANSFERENCIA') || desc.includes('TED') || desc.includes('DOC'))
+            return tipo === 'CREDITO'
+                ? { classification: 'Receita Operacional', confidence: 0.80 }
+                : { classification: 'Transferencias', confidence: 0.80 };
+
+        // ---- PIX classification ----
+        if (desc.includes('PIX RECEBIDO'))
+            return { classification: 'Receita Operacional', confidence: 0.90 };
+        if (desc.includes('PIX ENVIADO')) {
+            // Try to extract vendor hint from description
+            if (desc.includes('MULTIDISPLAY') || desc.includes('PRODUTOS'))
+                return { classification: 'Fornecedores', confidence: 0.85 };
+            return { classification: 'Pagamentos Diversos', confidence: 0.75 };
+        }
+
+        // ---- Boleto ----
+        if (desc.includes('BOLETO') || desc.includes('PAGAMENTO'))
+            return tipo === 'CREDITO'
+                ? { classification: 'Receita Operacional', confidence: 0.85 }
+                : { classification: 'Pagamentos Diversos', confidence: 0.80 };
+
+        // ---- Fallback ----
+        return tipo === 'CREDITO'
+            ? { classification: 'Receita Operacional', confidence: 0.70 }
+            : { classification: 'Despesas Nao Classificadas', confidence: 0.60 };
     }
 
     async audit(result: AnalysisResult): Promise<void> {
         logger.info(`Auditing result: ${result.classification} - R$ ${result.value}`);
 
         const budgets: Record<string, number> = {
-            'Infraestrutura / AWS': 1000.00,
-            'Despesas Administrativas': 5000.00,
+            'Infraestrutura Cloud': 500.00,
+            'Software ERP': 300.00,
+            'Marketing Digital': 2000.00,
+            'Fatura Cartao': 3000.00,
+            'Servicos Financeiros': 1000.00,
+            'Contabilidade': 500.00,
+            'Folha de Pagamento': 15000.00,
+            'Despesas Imobiliarias': 5000.00,
+            'Utilidades': 1000.00,
+            'Pagamentos Diversos': 1000.00,
+            'Fornecedores': 2000.00,
         };
 
         const limit = budgets[result.classification];
@@ -302,14 +382,22 @@ export class GuardianAgents {
         }
     }
 
+    /** Non-operational classifications excluded from KPIs */
+    private static readonly NON_OPERATIONAL = new Set([
+        'Resgate Investimento', 'Aplicacao Investimento', 'Rendimento Investimento',
+        'Fatura Cartao', 'Transferencias',
+    ]);
+
     async calculateKPIs(results: AnalysisResult[]): Promise<KPIResult> {
         logger.info(`Generating strategic KPIs for ${results.length} items`);
 
-        const revenue = results
+        const operational = results.filter(r => !GuardianAgents.NON_OPERATIONAL.has(r.classification));
+
+        const revenue = operational
             .filter(r => r.classification === 'Receita Operacional')
             .reduce((acc, curr) => acc + curr.value, 0);
 
-        const opExpenses = results
+        const opExpenses = operational
             .filter(r => r.classification !== 'Receita Operacional' && r.type === 'transaction')
             .reduce((acc, curr) => acc + curr.value, 0);
 

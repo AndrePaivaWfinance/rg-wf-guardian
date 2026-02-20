@@ -57,24 +57,8 @@ export class EmailListener {
         logger.info(`Checking mailbox for ${this.email}...`);
 
         if (!this.isConfigured()) {
-            logger.warn('Microsoft Graph não configurado — usando dados mock');
-            return [
-                {
-                    id: generateId('MSG'),
-                    source: this.email,
-                    sender: 'faturamento@amazon.com',
-                    receivedAt: nowISO(),
-                    subject: 'Sua Fatura AWS - FEV/2026',
-                    attachments: [
-                        {
-                            name: 'fatura_aws_9241.pdf',
-                            type: 'application/pdf',
-                            blobUrl: 'https://stguardian.blob.core.windows.net/mailbox/fatura_aws_9241.pdf',
-                            size: 152400,
-                        },
-                    ],
-                },
-            ];
+            logger.warn('Microsoft Graph não configurado — retornando vazio');
+            return [];
         }
 
         const token = await this.getGraphToken();
