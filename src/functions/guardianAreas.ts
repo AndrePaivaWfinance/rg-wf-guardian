@@ -12,12 +12,24 @@ import {
     ComercialDeal,
     ComercialKPIs,
     ComercialData,
+    InvestmentAccount,
+    InvestmentMovement,
+    InvestmentKPIs,
+    InvestmentData,
 } from '../shared/areas';
-import { getAreaRecords, createAreaRecord, updateAreaRecord, deleteAreaRecord } from '../storage/areaTableClient';
+import {
+    getAreaRecords,
+    createAreaRecord,
+    updateAreaRecord,
+    deleteAreaRecord,
+    getInvestmentMovements,
+    createInvestmentMovement,
+    deleteInvestmentMovement,
+} from '../storage/areaTableClient';
 
 const logger = createLogger('GuardianAreas');
 
-const VALID_AREAS: AreaType[] = ['operacoes', 'marketing', 'comercial'];
+const VALID_AREAS: AreaType[] = ['operacoes', 'marketing', 'comercial', 'investimentos'];
 
 // ============ KPI CALCULATORS ============
 
@@ -108,6 +120,38 @@ function calcComercialKPIs(deals: ComercialDeal[]): ComercialKPIs {
     };
 }
 
+function calcInvestmentKPIs(accounts: InvestmentAccount[], movements: InvestmentMovement[]): InvestmentKPIs {
+    const ativas = accounts.filter(a => a.ativo);
+    const totalInvestido = ativas.reduce((s, a) => s + a.saldoAtual, 0);
+    const totalInicial = ativas.reduce((s, a) => s + a.saldoInicial, 0);
+    const rendimentos = movements.filter(m => m.tipo === 'JUROS').reduce((s, m) => s + m.valor, 0);
+    const impostos = movements.filter(m => m.tipo === 'IMPOSTO_IR' || m.tipo === 'IOF').reduce((s, m) => s + m.valor, 0);
+
+    return {
+        totalInvestido,
+        rendimentoAcumulado: rendimentos,
+        impostosTotais: impostos,
+        rendimentoLiquido: rendimentos - impostos,
+        rentabilidadeMedia: totalInicial > 0 ? (((totalInvestido - totalInicial) / totalInicial) * 100).toFixed(2) + '%' : '0%',
+        contasAtivas: ativas.length,
+    };
+}
+
+/** Recalculates saldoAtual based on saldoInicial + all movements */
+function recalcAccountBalance(account: InvestmentAccount, movements: InvestmentMovement[]): number {
+    const acctMovements = movements.filter(m => m.contaId === account.id);
+    let saldo = account.saldoInicial;
+    for (const m of acctMovements) {
+        if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') {
+            saldo += m.valor;
+        } else {
+            // IMPOSTO_IR, IOF, TRANSFERENCIA_PARA_CC, RESGATE
+            saldo -= m.valor;
+        }
+    }
+    return Math.round(saldo * 100) / 100;
+}
+
 // ============ MOCK DATA ============
 
 function getMockOperacoes(): OperacoesProject[] {
@@ -146,6 +190,70 @@ function getMockComercial(): ComercialDeal[] {
     ];
 }
 
+function getMockInvestmentAccounts(): InvestmentAccount[] {
+    return [
+        {
+            id: 'INV_001',
+            nome: 'CDB DI Liquidez Diaria',
+            tipo: 'CDB',
+            banco: 'Inter',
+            saldoInicial: 500000.00,
+            saldoAtual: 0, // will be recalculated
+            dataAbertura: '2025-06-01',
+            taxaContratada: '100% CDI',
+            ativo: true,
+        },
+        {
+            id: 'INV_002',
+            nome: 'CDB IPCA+ Venc. 2027',
+            tipo: 'CDB',
+            banco: 'Inter',
+            saldoInicial: 350000.00,
+            saldoAtual: 0, // will be recalculated
+            dataAbertura: '2025-03-15',
+            taxaContratada: 'IPCA + 6.5% a.a.',
+            ativo: true,
+        },
+    ];
+}
+
+function getMockInvestmentMovements(): InvestmentMovement[] {
+    return [
+        // CDB DI - rendimentos mensais
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-07-01', tipo: 'JUROS', valor: 4583.33, descricao: 'Rendimento CDI mensal - Jul/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-08-01', tipo: 'JUROS', valor: 4625.00, descricao: 'Rendimento CDI mensal - Ago/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-09-01', tipo: 'JUROS', valor: 4666.67, descricao: 'Rendimento CDI mensal - Set/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-10-01', tipo: 'JUROS', valor: 4708.33, descricao: 'Rendimento CDI mensal - Out/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-11-01', tipo: 'JUROS', valor: 4750.00, descricao: 'Rendimento CDI mensal - Nov/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-12-01', tipo: 'JUROS', valor: 4791.67, descricao: 'Rendimento CDI mensal - Dez/25' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-01-02', tipo: 'JUROS', valor: 4833.33, descricao: 'Rendimento CDI mensal - Jan/26' },
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-02-02', tipo: 'JUROS', valor: 4875.00, descricao: 'Rendimento CDI mensal - Fev/26' },
+        // CDB DI - impostos semestrais (come-cotas)
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-11-30', tipo: 'IMPOSTO_IR', valor: 3468.75, descricao: 'IR retido come-cotas semestral (15%)' },
+        // CDB DI - transferencia para CC
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2025-12-15', tipo: 'TRANSFERENCIA_PARA_CC', valor: 50000.00, descricao: 'Resgate parcial para folha de pagamento' },
+        // CDB DI - aporte extra
+        { id: generateId('MOV'), contaId: 'INV_001', data: '2026-01-10', tipo: 'TRANSFERENCIA_DA_CC', valor: 30000.00, descricao: 'Aporte adicional da conta corrente' },
+
+        // CDB IPCA+ - rendimentos mensais
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-04-01', tipo: 'JUROS', valor: 3208.33, descricao: 'Rendimento IPCA+ mensal - Abr/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-05-01', tipo: 'JUROS', valor: 3250.00, descricao: 'Rendimento IPCA+ mensal - Mai/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-06-01', tipo: 'JUROS', valor: 3291.67, descricao: 'Rendimento IPCA+ mensal - Jun/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-07-01', tipo: 'JUROS', valor: 3333.33, descricao: 'Rendimento IPCA+ mensal - Jul/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-08-01', tipo: 'JUROS', valor: 3375.00, descricao: 'Rendimento IPCA+ mensal - Ago/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-09-01', tipo: 'JUROS', valor: 3416.67, descricao: 'Rendimento IPCA+ mensal - Set/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-10-01', tipo: 'JUROS', valor: 3458.33, descricao: 'Rendimento IPCA+ mensal - Out/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-11-01', tipo: 'JUROS', valor: 3500.00, descricao: 'Rendimento IPCA+ mensal - Nov/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-12-01', tipo: 'JUROS', valor: 3541.67, descricao: 'Rendimento IPCA+ mensal - Dez/25' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-01-02', tipo: 'JUROS', valor: 3583.33, descricao: 'Rendimento IPCA+ mensal - Jan/26' },
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-02-02', tipo: 'JUROS', valor: 3625.00, descricao: 'Rendimento IPCA+ mensal - Fev/26' },
+        // CDB IPCA+ - impostos
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2025-11-30', tipo: 'IMPOSTO_IR', valor: 2812.50, descricao: 'IR retido come-cotas semestral (15%)' },
+        // CDB IPCA+ - transferencia para CC
+        { id: generateId('MOV'), contaId: 'INV_002', data: '2026-01-20', tipo: 'TRANSFERENCIA_PARA_CC', valor: 25000.00, descricao: 'Resgate parcial para pagamento fornecedor' },
+    ];
+}
+
 // ============ HANDLERS ============
 
 export async function guardianAreasGetHandler(
@@ -165,18 +273,56 @@ export async function guardianAreasGetHandler(
 
         if (area === 'operacoes') {
             let projects = await getAreaRecords<OperacoesProject>(area);
-            if (projects.length === 0) projects = getMockOperacoes();
+            if (projects.length === 0) {
+                context.log('Operacoes: storage vazio, executando seed inicial...');
+                projects = getMockOperacoes();
+                await Promise.all(projects.map(p => createAreaRecord(area, p)));
+                context.log(`Operacoes: seed concluido — ${projects.length} projetos persistidos.`);
+            }
             const data: OperacoesData = { projects, kpis: calcOperacoesKPIs(projects) };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'marketing') {
             let campaigns = await getAreaRecords<MarketingCampaign>(area);
-            if (campaigns.length === 0) campaigns = getMockMarketing();
+            if (campaigns.length === 0) {
+                context.log('Marketing: storage vazio, executando seed inicial...');
+                campaigns = getMockMarketing();
+                await Promise.all(campaigns.map(c => createAreaRecord(area, c)));
+                context.log(`Marketing: seed concluido — ${campaigns.length} campanhas persistidas.`);
+            }
             const data: MarketingData = { campaigns, kpis: calcMarketingKPIs(campaigns) };
             response = { area, generatedAt: nowISO(), data };
-        } else {
+        } else if (area === 'comercial') {
             let deals = await getAreaRecords<ComercialDeal>(area);
-            if (deals.length === 0) deals = getMockComercial();
+            if (deals.length === 0) {
+                context.log('Comercial: storage vazio, executando seed inicial...');
+                deals = getMockComercial();
+                await Promise.all(deals.map(d => createAreaRecord(area, d)));
+                context.log(`Comercial: seed concluido — ${deals.length} deals persistidos.`);
+            }
             const data: ComercialData = { deals, kpis: calcComercialKPIs(deals) };
+            response = { area, generatedAt: nowISO(), data };
+        } else {
+            // investimentos
+            let accounts = await getAreaRecords<InvestmentAccount>(area);
+            let movements = await getInvestmentMovements();
+            if (accounts.length === 0) {
+                // Seed: persist mock data to storage so the cycle is complete
+                context.log('Investimentos: storage vazio, executando seed inicial...');
+                accounts = getMockInvestmentAccounts();
+                movements = getMockInvestmentMovements();
+                await Promise.all(accounts.map(a => createAreaRecord(area, a)));
+                await Promise.all(movements.map(m => createInvestmentMovement(m)));
+                context.log(`Investimentos: seed concluido — ${accounts.length} contas, ${movements.length} movimentos persistidos.`);
+            }
+            // Recalculate balances from movements
+            for (const acct of accounts) {
+                acct.saldoAtual = recalcAccountBalance(acct, movements);
+            }
+            const data: InvestmentData = {
+                accounts,
+                movements,
+                kpis: calcInvestmentKPIs(accounts, movements),
+            };
             response = { area, generatedAt: nowISO(), data };
         }
 
@@ -201,8 +347,30 @@ export async function guardianAreasPostHandler(
         const body = await request.json() as Record<string, unknown>;
         const action = (body.action as string) || 'create';
 
+        // Investment-specific: create/delete movement
+        if (area === 'investimentos' && action === 'create_movement') {
+            const movement = body.movement as InvestmentMovement;
+            if (!movement || !movement.id || !movement.contaId) {
+                return { status: 400, jsonBody: { error: 'Campo "movement" com "id" e "contaId" e obrigatorio.' } };
+            }
+            await createInvestmentMovement(movement);
+            logger.info(`investimentos create_movement: ${movement.id} (conta: ${movement.contaId})`);
+            return { status: 200, jsonBody: { success: true, action: 'create_movement', id: movement.id } };
+        }
+
+        if (area === 'investimentos' && action === 'delete_movement') {
+            const movementId = body.id as string;
+            const contaId = body.contaId as string;
+            if (!movementId || !contaId) {
+                return { status: 400, jsonBody: { error: 'Campos "id" e "contaId" sao obrigatorios para delete_movement.' } };
+            }
+            await deleteInvestmentMovement(contaId, movementId);
+            logger.info(`investimentos delete_movement: ${movementId}`);
+            return { status: 200, jsonBody: { success: true, action: 'delete_movement', id: movementId } };
+        }
+
         if (action === 'create' || action === 'update') {
-            const record = body.record as OperacoesProject | MarketingCampaign | ComercialDeal;
+            const record = body.record as OperacoesProject | MarketingCampaign | ComercialDeal | InvestmentAccount;
             if (!record || !record.id) {
                 return { status: 400, jsonBody: { error: 'Campo "record" com "id" e obrigatorio.' } };
             }
@@ -227,7 +395,7 @@ export async function guardianAreasPostHandler(
             return { status: 200, jsonBody: { success: true, action: 'delete', id: recordId } };
         }
 
-        return { status: 400, jsonBody: { error: `Action invalida: ${action}. Use: create, update, delete` } };
+        return { status: 400, jsonBody: { error: `Action invalida: ${action}. Use: create, update, delete, create_movement, delete_movement` } };
     } catch (error: unknown) {
         context.error(`Erro ao modificar area ${area}`, error);
         return { status: 500, jsonBody: { error: safeErrorMessage(error) } };
