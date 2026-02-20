@@ -49,6 +49,6 @@ app.http('guardianConfigGet', {
 app.http('guardianConfigPost', {
     methods: ['POST'],
     route: 'guardianConfig',
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianConfigPostHandler,
 });

@@ -75,6 +75,6 @@ export async function guardianSyncHandler(
 
 app.http('guardianSync', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: guardianSyncHandler,
 });
