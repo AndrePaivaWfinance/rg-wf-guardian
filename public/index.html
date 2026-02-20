@@ -384,6 +384,26 @@
         }
         .modal input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
         .modal-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+        .modal-wide { width: 520px; }
+        .modal select {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--bg);
+            color: var(--t1); font-size: 13px; font-family: 'Inter', sans-serif;
+            outline: none; transition: border-color 0.15s; appearance: auto;
+        }
+        .modal select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .mov-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .mov-table th { text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--t3); padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--bg); }
+        .mov-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--t1); }
+        .mov-table tr:last-child td { border-bottom: none; }
+        .mov-table tr:hover td { background: var(--hover); }
+        .mov-table .num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+        .mov-type-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+        .mov-type-tag.credit { background: var(--success-dim); color: var(--success); }
+        .mov-type-tag.debit { background: var(--danger-dim); color: var(--danger); }
 
         /* ---- Utilities ---- */
         .empty-state { text-align: center; padding: 40px 16px; color: var(--t3); font-size: 13px; }
@@ -584,7 +604,13 @@
     </header>
 
     <!-- Visao Patrimonial -->
-    <div class="section-title" id="patrimonio-section"><i data-lucide="landmark"></i> Visao Patrimonial</div>
+    <div class="section-title" id="patrimonio-section" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px"><i data-lucide="landmark"></i> Visao Patrimonial</span>
+        <span style="display:flex;gap:8px">
+            <button class="btn btn-outline" onclick="openAccountModal()" style="font-size:11px;padding:6px 12px"><i data-lucide="plus" style="width:13px;height:13px"></i> Nova Conta</button>
+            <button class="btn btn-primary" onclick="openMovementModal()" style="font-size:11px;padding:6px 12px"><i data-lucide="arrow-right-left" style="width:13px;height:13px"></i> Novo Movimento</button>
+        </span>
+    </div>
     <div id="patrimonio-grid" class="patrimonio-grid">
         <div class="patrimonio-card cc">
             <div class="patrimonio-label">Conta Corrente</div>
@@ -610,6 +636,14 @@
             <div id="pat-total-valor" class="patrimonio-valor">--</div>
             <div class="patrimonio-sub"><span id="pat-total-contas">--</span></div>
         </div>
+    </div>
+
+    <!-- Movimentos de Investimento -->
+    <div class="card mt" id="inv-movements-card" style="padding:0;overflow:hidden">
+        <div class="card-header" style="padding:16px 22px 0">
+            <div class="card-title"><i data-lucide="list"></i> Movimentos Recentes</div>
+        </div>
+        <div id="inv-movements-body" style="padding:0 6px 6px"><div class="empty-state"><span class="spinner"></span></div></div>
     </div>
 
     <!-- KPIs -->
@@ -684,6 +718,98 @@
     <div class="section-title" id="inbox-section"><i data-lucide="inbox"></i> Decision Inbox</div>
     <div class="card" id="inbox" style="padding:0;overflow:hidden">
         <div class="empty-state"><div class="spinner"></div><p style="margin-top:8px">Carregando...</p></div>
+    </div>
+</div>
+
+<!-- New Account Modal -->
+<div id="account-modal" class="modal-bg" onclick="if(event.target===this)closeAccountModal()">
+    <div class="modal modal-wide">
+        <h3>Nova Conta de Investimento</h3>
+        <p>Cadastre uma nova conta de investimento para acompanhamento.</p>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Nome da Conta</label>
+                <input id="acct-nome" type="text" placeholder="Ex: CDB DI Liquidez Diaria">
+            </div>
+            <div class="form-group">
+                <label>Tipo</label>
+                <select id="acct-tipo">
+                    <option value="CDB">CDB</option>
+                    <option value="LCI">LCI</option>
+                    <option value="LCA">LCA</option>
+                    <option value="FUNDO">Fundo</option>
+                    <option value="TESOURO">Tesouro Direto</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Banco</label>
+                <input id="acct-banco" type="text" value="Inter" placeholder="Ex: Inter">
+            </div>
+            <div class="form-group">
+                <label>Taxa Contratada</label>
+                <input id="acct-taxa" type="text" placeholder="Ex: 100% CDI">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Saldo Inicial (R$)</label>
+                <input id="acct-saldo" type="number" step="0.01" placeholder="500000.00">
+            </div>
+            <div class="form-group">
+                <label>Data de Abertura</label>
+                <input id="acct-data" type="date">
+            </div>
+        </div>
+        <div class="modal-acts">
+            <button class="btn btn-outline" onclick="closeAccountModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitNewAccount()">Cadastrar Conta</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Movement Modal -->
+<div id="movement-modal" class="modal-bg" onclick="if(event.target===this)closeMovementModal()">
+    <div class="modal modal-wide">
+        <h3>Registrar Movimento</h3>
+        <p>Registre juros, impostos ou transferencias nas contas de investimento.</p>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Conta</label>
+                <select id="mov-conta"></select>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Movimento</label>
+                <select id="mov-tipo">
+                    <option value="JUROS">Juros / Rendimento</option>
+                    <option value="IMPOSTO_IR">Imposto de Renda</option>
+                    <option value="IOF">IOF</option>
+                    <option value="TRANSFERENCIA_PARA_CC">Transferencia para CC</option>
+                    <option value="TRANSFERENCIA_DA_CC">Transferencia da CC</option>
+                    <option value="APLICACAO">Aplicacao</option>
+                    <option value="RESGATE">Resgate</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Valor (R$)</label>
+                <input id="mov-valor" type="number" step="0.01" placeholder="4583.33">
+            </div>
+            <div class="form-group">
+                <label>Data</label>
+                <input id="mov-data" type="date">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Descricao</label>
+            <input id="mov-descricao" type="text" placeholder="Ex: Rendimento CDI mensal - Fev/26">
+        </div>
+        <div class="modal-acts">
+            <button class="btn btn-outline" onclick="closeMovementModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitNewMovement()">Registrar</button>
+        </div>
     </div>
 </div>
 
@@ -839,6 +965,125 @@ document.querySelector('.sidebar').addEventListener('click',function(e){
 function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
 function openImportModal(){document.getElementById('import-modal').classList.add('open')}
 function closeModal(){document.getElementById('import-modal').classList.remove('open')}
+
+// ---- Investment Management ----
+let investmentData=null; // cached from loadInvestments
+
+function openAccountModal(){
+    document.getElementById('acct-data').value=new Date().toISOString().split('T')[0];
+    document.getElementById('account-modal').classList.add('open');
+}
+function closeAccountModal(){document.getElementById('account-modal').classList.remove('open')}
+
+function openMovementModal(){
+    document.getElementById('mov-data').value=new Date().toISOString().split('T')[0];
+    // Populate accounts dropdown
+    const sel=document.getElementById('mov-conta');
+    sel.innerHTML='';
+    const accts=(investmentData&&investmentData.accounts)||[];
+    if(accts.length===0){sel.innerHTML='<option value="">Nenhuma conta cadastrada</option>'}
+    else{accts.forEach(a=>{sel.innerHTML+='<option value="'+esc(a.id)+'">'+esc(a.nome)+' ('+esc(a.tipo)+')</option>'})}
+    document.getElementById('movement-modal').classList.add('open');
+}
+function closeMovementModal(){document.getElementById('movement-modal').classList.remove('open')}
+
+async function submitNewAccount(){
+    const nome=document.getElementById('acct-nome').value.trim();
+    const tipo=document.getElementById('acct-tipo').value;
+    const banco=document.getElementById('acct-banco').value.trim()||'Inter';
+    const taxa=document.getElementById('acct-taxa').value.trim();
+    const saldo=parseFloat(document.getElementById('acct-saldo').value)||0;
+    const data=document.getElementById('acct-data').value;
+    if(!nome){toast('Informe o nome da conta.','err');return}
+    if(saldo<=0){toast('Informe o saldo inicial.','err');return}
+    const id='INV_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+    const record={id,nome,tipo,banco,saldoInicial:saldo,saldoAtual:saldo,dataAbertura:data,taxaContratada:taxa,ativo:true};
+    try{
+        const r=await fetch(api('/api/guardianAreas/investimentos'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',record})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Conta "'+nome+'" cadastrada com sucesso!','ok');
+        closeAccountModal();
+        document.getElementById('acct-nome').value='';document.getElementById('acct-saldo').value='';document.getElementById('acct-taxa').value='';
+        loadInvestments();loadReport();
+    }catch(e){toast('Erro ao cadastrar conta: '+e.message,'err')}
+}
+
+async function submitNewMovement(){
+    const contaId=document.getElementById('mov-conta').value;
+    const tipo=document.getElementById('mov-tipo').value;
+    const valor=parseFloat(document.getElementById('mov-valor').value)||0;
+    const data=document.getElementById('mov-data').value;
+    const descricao=document.getElementById('mov-descricao').value.trim();
+    if(!contaId){toast('Selecione uma conta.','err');return}
+    if(valor<=0){toast('Informe o valor.','err');return}
+    if(!descricao){toast('Informe a descricao.','err');return}
+    const id='MOV_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+    const movement={id,contaId,data,tipo,valor,descricao};
+    try{
+        const r=await fetch(api('/api/guardianAreas/investimentos'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_movement',movement})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Movimento registrado com sucesso!','ok');
+        closeMovementModal();
+        document.getElementById('mov-valor').value='';document.getElementById('mov-descricao').value='';
+        loadInvestments();loadReport();
+    }catch(e){toast('Erro ao registrar movimento: '+e.message,'err')}
+}
+
+const MOV_TYPE_LABELS={'JUROS':'Juros','IMPOSTO_IR':'IR','IOF':'IOF','TRANSFERENCIA_PARA_CC':'Transf. p/ CC','TRANSFERENCIA_DA_CC':'Transf. da CC','APLICACAO':'Aplicacao','RESGATE':'Resgate'};
+const MOV_CREDIT_TYPES=['JUROS','TRANSFERENCIA_DA_CC','APLICACAO'];
+
+function renderMovements(movements,accounts){
+    const el=document.getElementById('inv-movements-body');
+    if(!movements||!movements.length){el.innerHTML='<div class="empty-state">Nenhum movimento registrado.</div>';return}
+    // Sort by date desc
+    const sorted=[...movements].sort((a,b)=>b.data.localeCompare(a.data));
+    const recent=sorted.slice(0,15);
+    const acctMap={};(accounts||[]).forEach(a=>{acctMap[a.id]=a.nome});
+    el.innerHTML='<table class="mov-table"><thead><tr><th>Data</th><th>Conta</th><th>Tipo</th><th>Descricao</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+
+        recent.map(m=>{
+            const isCredit=MOV_CREDIT_TYPES.includes(m.tipo);
+            const tagCls=isCredit?'credit':'debit';
+            const sign=isCredit?'+':'-';
+            return '<tr><td>'+esc(m.data)+'</td><td style="font-size:11px;color:var(--t2)">'+esc(acctMap[m.contaId]||m.contaId)+'</td><td><span class="mov-type-tag '+tagCls+'">'+(MOV_TYPE_LABELS[m.tipo]||m.tipo)+'</span></td><td style="font-size:11px">'+esc(m.descricao)+'</td><td class="num" style="color:'+(isCredit?'var(--success)':'var(--danger)')+'">'+sign+' '+brl(m.valor)+'</td></tr>'
+        }).join('')+
+        '</tbody></table>';
+}
+
+async function loadInvestments(){
+    try{
+        let d;
+        if(useMock){
+            // Use mock data inline
+            d={success:true,data:{
+                accounts:[
+                    {id:'INV_001',nome:'CDB DI Liquidez Diaria',tipo:'CDB',banco:'Inter',saldoInicial:500000,saldoAtual:518365.58,dataAbertura:'2025-06-01',taxaContratada:'100% CDI',ativo:true},
+                    {id:'INV_002',nome:'CDB IPCA+ Venc. 2027',tipo:'CDB',banco:'Inter',saldoInicial:350000,saldoAtual:362770.83,dataAbertura:'2025-03-15',taxaContratada:'IPCA + 6.5% a.a.',ativo:true}
+                ],
+                movements:[
+                    {id:'m1',contaId:'INV_001',data:'2026-02-02',tipo:'JUROS',valor:4875.00,descricao:'Rendimento CDI mensal - Fev/26'},
+                    {id:'m2',contaId:'INV_001',data:'2026-01-10',tipo:'TRANSFERENCIA_DA_CC',valor:30000.00,descricao:'Aporte adicional da conta corrente'},
+                    {id:'m3',contaId:'INV_001',data:'2026-01-02',tipo:'JUROS',valor:4833.33,descricao:'Rendimento CDI mensal - Jan/26'},
+                    {id:'m4',contaId:'INV_001',data:'2025-12-15',tipo:'TRANSFERENCIA_PARA_CC',valor:50000.00,descricao:'Resgate parcial para folha de pagamento'},
+                    {id:'m5',contaId:'INV_001',data:'2025-11-30',tipo:'IMPOSTO_IR',valor:3468.75,descricao:'IR retido come-cotas semestral (15%)'},
+                    {id:'m6',contaId:'INV_002',data:'2026-02-02',tipo:'JUROS',valor:3625.00,descricao:'Rendimento IPCA+ mensal - Fev/26'},
+                    {id:'m7',contaId:'INV_002',data:'2026-01-20',tipo:'TRANSFERENCIA_PARA_CC',valor:25000.00,descricao:'Resgate parcial para pagamento fornecedor'},
+                    {id:'m8',contaId:'INV_002',data:'2026-01-02',tipo:'JUROS',valor:3583.33,descricao:'Rendimento IPCA+ mensal - Jan/26'},
+                    {id:'m9',contaId:'INV_002',data:'2025-11-30',tipo:'IMPOSTO_IR',valor:2812.50,descricao:'IR retido come-cotas semestral (15%)'},
+                    {id:'m10',contaId:'INV_002',data:'2025-12-01',tipo:'JUROS',valor:3541.67,descricao:'Rendimento IPCA+ mensal - Dez/25'}
+                ]
+            }};
+        }else{
+            const r=await fetch(api('/api/guardianAreas/investimentos'),{signal:AbortSignal.timeout(5000)});
+            if(!r.ok)throw new Error('Status '+r.status);
+            d=await r.json();
+        }
+        investmentData=d.data||{accounts:[],movements:[]};
+        renderMovements(investmentData.movements,investmentData.accounts);
+    }catch(e){
+        console.warn('Investimentos:',e);
+        document.getElementById('inv-movements-body').innerHTML='<div class="empty-state" style="color:var(--t3)">Dados de investimento indisponiveis.</div>';
+    }
+}
 
 // Auth
 let user=null;
@@ -1089,7 +1334,7 @@ async function loadReport(){
     }
 }
 
-function loadAll(){loadInbox();loadReport()}
+function loadAll(){loadInbox();loadReport();loadInvestments()}
 function generateReport(){loadReport();toast('Relatorio atualizado.','ok')}
 
 // ---- Active sidebar nav ----
