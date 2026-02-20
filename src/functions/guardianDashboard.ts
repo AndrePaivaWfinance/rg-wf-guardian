@@ -1,103 +1,185 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getAreaRecords, getInvestmentMovements, getConfig, getCadastroRecords } from '../storage/areaTableClient';
+import { getConfig, getCadastroRecords } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
-import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
-import { InvestmentAccount, InvestmentMovement, Categoria } from '../shared/areas';
+import { Categoria } from '../shared/areas';
 
 const logger = createLogger('GuardianDashboard');
 
 // ---- Financial Statement Builders ----
 
-function buildDRE(items: GuardianAuthorization[], kpis: { revenue: number; opExpenses: number; ebitda: number }) {
-    const receita = kpis.revenue;
-    const deducoes = receita * 0.0925;
-    const receitaLiquida = receita - deducoes;
-    const custos = items
-        .filter(i => i.classificacao?.includes('Infraestrutura') || i.classificacao?.includes('Folha'))
-        .reduce((s, i) => s + i.valor, 0);
-    const lucroBruto = receitaLiquida - custos;
-    const margemBruta = receita > 0 ? (lucroBruto / receita) * 100 : 0;
-    const despesasAdmin = items.filter(i => i.classificacao?.startsWith('Despesa') || i.classificacao?.includes('Pagamentos')).reduce((s, i) => s + i.valor, 0);
-    const despesasImob = items.filter(i => i.classificacao?.includes('Imobiliaria')).reduce((s, i) => s + i.valor, 0);
-    const utilidades = items.filter(i => i.classificacao?.includes('Utilidades')).reduce((s, i) => s + i.valor, 0);
-    const servicos = items.filter(i => i.classificacao?.includes('Servicos') || i.classificacao?.includes('Contabilidade') || i.classificacao?.includes('Software')).reduce((s, i) => s + i.valor, 0);
-    const fornecedores = items.filter(i => i.classificacao?.includes('Fornecedores')).reduce((s, i) => s + i.valor, 0);
-    const totalDespOp = despesasAdmin + despesasImob + utilidades + servicos + fornecedores;
-    const lucroOperacional = lucroBruto - totalDespOp;
-    const margemOperacional = receita > 0 ? (lucroOperacional / receita) * 100 : 0;
-    const deprecAmort = receita * 0.02;
-    const resultadoFinanceiro = receita * 0.01;
-    const lucroAntesIR = lucroOperacional - deprecAmort - resultadoFinanceiro;
-    const irCSLL = Math.max(lucroAntesIR * 0.34, 0);
-    const lucroLiquido = lucroAntesIR - irCSLL;
-    const margemLiquida = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
+/** Build category-type lookup from active categories */
+function buildCatLookup(categorias: Categoria[]): Map<string, { tipo: string; grupo: string }> {
+    const map = new Map<string, { tipo: string; grupo: string }>();
+    for (const c of categorias) {
+        map.set(c.nome, { tipo: c.tipo, grupo: c.grupo });
+    }
+    return map;
+}
+
+function sumByTipo(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>, tipo: string): number {
+    return items.filter(i => {
+        const cat = catMap.get(i.classificacao);
+        return cat?.tipo === tipo;
+    }).reduce((s, i) => s + i.valor, 0);
+}
+
+function groupByGrupo(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>, tipo: string): Record<string, number> {
+    const groups: Record<string, number> = {};
+    for (const i of items) {
+        const cat = catMap.get(i.classificacao);
+        if (cat?.tipo !== tipo) continue;
+        const grupo = cat.grupo;
+        groups[grupo] = (groups[grupo] || 0) + i.valor;
+    }
+    return groups;
+}
+
+/**
+ * DRE — Margem de Contribuicao
+ *
+ * (+) Receita Bruta ................... RECEITA_DIRETA
+ * (-) Deducoes s/ Receita ............. (impostos ~9.25%)
+ * (=) Receita Liquida
+ * (-) Custos e Despesas Variaveis ..... CUSTO_VARIAVEL (por grupo)
+ * (=) MARGEM DE CONTRIBUICAO
+ *     Indice MC = MC / RL
+ * (-) Custos e Despesas Fixos ......... CUSTO_FIXO (por grupo)
+ * (=) RESULTADO OPERACIONAL
+ * (+) Receitas Financeiras ............ RECEITA_FINANCEIRA
+ * (-) Despesas Financeiras ............ DESPESA_FINANCEIRA (por grupo)
+ * (=) Resultado Antes IR
+ * (-) IR/CSLL (~34%)
+ * (=) RESULTADO LIQUIDO
+ *
+ * PE = Custos Fixos / Indice MC
+ */
+function buildDRE(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>) {
+    // (+) Receita Bruta
+    const receitaBruta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+
+    // (-) Deducoes (PIS 1.65% + COFINS 7.6% = 9.25%)
+    const deducoes = receitaBruta * 0.0925;
+    const receitaLiquida = receitaBruta - deducoes;
+
+    // (-) Custos e Despesas Variaveis
+    const varGrupos = groupByGrupo(items, catMap, 'CUSTO_VARIAVEL');
+    const varTotal = Object.values(varGrupos).reduce((s, v) => s + v, 0);
+
+    // (=) Margem de Contribuicao
+    const margemContribuicao = receitaLiquida - varTotal;
+    const indiceMC = receitaLiquida > 0 ? margemContribuicao / receitaLiquida : 0;
+    const margemContribuicaoPct = indiceMC * 100;
+
+    // (-) Custos e Despesas Fixos
+    const fixoGrupos = groupByGrupo(items, catMap, 'CUSTO_FIXO');
+    const fixoTotal = Object.values(fixoGrupos).reduce((s, v) => s + v, 0);
+
+    // (=) Resultado Operacional
+    const resultadoOperacional = margemContribuicao - fixoTotal;
+    const margemOperacionalPct = receitaBruta > 0 ? (resultadoOperacional / receitaBruta) * 100 : 0;
+
+    // (+/-) Resultado Financeiro
+    const receitasFinanceiras = sumByTipo(items, catMap, 'RECEITA_FINANCEIRA');
+    const despFinGrupos = groupByGrupo(items, catMap, 'DESPESA_FINANCEIRA');
+    const despesasFinanceiras = Object.values(despFinGrupos).reduce((s, v) => s + v, 0);
+    const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras;
+
+    // (=) Resultado Antes IR
+    const resultadoAntesIR = resultadoOperacional + resultadoFinanceiro;
+
+    // (-) IR/CSLL
+    const irCSLL = Math.max(resultadoAntesIR * 0.34, 0);
+
+    // (=) Resultado Liquido
+    const resultadoLiquido = resultadoAntesIR - irCSLL;
+    const margemLiquidaPct = receitaBruta > 0 ? (resultadoLiquido / receitaBruta) * 100 : 0;
+
+    // Ponto de Equilibrio
+    const pontoEquilibrio = indiceMC > 0 ? fixoTotal / indiceMC : 0;
 
     return {
-        receitaBruta: receita, deducoes, receitaLiquida, custosServicos: custos, lucroBruto,
-        margemBrutaPct: margemBruta,
-        despesasOperacionais: {
-            administrativas: despesasAdmin, imobiliarias: despesasImob, utilidades, servicos, fornecedores, total: totalDespOp,
+        receitaBruta,
+        deducoes,
+        receitaLiquida,
+
+        variaveis: { grupos: varGrupos, total: varTotal },
+        margemContribuicao,
+        indiceMC,
+        margemContribuicaoPct,
+        margemContribuicaoFmt: margemContribuicaoPct.toFixed(1) + '%',
+
+        fixos: { grupos: fixoGrupos, total: fixoTotal },
+        resultadoOperacional,
+        margemOperacionalPct,
+        margemOperacional: margemOperacionalPct.toFixed(1) + '%',
+
+        resultadoFinanceiro: {
+            receitasFinanceiras,
+            despesasFinanceiras: { grupos: despFinGrupos, total: despesasFinanceiras },
+            liquido: resultadoFinanceiro,
         },
-        lucroOperacional,
-        margemOperacionalPct: margemOperacional,
-        depreciacaoAmortizacao: deprecAmort, resultadoFinanceiro, lucroAntesIR, irCSLL, lucroLiquido,
-        margemLiquidaPct: margemLiquida,
-        margemBruta: margemBruta.toFixed(1) + '%',
-        margemOperacional: margemOperacional.toFixed(1) + '%',
-        margemLiquida: margemLiquida.toFixed(1) + '%',
+
+        resultadoAntesIR,
+        irCSLL,
+        resultadoLiquido,
+        margemLiquidaPct,
+        margemLiquida: margemLiquidaPct.toFixed(1) + '%',
+
+        // Ponto de Equilibrio
+        pontoEquilibrio,
+
+        // Compat com home indicators
+        lucroLiquido: resultadoLiquido,
+        margemBruta: margemContribuicaoPct.toFixed(1) + '%',
+        margemBrutaPct: margemContribuicaoPct,
     };
 }
 
-function buildDFC(items: GuardianAuthorization[], caixaAtual: number, caixaInicialConfig: number | null, investmentItems: GuardianAuthorization[]) {
-    // Operational
-    const recebimentos = items.filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0);
-    const pagFornecedores = items.filter(i => i.classificacao?.includes('Fornecedores')).reduce((s, i) => s + i.valor, 0);
-    const pagServicos = items.filter(i => i.classificacao?.includes('Servicos') || i.classificacao?.includes('Contabilidade') || i.classificacao?.includes('Software')).reduce((s, i) => s + i.valor, 0);
-    const pagDespesas = items.filter(i =>
-        i.classificacao?.includes('Pagamentos') || i.classificacao?.includes('Utilidades') ||
-        i.classificacao?.includes('Imobiliaria') || i.classificacao?.includes('Folha')
-    ).reduce((s, i) => s + i.valor, 0);
-    const caixaOperacional = recebimentos - pagFornecedores - pagServicos - pagDespesas;
+function buildDFC(
+    items: GuardianAuthorization[],
+    caixaAtual: number,
+    caixaInicialConfig: number | null,
+    allItems: GuardianAuthorization[],
+    catMap: Map<string, { tipo: string; grupo: string }>
+) {
+    // Operacional: Receita - Variaveis - Fixos
+    const recebimentos = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+    const pagVar = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+    const pagFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
+    const caixaOperacional = recebimentos - pagVar - pagFixo;
 
-    // Investment
-    const resgates = investmentItems.filter(i => i.classificacao?.includes('Resgate')).reduce((s, i) => s + i.valor, 0);
-    const aplicacoes = investmentItems.filter(i => i.classificacao?.includes('Aplicacao')).reduce((s, i) => s + i.valor, 0);
-    const caixaInvestimento = resgates - aplicacoes;
+    // Financeiro: Receita Financeira - Despesa Financeira
+    const recFinanceiras = sumByTipo(allItems, catMap, 'RECEITA_FINANCEIRA');
+    const despFinanceiras = sumByTipo(allItems, catMap, 'DESPESA_FINANCEIRA');
+    const caixaFinanceiro = recFinanceiras - despFinanceiras;
 
-    // Financing
-    const faturaCartao = items.filter(i => i.classificacao?.includes('Fatura Cartao')).reduce((s, i) => s + i.valor, 0);
-    const caixaFinanciamento = -faturaCartao;
-
-    const variacaoLiquida = caixaOperacional + caixaInvestimento + caixaFinanciamento;
+    const variacaoLiquida = caixaOperacional + caixaFinanceiro;
     const caixaInicial = caixaInicialConfig ?? (caixaAtual - variacaoLiquida);
 
     return {
         operacional: {
             recebimentosClientes: recebimentos,
-            pagamentosFornecedores: -pagFornecedores,
-            pagamentosServicos: -pagServicos,
-            pagamentosDespesas: -pagDespesas,
+            custosVariaveis: -pagVar,
+            custosFixos: -pagFixo,
             total: caixaOperacional,
         },
-        investimento: {
-            resgatesInvestimentos: resgates,
-            aplicacoesInvestimentos: -aplicacoes,
-            total: caixaInvestimento,
+        financeiro: {
+            receitasFinanceiras: recFinanceiras,
+            despesasFinanceiras: -despFinanceiras,
+            total: caixaFinanceiro,
         },
-        financiamento: {
-            faturaCartao: -faturaCartao,
-            total: caixaFinanciamento,
-        },
-        variacaoLiquida, caixaInicial, caixaFinal: caixaAtual,
+        variacaoLiquida,
+        caixaInicial,
+        caixaFinal: caixaAtual,
     };
 }
 
-function buildForecast(items: GuardianAuthorization[], caixaAtual: number) {
-    const receita = items.filter(i => i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0);
-    const despesas = items.filter(i => !i.classificacao?.startsWith('Receita') && i.tipo === 'transaction').reduce((s, i) => s + i.valor, 0);
+function buildForecast(items: GuardianAuthorization[], caixaAtual: number, catMap: Map<string, { tipo: string; grupo: string }>) {
+    const receita = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+    const despesas = sumByTipo(items, catMap, 'CUSTO_VARIAVEL') + sumByTipo(items, catMap, 'CUSTO_FIXO');
     const growthRate = 0.03;
     const months: Array<{ month: string; receita: number; despesas: number; lucroLiquido: number; caixaAcumulado: number }> = [];
     const now = new Date();
@@ -133,7 +215,12 @@ function buildCategorized(items: GuardianAuthorization[]) {
     return Object.entries(groups).map(([category, data]) => ({ category, ...data })).sort((a, b) => b.total - a.total);
 }
 
-function buildInsights(items: GuardianAuthorization[], kpis: { revenue: number; opExpenses: number; ebitda: number }, caixaAtual: number, totalInvestimentos: number) {
+function buildInsights(
+    items: GuardianAuthorization[],
+    kpis: { revenue: number; opExpenses: number; ebitda: number },
+    caixaAtual: number,
+    catMap: Map<string, { tipo: string; grupo: string }>
+) {
     const insights: Array<{ type: 'warning' | 'success' | 'info' | 'danger'; title: string; text: string }> = [];
     const receita = kpis.revenue;
     const despesas = kpis.opExpenses;
@@ -153,20 +240,8 @@ function buildInsights(items: GuardianAuthorization[], kpis: { revenue: number; 
         });
     }
 
-    // Investment concentration
-    if (totalInvestimentos > 0 && caixaAtual > 0) {
-        const ratio = totalInvestimentos / (totalInvestimentos + caixaAtual);
-        if (ratio > 0.95) {
-            insights.push({
-                type: 'info',
-                title: 'Alta Concentracao em Investimentos',
-                text: `${(ratio * 100).toFixed(0)}% do patrimonio esta alocado em investimentos. O caixa operacional (${formatBRL(caixaAtual)}) representa apenas ${((1 - ratio) * 100).toFixed(1)}% do total. Monitore a liquidez.`,
-            });
-        }
-    }
-
     // Revenue concentration
-    const receitaItems = items.filter(i => i.classificacao === 'Receita Operacional');
+    const receitaItems = items.filter(i => catMap.get(i.classificacao)?.tipo === 'RECEITA_DIRETA');
     if (receitaItems.length <= 2 && receita > 0) {
         insights.push({
             type: 'warning',
@@ -175,18 +250,44 @@ function buildInsights(items: GuardianAuthorization[], kpis: { revenue: number; 
         });
     }
 
-    // Card payments
-    const faturaCartao = items.filter(i => i.classificacao === 'Fatura Cartao').reduce((s, i) => s + i.valor, 0);
-    if (faturaCartao > receita * 2 && receita > 0) {
+    // Despesas financeiras altas
+    const despFin = sumByTipo(items, catMap, 'DESPESA_FINANCEIRA');
+    if (despFin > receita * 0.1 && receita > 0) {
         insights.push({
             type: 'warning',
-            title: 'Faturas de Cartao Elevadas',
-            text: `Total de faturas de cartao (${formatBRL(faturaCartao)}) supera ${((faturaCartao / receita) * 100).toFixed(0)}% da receita operacional. Avalie a necessidade de controle de gastos com cartao.`,
+            title: 'Despesas Financeiras Elevadas',
+            text: `Despesas financeiras (${formatBRL(despFin)}) representam ${((despFin / receita) * 100).toFixed(1)}% da receita. Avalie renegociacao de tarifas e reducao de juros.`,
         });
     }
 
+    // Custos Variaveis altos — MC comprimida
+    const custosVar = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+    if (custosVar > 0 && receita > 0) {
+        const rl = receita * 0.9075; // receita liquida
+        const mc = rl - custosVar;
+        const indiceMC = mc / rl;
+        if (indiceMC < 0.3) {
+            insights.push({
+                type: 'danger',
+                title: 'Margem de Contribuicao Critica',
+                text: `Indice MC de ${(indiceMC * 100).toFixed(1)}% — custos variaveis (${formatBRL(custosVar)}) consomem mais de 70% da receita liquida. Revise pricing ou reduza custos variaveis.`,
+            });
+        }
+
+        // Ponto de Equilibrio
+        const custosFixos = sumByTipo(items, catMap, 'CUSTO_FIXO');
+        if (indiceMC > 0) {
+            const pe = custosFixos / indiceMC;
+            insights.push({
+                type: pe > receita ? 'danger' : 'info',
+                title: 'Ponto de Equilibrio',
+                text: `PE mensal: ${formatBRL(pe)}. ${pe > receita ? 'ABAIXO do PE — a empresa opera com prejuizo operacional.' : 'Receita atual supera o PE em ' + formatBRL(receita - pe) + '.'}`,
+            });
+        }
+    }
+
     // Projection
-    const mesesCaixa = despesas > 0 ? caixaAtual / (despesas / 1) : 99;
+    const mesesCaixa = despesas > 0 ? caixaAtual / despesas : 99;
     insights.push({
         type: mesesCaixa < 3 ? 'danger' : mesesCaixa < 6 ? 'warning' : 'info',
         title: 'Projecao de Caixa',
@@ -200,16 +301,17 @@ function formatBRL(v: number): string {
     return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildMonthlyHistory(items: GuardianAuthorization[]) {
+function buildMonthlyHistory(items: GuardianAuthorization[], catMap: Map<string, { tipo: string; grupo: string }>) {
     const months: Record<string, { receita: number; despesas: number }> = {};
     for (const item of items) {
         const date = item.data || item.criadoEm?.split('T')[0] || '';
         if (!date) continue;
         const monthKey = date.substring(0, 7); // YYYY-MM
         if (!months[monthKey]) months[monthKey] = { receita: 0, despesas: 0 };
-        if (item.classificacao?.startsWith('Receita')) {
+        const cat = catMap.get(item.classificacao);
+        if (cat?.tipo === 'RECEITA_DIRETA' || cat?.tipo === 'RECEITA_FINANCEIRA') {
             months[monthKey].receita += item.valor;
-        } else if (item.tipo === 'transaction') {
+        } else if (cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA') {
             months[monthKey].despesas += item.valor;
         }
     }
@@ -227,32 +329,38 @@ export async function guardianDashboardHandler(
     context.log('BFF: Carregando dashboard completo...');
 
     try {
-        const [items, investAcctsRaw, investMovsRaw, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
+        const [items, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
             getGuardianAuthorizations(),
-            getAreaRecords<InvestmentAccount>('investimentos'),
-            getInvestmentMovements(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
             getCadastroRecords<Categoria>('categorias'),
         ]);
 
-        const agents = new GuardianAgents();
         const inter = new InterConnector();
 
-        // Filter operational items (exclude investments, card payments, transfers)
-        const NON_OPERATIONAL = new Set([
-            'Resgate Investimento', 'Aplicacao Investimento', 'Rendimento Investimento',
-            'Fatura Cartao', 'Transferencias',
-        ]);
-        const operationalItems = items.filter(i => !NON_OPERATIONAL.has(i.classificacao));
-        const investmentTransactions = items.filter(i => NON_OPERATIONAL.has(i.classificacao));
+        // Build category lookup for DRE classification
+        const catMap = buildCatLookup(categorias);
 
-        // KPIs
-        const analysisItems: AnalysisResult[] = operationalItems.map(i => ({
-            id: i.id, type: i.tipo, classification: i.classificacao, confidence: i.confianca,
-            value: i.valor, needsReview: i.needsReview ?? false, suggestedAction: i.sugestao, audit: i.audit,
-        }));
-        const kpis = await agents.calculateKPIs(analysisItems);
+        // Categorize items using the catMap
+        const isReceita = (i: GuardianAuthorization) => {
+            const cat = catMap.get(i.classificacao);
+            return cat?.tipo === 'RECEITA_DIRETA' || cat?.tipo === 'RECEITA_FINANCEIRA';
+        };
+        const isDespesa = (i: GuardianAuthorization) => {
+            const cat = catMap.get(i.classificacao);
+            return cat?.tipo === 'DESPESA_DIRETA' || cat?.tipo === 'DESPESA_INDIRETA' || cat?.tipo === 'DESPESA_FINANCEIRA';
+        };
+
+        // KPIs (using catMap for proper classification)
+        const receitaDireta = sumByTipo(items, catMap, 'RECEITA_DIRETA');
+        const custoVariavel = sumByTipo(items, catMap, 'CUSTO_VARIAVEL');
+        const custoFixo = sumByTipo(items, catMap, 'CUSTO_FIXO');
+        const kpis = {
+            revenue: receitaDireta,
+            opExpenses: custoVariavel + custoFixo,
+            ebitda: receitaDireta - custoVariavel - custoFixo,
+            status: (receitaDireta - custoVariavel - custoFixo) >= 0 ? 'saudavel' : 'atencao',
+        };
 
         // Balance
         let caixaAtual: number;
@@ -261,37 +369,20 @@ export async function guardianDashboardHandler(
             caixaAtual = balance.total;
         } catch {
             logger.warn('Inter API indisponivel — calculando saldo a partir dos dados persistidos');
-            const receitas = items.filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0);
-            const despOp = operationalItems.filter(i => i.classificacao !== 'Receita Operacional' && i.tipo === 'transaction').reduce((s, i) => s + i.valor, 0);
-            caixaAtual = receitas - despOp;
+            const totalReceitas = items.filter(i => isReceita(i)).reduce((s, i) => s + i.valor, 0);
+            const totalDespesas = items.filter(i => isDespesa(i)).reduce((s, i) => s + i.valor, 0);
+            caixaAtual = totalReceitas - totalDespesas;
         }
 
-        // Investments
-        const investmentAccounts = investAcctsRaw;
-        const investmentMovements = investMovsRaw;
-        if (investmentAccounts.length > 0) {
-            for (const acct of investmentAccounts) {
-                const acctMov = investmentMovements.filter(m => m.contaId === acct.id);
-                let saldo = acct.saldoInicial;
-                for (const m of acctMov) {
-                    if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') saldo += m.valor;
-                    else saldo -= m.valor;
-                }
-                acct.saldoAtual = Math.round(saldo * 100) / 100;
-            }
-        }
-
-        const totalInvestimentos = investmentAccounts.filter(a => a.ativo).reduce((s, a) => s + a.saldoAtual, 0);
-        const patrimonioTotal = caixaAtual + totalInvestimentos;
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
 
-        // Build financial statements
-        const dre = buildDRE(operationalItems, kpis);
-        const dfc = buildDFC(operationalItems, caixaAtual, ccSaldoInicial, investmentTransactions);
-        const forecast = buildForecast(operationalItems, caixaAtual);
+        // Build financial statements using category map
+        const dre = buildDRE(items, catMap);
+        const dfc = buildDFC(items, caixaAtual, ccSaldoInicial, items, catMap);
+        const forecast = buildForecast(items, caixaAtual, catMap);
         const categorized = buildCategorized(items);
-        const insights = buildInsights(operationalItems, kpis, caixaAtual, totalInvestimentos);
-        const monthlyHistory = buildMonthlyHistory(items);
+        const insights = buildInsights(items, kpis, caixaAtual, catMap);
+        const monthlyHistory = buildMonthlyHistory(items, catMap);
 
         // Weekly breakdown
         const now = new Date();
@@ -312,9 +403,15 @@ export async function guardianDashboardHandler(
         // Pending approvals
         const pendingApproval = items.filter(i => i.needsReview);
 
-        // Payables / Receivables
-        const jaPago = monthItems.filter(i => i.tipo === 'transaction' && !i.classificacao?.startsWith('Receita') && !NON_OPERATIONAL.has(i.classificacao));
-        const jaRecebido = monthItems.filter(i => i.classificacao?.startsWith('Receita'));
+        // Payables / Receivables (using catMap)
+        const jaPago = monthItems.filter(i => {
+            const cat = catMap.get(i.classificacao);
+            return cat?.tipo === 'CUSTO_VARIAVEL' || cat?.tipo === 'CUSTO_FIXO' || cat?.tipo === 'DESPESA_FINANCEIRA';
+        });
+        const jaRecebido = monthItems.filter(i => {
+            const cat = catMap.get(i.classificacao);
+            return cat?.tipo === 'RECEITA_DIRETA' || cat?.tipo === 'RECEITA_FINANCEIRA';
+        });
 
         const totalJaPago = jaPago.reduce((s, i) => s + i.valor, 0);
         const totalJaRecebido = jaRecebido.reduce((s, i) => s + i.valor, 0);
@@ -338,25 +435,27 @@ export async function guardianDashboardHandler(
                 // ---- HOME PAGE ----
                 home: {
                     indicators: {
-                        margemBruta: dre.margemBruta,
-                        margemBrutaPct: dre.margemBrutaPct,
+                        margemContribuicao: dre.margemContribuicaoFmt,
+                        margemContribuicaoPct: dre.margemContribuicaoPct,
+                        indiceMC: dre.indiceMC,
                         margemLiquida: dre.margemLiquida,
                         margemLiquidaPct: dre.margemLiquidaPct,
                         margemOperacional: dre.margemOperacional,
+                        resultadoOperacional: dre.resultadoOperacional,
+                        resultadoLiquido: dre.resultadoLiquido,
+                        pontoEquilibrio: dre.pontoEquilibrio,
+                        // Compat
+                        margemBruta: dre.margemBruta,
+                        margemBrutaPct: dre.margemBrutaPct,
                         lucroLiquido: dre.lucroLiquido,
                         fluxoCaixa: dfc.operacional.total,
                         caixaAtual,
-                        patrimonioTotal,
                         faturamentoAtual: kpis.revenue,
                         despesasOperacionais: kpis.opExpenses,
                         saudeFinanceira: kpis.status,
                     },
                     treasury: {
                         caixaAtual, caixaInicial: ccSaldoInicial, dataReferencia: ccDataRef,
-                        investimentos: investmentAccounts.filter(a => a.ativo).map(a => ({
-                            id: a.id, nome: a.nome, tipo: a.tipo, saldoAtual: a.saldoAtual, taxaContratada: a.taxaContratada,
-                        })),
-                        totalInvestimentos, patrimonioTotal,
                     },
                     insights,
                     monthlyHistory,
@@ -370,7 +469,7 @@ export async function guardianDashboardHandler(
                 // ---- SEMANAL PAGE ----
                 semanal: {
                     categorias: categorias.filter(c => c.ativa).map(c => ({
-                        id: c.id, nome: c.nome, tipo: c.tipo, orcamentoMensal: c.orcamentoMensal,
+                        id: c.id, nome: c.nome, tipo: c.tipo, grupo: c.grupo, orcamentoMensal: c.orcamentoMensal,
                     })),
                     pendingApproval: pendingApproval.map(i => ({
                         id: i.id, classificacao: i.classificacao, tipo: i.tipo, valor: i.valor,
@@ -378,8 +477,14 @@ export async function guardianDashboardHandler(
                         sugestao: i.sugestao, audit: i.audit, origem: i.origem,
                     })),
                     weekSummary: {
-                        entradas: weekItems.filter(i => i.classificacao?.startsWith('Receita')).reduce((s, i) => s + i.valor, 0),
-                        saidas: weekItems.filter(i => !i.classificacao?.startsWith('Receita') && i.tipo === 'transaction').reduce((s, i) => s + i.valor, 0),
+                        entradas: weekItems.filter(i => {
+                            const c = catMap.get(i.classificacao);
+                            return c?.tipo === 'RECEITA_DIRETA' || c?.tipo === 'RECEITA_FINANCEIRA';
+                        }).reduce((s, i) => s + i.valor, 0),
+                        saidas: weekItems.filter(i => {
+                            const c = catMap.get(i.classificacao);
+                            return c?.tipo === 'CUSTO_VARIAVEL' || c?.tipo === 'CUSTO_FIXO' || c?.tipo === 'DESPESA_FINANCEIRA';
+                        }).reduce((s, i) => s + i.valor, 0),
                         count: weekItems.length,
                     },
                     jaPago: jaPago.map(i => ({ id: i.id, classificacao: i.classificacao, valor: i.valor, descricao: i.descricao || '', data: i.data || '' })),
@@ -400,11 +505,6 @@ export async function guardianDashboardHandler(
                     monthlyHistory,
                 },
 
-                // ---- Investments (shared) ----
-                investments: {
-                    accounts: investmentAccounts,
-                    movements: investmentMovements,
-                },
             },
         };
     } catch (error: unknown) {

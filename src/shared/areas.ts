@@ -2,7 +2,7 @@
  * Guardian Areas — Operations, Marketing & Commercial types
  */
 
-export type AreaType = 'operacoes' | 'marketing' | 'comercial' | 'investimentos';
+export type AreaType = 'operacoes' | 'marketing' | 'comercial';
 
 // ============ OPERATIONS ============
 
@@ -114,63 +114,65 @@ export interface ComercialData {
     kpis: ComercialKPIs;
 }
 
-// ============ INVESTMENTS ============
-
-export type InvestmentAccountType = 'CDB' | 'LCI' | 'LCA' | 'FUNDO' | 'TESOURO';
-
-export type InvestmentMovementType =
-    | 'JUROS'
-    | 'IMPOSTO_IR'
-    | 'IOF'
-    | 'TRANSFERENCIA_PARA_CC'
-    | 'TRANSFERENCIA_DA_CC'
-    | 'APLICACAO'
-    | 'RESGATE';
-
-export interface InvestmentAccount {
-    id: string;
-    nome: string;
-    tipo: InvestmentAccountType;
-    banco: string;
-    saldoInicial: number;
-    saldoAtual: number;
-    dataAbertura: string;
-    taxaContratada: string;
-    ativo: boolean;
-}
-
-export interface InvestmentMovement {
-    id: string;
-    contaId: string;
-    data: string;
-    tipo: InvestmentMovementType;
-    valor: number;
-    descricao: string;
-}
-
-export interface InvestmentKPIs {
-    totalInvestido: number;
-    rendimentoAcumulado: number;
-    impostosTotais: number;
-    rendimentoLiquido: number;
-    rentabilidadeMedia: string;
-    contasAtivas: number;
-}
-
-export interface InvestmentData {
-    accounts: InvestmentAccount[];
-    movements: InvestmentMovement[];
-    kpis: InvestmentKPIs;
-}
-
 // ============ CADASTROS ============
 
-export type CategoriaTipo = 'receita' | 'despesa' | 'investimento' | 'financiamento';
+/**
+ * DRE por Margem de Contribuicao
+ *
+ * (+) Receita Bruta ................... RECEITA_DIRETA
+ * (-) Deducoes s/ Receita ............. (impostos ~9.25%)
+ * (=) Receita Liquida
+ * (-) Custos e Despesas Variaveis ..... CUSTO_VARIAVEL
+ * (=) MARGEM DE CONTRIBUICAO (MC)
+ *     Indice MC = MC / RL
+ * (-) Custos e Despesas Fixos ......... CUSTO_FIXO
+ * (=) RESULTADO OPERACIONAL
+ * (+) Receitas Financeiras ............ RECEITA_FINANCEIRA
+ * (-) Despesas Financeiras ............ DESPESA_FINANCEIRA
+ * (=) Resultado Antes do IR
+ * (-) IR/CSLL ......................... (~34%)
+ * (=) RESULTADO LIQUIDO
+ *
+ * Ponto de Equilibrio = Custos Fixos / Indice MC
+ */
+export type CategoriaTipo =
+    | 'RECEITA_DIRETA'
+    | 'RECEITA_FINANCEIRA'
+    | 'CUSTO_VARIAVEL'
+    | 'CUSTO_FIXO'
+    | 'DESPESA_FINANCEIRA';
+
+/** Grupo contabil dentro do DRE para sub-agrupamento */
+export type CategoriaGrupo =
+    // Receitas
+    | 'Receita de Servicos'
+    | 'Outras Receitas Operacionais'
+    | 'Rendimentos Financeiros'
+    | 'Juros Ativos'
+    // Custos/Despesas Variaveis
+    | 'Subcontratacao'
+    | 'Infraestrutura Variavel'
+    | 'Comissoes'
+    | 'Marketing Performance'
+    | 'Impostos Variaveis'
+    | 'Insumos e Materiais'
+    // Custos/Despesas Fixos
+    | 'Pessoal'
+    | 'Ocupacao'
+    | 'Utilidades'
+    | 'Assinaturas e Licencas'
+    | 'Servicos Terceirizados'
+    | 'Administrativo'
+    // Despesas Financeiras
+    | 'Juros e Encargos'
+    | 'Tarifas Bancarias'
+    | 'Outros';
 
 export interface Categoria {
     id: string;
     nome: string;
     tipo: CategoriaTipo;
+    grupo: CategoriaGrupo;
     orcamentoMensal: number;
     ativa: boolean;
     criadoEm: string;
@@ -183,5 +185,5 @@ export type CadastroType = 'categorias' | 'contas' | 'clientes' | 'fornecedores'
 export interface AreaResponse {
     area: AreaType;
     generatedAt: string;
-    data: OperacoesData | MarketingData | ComercialData | InvestmentData;
+    data: OperacoesData | MarketingData | ComercialData;
 }

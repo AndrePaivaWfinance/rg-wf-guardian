@@ -132,19 +132,6 @@ describe('GuardianAgents', () => {
         expect(result.confidence).toBe(0.90);
     });
 
-    it('classifyTransaction classifies CDB resgate correctly', async () => {
-        const tx = {
-            id: 'TX_R',
-            data: '2026-01-15',
-            tipo: 'CREDITO' as const,
-            valor: 2500,
-            descricao: 'RESGATE - CDB DI LIQ BANCO INTER SA',
-        };
-        const result = await agents.classifyTransaction(tx);
-        expect(result.classification).toBe('Resgate Investimento');
-        expect(result.confidence).toBe(0.98);
-    });
-
     it('classifyTransaction classifies DEBITO as Pagamentos Diversos', async () => {
         const tx = {
             id: 'TX_2',

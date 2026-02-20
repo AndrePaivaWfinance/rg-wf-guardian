@@ -246,10 +246,11 @@
         .cad-tbl .num { text-align:right; font-family:'JetBrains Mono',monospace; }
         .cad-tbl .acts { text-align:right; white-space:nowrap; }
         .badge { display:inline-block; font-size:9px; padding:2px 8px; border-radius:4px; font-weight:600; letter-spacing:0.3px; }
-        .badge-receita { background:var(--success-dim); color:var(--success); }
-        .badge-despesa { background:var(--danger-dim); color:var(--danger); }
-        .badge-investimento { background:var(--info-dim); color:var(--info); }
-        .badge-financiamento { background:var(--warn-dim); color:var(--warn); }
+        .badge-RECEITA_DIRETA { background:var(--success-dim); color:var(--success); }
+        .badge-RECEITA_FINANCEIRA { background:var(--info-dim); color:var(--info); }
+        .badge-CUSTO_VARIAVEL { background:var(--warn-dim); color:var(--warn); }
+        .badge-CUSTO_FIXO { background:var(--danger-dim); color:var(--danger); }
+        .badge-DESPESA_FINANCEIRA { background:rgba(139,92,246,0.08); color:#7C3AED; }
         .badge-ativa { background:var(--success-dim); color:var(--success); }
         .badge-inativa { background:var(--bg); color:var(--t4); }
         .reclass-select { padding:4px 8px; font-size:11px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--t1); cursor:pointer; max-width:160px; }
@@ -324,9 +325,9 @@
 
         <!-- KPIs -->
         <section class="kpi-grid">
-            <div class="kpi-card green"><div class="kpi-label">Margem Bruta</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Lucro Bruto / Receita</div></div>
-            <div class="kpi-card purple"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Lucro Liquido / Receita</div></div>
-            <div class="kpi-card blue"><div class="kpi-label">Lucro Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
+            <div class="kpi-card green"><div class="kpi-label">Indice MC</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Margem Contribuicao / RL</div></div>
+            <div class="kpi-card purple"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Resultado Liq. / Receita</div></div>
+            <div class="kpi-card blue"><div class="kpi-label">Resultado Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
             <div class="kpi-card blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional</div></div>
             <div class="kpi-card green"><div class="kpi-label">Faturamento</div><div id="k-fat" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
             <div class="kpi-card purple"><div class="kpi-label">Patrimonio</div><div id="k-pat" class="kpi-value">--</div><div class="kpi-sub">Total consolidado</div></div>
@@ -477,18 +478,23 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Tipo</label>
-                    <select id="cat-tipo">
-                        <option value="despesa">Despesa</option>
-                        <option value="receita">Receita</option>
-                        <option value="investimento">Investimento</option>
-                        <option value="financiamento">Financiamento</option>
+                    <label>Tipo DRE</label>
+                    <select id="cat-tipo" onchange="updateGrupoOptions()">
+                        <option value="CUSTO_VARIAVEL">Custo/Despesa Variavel</option>
+                        <option value="CUSTO_FIXO">Custo/Despesa Fixo</option>
+                        <option value="DESPESA_FINANCEIRA">Despesa Financeira</option>
+                        <option value="RECEITA_DIRETA">Receita Direta</option>
+                        <option value="RECEITA_FINANCEIRA">Receita Financeira</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Orcamento Mensal (R$)</label>
-                    <input type="number" id="cat-orcamento" step="0.01" value="0" min="0">
+                    <label>Grupo Contabil</label>
+                    <select id="cat-grupo"></select>
                 </div>
+            </div>
+            <div class="form-group">
+                <label>Orcamento Mensal (R$)</label>
+                <input type="number" id="cat-orcamento" step="0.01" value="0" min="0">
             </div>
             <div class="modal-acts">
                 <button type="button" class="btn btn-outline" onclick="closeCategoriaModal()">Cancelar</button>
@@ -587,10 +593,7 @@ async function rejectItem(id){
 function renderPatrimonio(t){
     const grid=document.getElementById('patrimonio-grid');
     let html='<div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">'+brl(t.caixaAtual)+'</div></div>';
-    (t.investimentos||[]).forEach((inv,i)=>{
-        html+='<div class="patrimonio-card inv"><div class="patrimonio-label">Investimento '+(i+1)+'</div><div class="patrimonio-nome">'+esc(inv.nome)+'</div><div class="patrimonio-valor" style="color:var(--success)">'+brl(inv.saldoAtual)+'</div><div class="patrimonio-sub"><span class="patrimonio-tag">'+esc(inv.taxaContratada||'')+'</span></div></div>';
-    });
-    html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Todas as contas</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.patrimonioTotal)+'</div></div>';
+    html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Conta Corrente</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.caixaAtual)+'</div></div>';
     grid.innerHTML=html;
 }
 
@@ -634,26 +637,42 @@ function renderDRE(dre){
     const r=(l,v,c)=>'<tr class="'+(c||'')+'"><td>'+l+'</td><td class="num '+(typeof v==='number'&&v<0?'negative':'')+'">'+
         (typeof v==='number'?brl(v):v)+'</td></tr>';
     const m=(l,pct)=>'<tr style="background:var(--primary-dim)"><td style="font-weight:600;color:var(--primary)">'+l+'</td><td class="num" style="font-weight:700;color:var(--primary)">'+pct+'</td></tr>';
+    const sec=(l)=>'<tr class="section-row"><td colspan="2">'+l+'</td></tr>';
+    // Custos Variaveis sub-items
+    let varRows='';
+    if(dre.variaveis&&dre.variaveis.grupos){Object.entries(dre.variaveis.grupos).forEach(([g,v])=>{varRows+=r('(-) '+g,-v,'sub')})}
+    // Custos Fixos sub-items
+    let fixRows='';
+    if(dre.fixos&&dre.fixos.grupos){Object.entries(dre.fixos.grupos).forEach(([g,v])=>{fixRows+=r('(-) '+g,-v,'sub')})}
+    // Desp Financeiras sub-items
+    let dfRows='';
+    if(dre.resultadoFinanceiro&&dre.resultadoFinanceiro.despesasFinanceiras&&dre.resultadoFinanceiro.despesasFinanceiras.grupos){
+        Object.entries(dre.resultadoFinanceiro.despesasFinanceiras.grupos).forEach(([g,v])=>{dfRows+=r('(-) '+g,-v,'sub')})
+    }
     document.getElementById('dre-body').innerHTML='<table class="tbl"><thead><tr><th>Conta</th><th>Valor</th></tr></thead><tbody>'+
-        r('Receita Bruta',dre.receitaBruta,'')+
+        sec('RECEITA')+
+        r('(+) Receita Bruta',dre.receitaBruta,'')+
         r('(-) Deducoes PIS/COFINS/ISS',-dre.deducoes,'sub')+
         r('= Receita Liquida',dre.receitaLiquida,'')+
-        r('(-) Custos dos Servicos',-dre.custosServicos,'sub')+
-        r('= Lucro Bruto',dre.lucroBruto,'')+
-        m('MARGEM BRUTA',dre.margemBruta)+
-        r('(-) Administrativas / Pagamentos',-(dre.despesasOperacionais?.administrativas||0),'sub')+
-        r('(-) Servicos / Contabilidade / ERP',-(dre.despesasOperacionais?.servicos||0),'sub')+
-        r('(-) Fornecedores',-(dre.despesasOperacionais?.fornecedores||0),'sub')+
-        r('(-) Imobiliarias',-(dre.despesasOperacionais?.imobiliarias||0),'sub')+
-        r('(-) Utilidades',-(dre.despesasOperacionais?.utilidades||0),'sub')+
-        r('= Lucro Operacional',dre.lucroOperacional,'')+
+        sec('CUSTOS E DESPESAS VARIAVEIS')+
+        varRows+
+        r('Total Variaveis',-(dre.variaveis?.total||0),'')+
+        r('= MARGEM DE CONTRIBUICAO',dre.margemContribuicao,'')+
+        m('INDICE MC',dre.margemContribuicaoFmt)+
+        sec('CUSTOS E DESPESAS FIXOS')+
+        fixRows+
+        r('Total Fixos',-(dre.fixos?.total||0),'')+
+        r('= RESULTADO OPERACIONAL',dre.resultadoOperacional,'')+
         m('MARGEM OPERACIONAL',dre.margemOperacional)+
-        r('(-) Depreciacao / Amort.',-dre.depreciacaoAmortizacao,'sub')+
-        r('(-) Resultado Financeiro',-dre.resultadoFinanceiro,'sub')+
-        r('= Lucro Antes IR',dre.lucroAntesIR,'')+
-        r('(-) IR / CSLL',-dre.irCSLL,'sub')+
-        r('= Lucro Liquido',dre.lucroLiquido,'total')+
+        sec('RESULTADO FINANCEIRO')+
+        r('(+) Receitas Financeiras',dre.resultadoFinanceiro?.receitasFinanceiras||0,'sub')+
+        dfRows+
+        r('= Resultado Financeiro Liquido',dre.resultadoFinanceiro?.liquido||0,'')+
+        r('= Resultado Antes IR',dre.resultadoAntesIR,'')+
+        r('(-) IR / CSLL (34%)',-dre.irCSLL,'sub')+
+        r('= RESULTADO LIQUIDO',dre.resultadoLiquido,'total')+
         m('MARGEM LIQUIDA',dre.margemLiquida)+
+        '<tr style="background:#FFF7ED;border-top:2px solid #F59E0B"><td style="font-weight:600;color:#B45309">PONTO DE EQUILIBRIO</td><td class="num" style="font-weight:700;color:#B45309">'+brl(dre.pontoEquilibrio)+'</td></tr>'+
         '</tbody></table>';
 }
 
@@ -662,19 +681,15 @@ function renderDFC(dfc){
         (typeof v==='number'?brl(v):v)+'</td></tr>';
     document.getElementById('dfc-body').innerHTML='<table class="tbl"><thead><tr><th>Fluxo</th><th>Valor</th></tr></thead><tbody>'+
         '<tr class="section-row"><td colspan="2">Atividades Operacionais</td></tr>'+
-        r('Recebimentos de Clientes',dfc.operacional.recebimentosClientes,'sub')+
-        r('Pagamentos a Fornecedores',dfc.operacional.pagamentosFornecedores,'sub')+
-        r('Pagamentos de Servicos',dfc.operacional.pagamentosServicos,'sub')+
-        r('Pagamentos de Despesas',dfc.operacional.pagamentosDespesas,'sub')+
-        r('Caixa Operacional',dfc.operacional.total,'')+
-        '<tr class="section-row"><td colspan="2">Atividades de Investimento</td></tr>'+
-        r('Resgates de Investimentos',dfc.investimento.resgatesInvestimentos,'sub')+
-        r('Aplicacoes em Investimentos',dfc.investimento.aplicacoesInvestimentos,'sub')+
-        r('Caixa Investimentos',dfc.investimento.total,'')+
-        '<tr class="section-row"><td colspan="2">Atividades de Financiamento</td></tr>'+
-        r('Faturas de Cartao',dfc.financiamento.faturaCartao,'sub')+
-        r('Caixa Financiamento',dfc.financiamento.total,'')+
-        r('Variacao Liquida',dfc.variacaoLiquida,'total')+
+        r('(+) Recebimentos de Clientes',dfc.operacional.recebimentosClientes,'sub')+
+        r('(-) Custos Variaveis',dfc.operacional.custosVariaveis,'sub')+
+        r('(-) Custos Fixos',dfc.operacional.custosFixos,'sub')+
+        r('= Caixa Operacional',dfc.operacional.total,'')+
+        '<tr class="section-row"><td colspan="2">Atividades Financeiras</td></tr>'+
+        r('(+) Receitas Financeiras',dfc.financeiro.receitasFinanceiras,'sub')+
+        r('(-) Despesas Financeiras',dfc.financeiro.despesasFinanceiras,'sub')+
+        r('= Caixa Financeiro',dfc.financeiro.total,'')+
+        r('= Variacao Liquida',dfc.variacaoLiquida,'total')+
         r('Caixa Inicial',dfc.caixaInicial,'')+
         r('Caixa Final',dfc.caixaFinal,'')+
         '</tbody></table>';
@@ -750,9 +765,10 @@ async function loadDashboard(){
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Caixa Atual</span><strong>'+brl(ind.caixaAtual)+'</strong></div>'+
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Faturamento</span><strong>'+brl(ind.faturamentoAtual)+'</strong></div>'+
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Despesas Op.</span><strong style="color:var(--danger)">'+brl(ind.despesasOperacionais)+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Bruta</span><strong style="color:var(--success)">'+ind.margemBruta+'</strong></div>'+
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Indice MC</span><strong style="color:var(--success)">'+ind.margemBruta+'</strong></div>'+
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Operacional</span><strong style="color:var(--primary)">'+ind.margemOperacional+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--t2)">Margem Liquida</span><strong style="color:var(--primary)">'+ind.margemLiquida+'</strong></div>'+
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Liquida</span><strong style="color:var(--primary)">'+ind.margemLiquida+'</strong></div>'+
+            '<div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--t2);font-weight:600">Ponto de Equilibrio</span><strong style="color:#B45309">'+brl(ind.pontoEquilibrio)+'</strong></div>'+
             '</div>';
 
         // ---- SEMANAL PAGE ----
@@ -797,16 +813,41 @@ async function loadDashboard(){
 // ---- Categorias CRUD ----
 let categoriasCache=[];
 
+const TIPO_LABELS={'RECEITA_DIRETA':'Receita Direta','RECEITA_FINANCEIRA':'Receita Financeira','CUSTO_VARIAVEL':'Custo Variavel','CUSTO_FIXO':'Custo Fixo','DESPESA_FINANCEIRA':'Desp. Financeira'};
+const GRUPO_POR_TIPO={
+    'RECEITA_DIRETA':['Receita de Servicos','Outras Receitas Operacionais'],
+    'RECEITA_FINANCEIRA':['Rendimentos Financeiros','Juros Ativos'],
+    'CUSTO_VARIAVEL':['Subcontratacao','Infraestrutura Variavel','Comissoes','Marketing Performance','Impostos Variaveis','Insumos e Materiais'],
+    'CUSTO_FIXO':['Pessoal','Ocupacao','Utilidades','Assinaturas e Licencas','Servicos Terceirizados','Administrativo','Outros'],
+    'DESPESA_FINANCEIRA':['Juros e Encargos','Tarifas Bancarias','Outros'],
+};
+
 function renderCategorias(cats){
     categoriasCache=cats||[];
     const el=document.getElementById('categorias-list');
     if(!cats||!cats.length){el.innerHTML='<div class="empty-state">Nenhuma categoria cadastrada.</div>';return}
-    let html='<table class="cad-tbl"><thead><tr><th>Nome</th><th>Tipo</th><th>Orcamento Mensal</th><th style="text-align:right">Acoes</th></tr></thead><tbody>';
-    cats.forEach(c=>{
-        html+='<tr><td>'+esc(c.nome)+'</td><td><span class="badge badge-'+esc(c.tipo)+'">'+esc(c.tipo)+'</span></td><td class="num">'+brl(c.orcamentoMensal)+'</td><td class="acts"><button class="btn btn-outline btn-sm" onclick="openCategoriaModal(\''+esc(c.id)+'\')">Editar</button> <button class="btn btn-danger btn-sm" onclick="deleteCategoria(\''+esc(c.id)+'\')">Desativar</button></td></tr>';
+    // Group by tipo
+    const byTipo={};
+    cats.forEach(c=>{if(!byTipo[c.tipo])byTipo[c.tipo]=[];byTipo[c.tipo].push(c)});
+    let html='<table class="cad-tbl"><thead><tr><th>Nome</th><th>Tipo DRE</th><th>Grupo</th><th>Orcamento</th><th style="text-align:right">Acoes</th></tr></thead><tbody>';
+    const order=['RECEITA_DIRETA','RECEITA_FINANCEIRA','CUSTO_VARIAVEL','CUSTO_FIXO','DESPESA_FINANCEIRA'];
+    order.forEach(tipo=>{
+        const items=byTipo[tipo]||[];
+        if(!items.length)return;
+        html+='<tr class="section-row"><td colspan="5">'+(TIPO_LABELS[tipo]||tipo)+'</td></tr>';
+        items.forEach(c=>{
+            html+='<tr><td>'+esc(c.nome)+'</td><td><span class="badge badge-'+esc(c.tipo)+'">'+(TIPO_LABELS[c.tipo]||c.tipo)+'</span></td><td style="font-size:11px;color:var(--t3)">'+esc(c.grupo||'')+'</td><td class="num">'+brl(c.orcamentoMensal)+'</td><td class="acts"><button class="btn btn-outline btn-sm" onclick="openCategoriaModal(\''+esc(c.id)+'\')">Editar</button> <button class="btn btn-danger btn-sm" onclick="deleteCategoria(\''+esc(c.id)+'\')">Desativar</button></td></tr>';
+        });
     });
     html+='</tbody></table>';
     el.innerHTML=html;
+}
+
+function updateGrupoOptions(selectedGrupo){
+    const tipo=document.getElementById('cat-tipo').value;
+    const sel=document.getElementById('cat-grupo');
+    const grupos=GRUPO_POR_TIPO[tipo]||['Outros'];
+    sel.innerHTML=grupos.map(g=>'<option value="'+esc(g)+'"'+(g===selectedGrupo?' selected':'')+'>'+esc(g)+'</option>').join('');
 }
 
 function openCategoriaModal(editId){
@@ -821,11 +862,13 @@ function openCategoriaModal(editId){
             document.getElementById('cat-id').value=c.id;
             document.getElementById('cat-nome').value=c.nome;
             document.getElementById('cat-tipo').value=c.tipo;
+            updateGrupoOptions(c.grupo);
             document.getElementById('cat-orcamento').value=c.orcamentoMensal||0;
         }
     }else{
         title.textContent='Nova Categoria';
         document.getElementById('cat-id').value='CAT_'+Date.now();
+        updateGrupoOptions();
     }
     m.classList.add('open');
 }
@@ -837,11 +880,12 @@ async function saveCategoria(e){
     const id=document.getElementById('cat-id').value;
     const nome=document.getElementById('cat-nome').value.trim();
     const tipo=document.getElementById('cat-tipo').value;
+    const grupo=document.getElementById('cat-grupo').value;
     const orcamento=parseFloat(document.getElementById('cat-orcamento').value)||0;
     if(!nome){toast('Nome e obrigatorio.','err');return}
     const exists=categoriasCache.find(c=>c.id===id);
     const action=exists?'update':'create';
-    const record={id,nome,tipo,orcamentoMensal:orcamento,ativa:true,criadoEm:exists?exists.criadoEm:new Date().toISOString()};
+    const record={id,nome,tipo,grupo,orcamentoMensal:orcamento,ativa:true,criadoEm:exists?exists.criadoEm:new Date().toISOString()};
     try{
         const r=await fetch(api('/api/guardianCadastros/categorias'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,record})});
         if(!r.ok)throw new Error('Status '+r.status);
