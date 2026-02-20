@@ -5,17 +5,22 @@ import {
     OperacoesProject,
     MarketingCampaign,
     ComercialDeal,
+    InvestmentAccount,
+    InvestmentMovement,
 } from '../shared/areas';
 
 const logger = createLogger('AreaTableClient');
 
-type AreaRecord = OperacoesProject | MarketingCampaign | ComercialDeal;
+type AreaRecord = OperacoesProject | MarketingCampaign | ComercialDeal | InvestmentAccount | InvestmentMovement;
 
 const TABLE_NAMES: Record<AreaType, string> = {
     operacoes: 'GuardianOperacoes',
     marketing: 'GuardianMarketing',
     comercial: 'GuardianComercial',
+    investimentos: 'GuardianInvestimentos',
 };
+
+const INVESTMENT_MOVEMENTS_TABLE = 'GuardianInvestimentoMovimentos';
 
 // In-memory fallback
 const inMemoryStore: Map<string, AreaRecord[]> = new Map();
@@ -134,4 +139,60 @@ export async function deleteAreaRecord(area: AreaType, recordId: string): Promis
     }
 
     await client.deleteEntity(area.toUpperCase(), recordId);
+}
+
+// ============ INVESTMENT MOVEMENTS ============
+
+export async function getInvestmentMovements(contaId?: string): Promise<InvestmentMovement[]> {
+    const client = await getTableClient(INVESTMENT_MOVEMENTS_TABLE);
+
+    if (!client) {
+        const table = getInMemoryTable(INVESTMENT_MOVEMENTS_TABLE) as unknown as InvestmentMovement[];
+        return contaId ? table.filter(m => m.contaId === contaId) : table;
+    }
+
+    const items: InvestmentMovement[] = [];
+    try {
+        const entities = client.listEntities();
+        for await (const entity of entities) {
+            const mov = entity as unknown as InvestmentMovement;
+            if (!contaId || mov.contaId === contaId) {
+                items.push(mov);
+            }
+        }
+    } catch (error) {
+        logger.error('Erro ao listar movimentos de investimento', error);
+    }
+    return items;
+}
+
+export async function createInvestmentMovement(movement: InvestmentMovement): Promise<void> {
+    const client = await getTableClient(INVESTMENT_MOVEMENTS_TABLE);
+
+    if (!client) {
+        const table = getInMemoryTable(INVESTMENT_MOVEMENTS_TABLE);
+        table.push(movement as unknown as AreaRecord);
+        logger.info(`[In-Memory] Movimento investimento criado: ${movement.id}`);
+        return;
+    }
+
+    await client.createEntity({
+        partitionKey: movement.contaId,
+        rowKey: movement.id,
+        ...movement,
+    });
+}
+
+export async function deleteInvestmentMovement(contaId: string, movementId: string): Promise<void> {
+    const client = await getTableClient(INVESTMENT_MOVEMENTS_TABLE);
+
+    if (!client) {
+        const table = getInMemoryTable(INVESTMENT_MOVEMENTS_TABLE);
+        const idx = table.findIndex(r => r.id === movementId);
+        if (idx >= 0) table.splice(idx, 1);
+        logger.info(`[In-Memory] Movimento investimento removido: ${movementId}`);
+        return;
+    }
+
+    await client.deleteEntity(contaId, movementId);
 }

@@ -2,7 +2,7 @@
  * Guardian Areas — Operations, Marketing & Commercial types
  */
 
-export type AreaType = 'operacoes' | 'marketing' | 'comercial';
+export type AreaType = 'operacoes' | 'marketing' | 'comercial' | 'investimentos';
 
 // ============ OPERATIONS ============
 
@@ -114,10 +114,59 @@ export interface ComercialData {
     kpis: ComercialKPIs;
 }
 
+// ============ INVESTMENTS ============
+
+export type InvestmentAccountType = 'CDB' | 'LCI' | 'LCA' | 'FUNDO' | 'TESOURO';
+
+export type InvestmentMovementType =
+    | 'JUROS'
+    | 'IMPOSTO_IR'
+    | 'IOF'
+    | 'TRANSFERENCIA_PARA_CC'
+    | 'TRANSFERENCIA_DA_CC'
+    | 'APLICACAO'
+    | 'RESGATE';
+
+export interface InvestmentAccount {
+    id: string;
+    nome: string;
+    tipo: InvestmentAccountType;
+    banco: string;
+    saldoInicial: number;
+    saldoAtual: number;
+    dataAbertura: string;
+    taxaContratada: string;
+    ativo: boolean;
+}
+
+export interface InvestmentMovement {
+    id: string;
+    contaId: string;
+    data: string;
+    tipo: InvestmentMovementType;
+    valor: number;
+    descricao: string;
+}
+
+export interface InvestmentKPIs {
+    totalInvestido: number;
+    rendimentoAcumulado: number;
+    impostosTotais: number;
+    rendimentoLiquido: number;
+    rentabilidadeMedia: string;
+    contasAtivas: number;
+}
+
+export interface InvestmentData {
+    accounts: InvestmentAccount[];
+    movements: InvestmentMovement[];
+    kpis: InvestmentKPIs;
+}
+
 // ============ UNIFIED ============
 
 export interface AreaResponse {
     area: AreaType;
     generatedAt: string;
-    data: OperacoesData | MarketingData | ComercialData;
+    data: OperacoesData | MarketingData | ComercialData | InvestmentData;
 }

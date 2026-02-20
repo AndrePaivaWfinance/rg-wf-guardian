@@ -1,9 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
+import { getAreaRecords, getInvestmentMovements } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
+import { InvestmentAccount, InvestmentMovement } from '../shared/areas';
 
 const logger = createLogger('GuardianReports');
 
@@ -200,6 +202,34 @@ export async function guardianReportsHandler(
         const automatedCount = items.filter(i => i.confianca > 0.90 && !i.needsReview).length;
         const automationRate = items.length > 0 ? ((automatedCount / items.length) * 100).toFixed(1) + '%' : '0%';
 
+        // Load investment accounts
+        let investmentAccounts = await getAreaRecords<InvestmentAccount>('investimentos');
+        let investmentMovements = await getInvestmentMovements();
+        if (investmentAccounts.length === 0) {
+            // Use same mock data pattern — will be populated when the area endpoint is called
+            investmentAccounts = [
+                { id: 'INV_001', nome: 'CDB DI Liquidez Diaria', tipo: 'CDB', banco: 'Inter', saldoInicial: 500000.00, saldoAtual: 518365.58, dataAbertura: '2025-06-01', taxaContratada: '100% CDI', ativo: true },
+                { id: 'INV_002', nome: 'CDB IPCA+ Venc. 2027', tipo: 'CDB', banco: 'Inter', saldoInicial: 350000.00, saldoAtual: 362770.83, dataAbertura: '2025-03-15', taxaContratada: 'IPCA + 6.5% a.a.', ativo: true },
+            ];
+        } else {
+            // Recalc balances
+            for (const acct of investmentAccounts) {
+                const acctMov = investmentMovements.filter(m => m.contaId === acct.id);
+                let saldo = acct.saldoInicial;
+                for (const m of acctMov) {
+                    if (m.tipo === 'JUROS' || m.tipo === 'TRANSFERENCIA_DA_CC' || m.tipo === 'APLICACAO') {
+                        saldo += m.valor;
+                    } else {
+                        saldo -= m.valor;
+                    }
+                }
+                acct.saldoAtual = Math.round(saldo * 100) / 100;
+            }
+        }
+
+        const totalInvestimentos = investmentAccounts.filter(a => a.ativo).reduce((s, a) => s + a.saldoAtual, 0);
+        const patrimonioTotal = caixaAtual + totalInvestimentos;
+
         // Build financial statements
         const dre = buildDRE(items, kpis);
         const dfc = buildDFC(items, caixaAtual);
@@ -237,6 +267,15 @@ export async function guardianReportsHandler(
             treasury: {
                 caixaAtual,
                 previsao30Dias: caixaAtual * 1.058,
+                investimentos: investmentAccounts.filter(a => a.ativo).map(a => ({
+                    id: a.id,
+                    nome: a.nome,
+                    tipo: a.tipo,
+                    saldoAtual: a.saldoAtual,
+                    taxaContratada: a.taxaContratada,
+                })),
+                totalInvestimentos,
+                patrimonioTotal,
             },
             dre,
             dfc,

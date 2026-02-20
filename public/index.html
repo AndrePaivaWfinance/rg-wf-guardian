@@ -436,8 +436,67 @@
         .margin-summary span { display: flex; align-items: center; gap: 4px; }
         .margin-summary strong { color: var(--t2); font-weight: 600; }
 
+        /* ---- Patrimonio Cards ---- */
+        .patrimonio-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+            margin-bottom: 20px;
+        }
+        .patrimonio-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 16px;
+            box-shadow: var(--shadow-xs);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            animation: fadeUp 0.5s ease both;
+        }
+        .patrimonio-card:nth-child(1) { animation-delay: 0.05s; }
+        .patrimonio-card:nth-child(2) { animation-delay: 0.10s; }
+        .patrimonio-card:nth-child(3) { animation-delay: 0.15s; }
+        .patrimonio-card:nth-child(4) { animation-delay: 0.20s; }
+        .patrimonio-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            border-radius: 0 2px 2px 0;
+        }
+        .patrimonio-card.cc::before { background: var(--info); }
+        .patrimonio-card.inv::before { background: var(--success); }
+        .patrimonio-card.total::before { background: var(--primary); }
+        .patrimonio-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+        .patrimonio-card.cc:hover { border-color: rgba(45,127,249,0.3); box-shadow: 0 6px 16px rgba(45,127,249,0.12); }
+        .patrimonio-card.inv:hover { border-color: rgba(13,150,104,0.3); box-shadow: 0 6px 16px rgba(13,150,104,0.12); }
+        .patrimonio-card.total:hover { border-color: rgba(87,70,175,0.3); box-shadow: 0 6px 16px rgba(87,70,175,0.12); }
+        .patrimonio-label {
+            font-size: 10px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--t3); margin-bottom: 4px;
+        }
+        .patrimonio-nome {
+            font-size: 13px; font-weight: 500; color: var(--t1); margin-bottom: 8px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .patrimonio-valor {
+            font-size: 22px; font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+        }
+        .patrimonio-card.cc .patrimonio-valor { color: var(--info); }
+        .patrimonio-card.inv .patrimonio-valor { color: var(--success); }
+        .patrimonio-card.total .patrimonio-valor { color: var(--primary); }
+        .patrimonio-sub {
+            font-size: 11px; color: var(--t4); margin-top: 4px;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .patrimonio-tag {
+            font-size: 9px; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+            background: var(--success-dim); color: var(--success);
+        }
+
         /* ---- Responsive ---- */
-        @media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .patrimonio-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 1024px) {
             .sidebar { display: none; }
             .main { margin-left: 0; max-width: 100%; }
@@ -445,6 +504,7 @@
         @media (max-width: 768px) {
             .main { padding: 16px; }
             .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .patrimonio-grid { grid-template-columns: 1fr; }
             .g2 { grid-template-columns: 1fr; }
             .topbar { flex-direction: column; gap: 12px; align-items: flex-start; }
         }
@@ -463,7 +523,8 @@
     </div>
 
     <div class="sidebar-section">Visao Geral</div>
-    <div class="sidebar-item active" data-nav="kpi-section"><i data-lucide="layout-dashboard"></i> Dashboard</div>
+    <div class="sidebar-item active" data-nav="patrimonio-section"><i data-lucide="landmark"></i> Patrimonio</div>
+    <div class="sidebar-item" data-nav="kpi-section"><i data-lucide="layout-dashboard"></i> Dashboard</div>
     <div class="sidebar-item" data-nav="dre-section"><i data-lucide="file-spreadsheet"></i> DRE</div>
     <div class="sidebar-item" data-nav="dfc-section"><i data-lucide="wallet"></i> DFC</div>
     <div class="sidebar-item" data-nav="forecast-section"><i data-lucide="trending-up"></i> Previsibilidade</div>
@@ -521,6 +582,35 @@
             </button>
         </div>
     </header>
+
+    <!-- Visao Patrimonial -->
+    <div class="section-title" id="patrimonio-section"><i data-lucide="landmark"></i> Visao Patrimonial</div>
+    <div id="patrimonio-grid" class="patrimonio-grid">
+        <div class="patrimonio-card cc">
+            <div class="patrimonio-label">Conta Corrente</div>
+            <div class="patrimonio-nome">Banco Inter PJ</div>
+            <div id="pat-cc-valor" class="patrimonio-valor">--</div>
+            <div class="patrimonio-sub">Saldo disponivel</div>
+        </div>
+        <div class="patrimonio-card inv">
+            <div class="patrimonio-label">Investimento 1</div>
+            <div id="pat-inv1-nome" class="patrimonio-nome">--</div>
+            <div id="pat-inv1-valor" class="patrimonio-valor">--</div>
+            <div class="patrimonio-sub"><span id="pat-inv1-taxa">--</span></div>
+        </div>
+        <div class="patrimonio-card inv">
+            <div class="patrimonio-label">Investimento 2</div>
+            <div id="pat-inv2-nome" class="patrimonio-nome">--</div>
+            <div id="pat-inv2-valor" class="patrimonio-valor">--</div>
+            <div class="patrimonio-sub"><span id="pat-inv2-taxa">--</span></div>
+        </div>
+        <div class="patrimonio-card total">
+            <div class="patrimonio-label">Patrimonio Total</div>
+            <div class="patrimonio-nome">Todas as contas</div>
+            <div id="pat-total-valor" class="patrimonio-valor">--</div>
+            <div class="patrimonio-sub"><span id="pat-total-contas">--</span></div>
+        </div>
+    </div>
 
     <!-- KPIs -->
     <section id="kpi-section" class="kpi-grid">
@@ -638,7 +728,13 @@ function getMockReport(){
             },
             treasury:{
                 caixaAtual:892340.75,
-                previsao30Dias:945000.00
+                previsao30Dias:945000.00,
+                investimentos:[
+                    {id:'INV_001',nome:'CDB DI Liquidez Diaria',tipo:'CDB',saldoAtual:518365.58,taxaContratada:'100% CDI'},
+                    {id:'INV_002',nome:'CDB IPCA+ Venc. 2027',tipo:'CDB',saldoAtual:362770.83,taxaContratada:'IPCA + 6.5% a.a.'}
+                ],
+                totalInvestimentos:881136.41,
+                patrimonioTotal:1773477.16
             },
             dre:{
                 receitaBruta:665000.00,
@@ -885,6 +981,28 @@ function renderCats(cats){
     }).join('');
 }
 
+function renderPatrimonio(treasury){
+    // Conta Corrente
+    document.getElementById('pat-cc-valor').textContent=brl(treasury.caixaAtual);
+    // Investimentos
+    const invs=treasury.investimentos||[];
+    if(invs.length>=1){
+        document.getElementById('pat-inv1-nome').textContent=invs[0].nome;
+        document.getElementById('pat-inv1-valor').textContent=brl(invs[0].saldoAtual);
+        document.getElementById('pat-inv1-taxa').innerHTML='<span class="patrimonio-tag">'+esc(invs[0].taxaContratada)+'</span>';
+    }
+    if(invs.length>=2){
+        document.getElementById('pat-inv2-nome').textContent=invs[1].nome;
+        document.getElementById('pat-inv2-valor').textContent=brl(invs[1].saldoAtual);
+        document.getElementById('pat-inv2-taxa').innerHTML='<span class="patrimonio-tag">'+esc(invs[1].taxaContratada)+'</span>';
+    }
+    // Total
+    const patrimonioTotal=treasury.patrimonioTotal||(treasury.caixaAtual+(treasury.totalInvestimentos||0));
+    document.getElementById('pat-total-valor').textContent=brl(patrimonioTotal);
+    const numContas=1+(invs.length);
+    document.getElementById('pat-total-contas').textContent=numContas+' conta'+(numContas>1?'s':'')+' ativas';
+}
+
 // ---- Data Loading ----
 async function loadInbox(){
     const el=document.getElementById('inbox');
@@ -944,6 +1062,8 @@ async function loadReport(){
         document.getElementById('k-fc').textContent=brl(rp.indicators.fluxoCaixa);
         document.getElementById('k-caixa').textContent=brl(rp.treasury.caixaAtual);
         document.getElementById('k-caixa-sub').textContent='Proj. 30d: '+brl(rp.treasury.previsao30Dias);
+        // Patrimonio
+        renderPatrimonio(rp.treasury);
         renderDRE(rp.dre);renderDFC(rp.dfc);renderForecast(rp.forecast);
         renderTxList(document.getElementById('entradas-list'),rp.entradas,'in');
         renderTxList(document.getElementById('saidas-list'),rp.saidas,'out');
@@ -983,7 +1103,7 @@ const observer=new IntersectionObserver(entries=>{
         }
     });
 },{threshold:0.3});
-['kpi-section','dre-section','dfc-section','forecast-section','tx-section','cat-section','inbox-section'].forEach(id=>{
+['patrimonio-section','kpi-section','dre-section','dfc-section','forecast-section','tx-section','cat-section','inbox-section'].forEach(id=>{
     const el=document.getElementById(id);if(el)observer.observe(el);
 });
 
