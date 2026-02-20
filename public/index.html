@@ -612,11 +612,11 @@
         </span>
     </div>
     <div id="patrimonio-grid" class="patrimonio-grid">
-        <div class="patrimonio-card cc">
-            <div class="patrimonio-label">Conta Corrente</div>
+        <div class="patrimonio-card cc" style="cursor:pointer" onclick="openCCConfigModal()" title="Clique para configurar saldo inicial">
+            <div class="patrimonio-label" style="display:flex;justify-content:space-between;align-items:center">Conta Corrente <i data-lucide="settings" style="width:12px;height:12px;opacity:0.4"></i></div>
             <div class="patrimonio-nome">Banco Inter PJ</div>
             <div id="pat-cc-valor" class="patrimonio-valor">--</div>
-            <div class="patrimonio-sub">Saldo disponivel</div>
+            <div class="patrimonio-sub" id="pat-cc-sub">Saldo disponivel</div>
         </div>
         <div class="patrimonio-card inv">
             <div class="patrimonio-label">Investimento 1</div>
@@ -813,6 +813,29 @@
     </div>
 </div>
 
+<!-- CC Config Modal -->
+<div id="cc-config-modal" class="modal-bg" onclick="if(event.target===this)closeCCConfigModal()">
+    <div class="modal">
+        <h3>Configurar Conta Corrente</h3>
+        <p>Defina o saldo inicial de referencia para calculos de DFC e fluxo de caixa.</p>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Saldo Inicial (R$)</label>
+                <input id="cc-saldo-inicial" type="number" step="0.01" placeholder="Ex: 768320.75">
+            </div>
+            <div class="form-group">
+                <label>Data de Referencia</label>
+                <input id="cc-data-ref" type="date">
+            </div>
+        </div>
+        <div id="cc-config-status" style="font-size:11px;color:var(--t3);margin-bottom:8px"></div>
+        <div class="modal-acts">
+            <button class="btn btn-outline" onclick="closeCCConfigModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitCCConfig()">Salvar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Import Modal -->
 <div id="import-modal" class="modal-bg" onclick="if(event.target===this)closeModal()">
     <div class="modal">
@@ -965,6 +988,35 @@ document.querySelector('.sidebar').addEventListener('click',function(e){
 function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
 function openImportModal(){document.getElementById('import-modal').classList.add('open')}
 function closeModal(){document.getElementById('import-modal').classList.remove('open')}
+
+// ---- CC Config ----
+function openCCConfigModal(){
+    // Load current config
+    fetch(api('/api/guardianConfig'),{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).then(d=>{
+        const cfg=d.config||{};
+        if(cfg.CC_SALDO_INICIAL)document.getElementById('cc-saldo-inicial').value=cfg.CC_SALDO_INICIAL;
+        if(cfg.CC_DATA_REFERENCIA)document.getElementById('cc-data-ref').value=cfg.CC_DATA_REFERENCIA;
+        document.getElementById('cc-config-status').textContent=cfg.CC_SALDO_INICIAL?'Saldo inicial configurado: R$ '+parseFloat(cfg.CC_SALDO_INICIAL).toLocaleString('pt-BR',{minimumFractionDigits:2}):'Nenhum saldo inicial configurado — DFC usa calculo reverso.';
+    }).catch(()=>{
+        document.getElementById('cc-config-status').textContent='Nao foi possivel carregar config atual.';
+    });
+    document.getElementById('cc-config-modal').classList.add('open');
+}
+function closeCCConfigModal(){document.getElementById('cc-config-modal').classList.remove('open')}
+
+async function submitCCConfig(){
+    const saldo=document.getElementById('cc-saldo-inicial').value.trim();
+    const data=document.getElementById('cc-data-ref').value;
+    if(!saldo||parseFloat(saldo)<=0){toast('Informe o saldo inicial.','err');return}
+    if(!data){toast('Informe a data de referencia.','err');return}
+    try{
+        const r=await fetch(api('/api/guardianConfig'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({CC_SALDO_INICIAL:saldo,CC_DATA_REFERENCIA:data})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Saldo inicial configurado: R$ '+parseFloat(saldo).toLocaleString('pt-BR',{minimumFractionDigits:2})+' ref. '+data,'ok');
+        closeCCConfigModal();
+        loadReport();
+    }catch(e){toast('Erro ao salvar config: '+e.message,'err')}
+}
 
 // ---- Investment Management ----
 let investmentData=null; // cached from loadInvestments
@@ -1229,6 +1281,9 @@ function renderCats(cats){
 function renderPatrimonio(treasury){
     // Conta Corrente
     document.getElementById('pat-cc-valor').textContent=brl(treasury.caixaAtual);
+    const ccSub=document.getElementById('pat-cc-sub');
+    if(treasury.caixaInicial){ccSub.innerHTML='Inicial: '+brl(treasury.caixaInicial)+' <span style="color:var(--t4);font-size:10px">('+esc(treasury.dataReferencia||'')+')</span>'}
+    else{ccSub.textContent='Clique para configurar saldo inicial'}
     // Investimentos
     const invs=treasury.investimentos||[];
     if(invs.length>=1){

@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations } from '../storage/tableClient';
-import { getAreaRecords, getInvestmentMovements } from '../storage/areaTableClient';
+import { getAreaRecords, getInvestmentMovements, getConfig } from '../storage/areaTableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { GuardianAgents, AnalysisResult } from '../guardian/guardianAgents';
 import { InterConnector } from '../guardian/interConnector';
@@ -62,7 +62,7 @@ function buildDRE(items: GuardianAuthorization[], kpis: { revenue: number; opExp
 }
 
 /** Build DFC (Demonstração de Fluxo de Caixa) */
-function buildDFC(items: GuardianAuthorization[], caixaAtual: number) {
+function buildDFC(items: GuardianAuthorization[], caixaAtual: number, caixaInicialConfig: number | null) {
     const recebimentos = items
         .filter(i => i.tipo === 'transaction' && i.classificacao?.startsWith('Receita'))
         .reduce((s, i) => s + i.valor, 0);
@@ -78,7 +78,8 @@ function buildDFC(items: GuardianAuthorization[], caixaAtual: number) {
         .reduce((s, i) => s + i.valor, 0));
     const financiamento = 0;
     const variacaoLiquida = caixaOperacional + investimentos + financiamento;
-    const caixaInicial = caixaAtual - variacaoLiquida;
+    // Use configured initial balance if available, otherwise back-calculate
+    const caixaInicial = caixaInicialConfig ?? (caixaAtual - variacaoLiquida);
 
     return {
         operacional: {
@@ -230,9 +231,14 @@ export async function guardianReportsHandler(
         const totalInvestimentos = investmentAccounts.filter(a => a.ativo).reduce((s, a) => s + a.saldoAtual, 0);
         const patrimonioTotal = caixaAtual + totalInvestimentos;
 
+        // Load initial balance config
+        const ccSaldoInicialStr = await getConfig('CC_SALDO_INICIAL');
+        const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;
+        const ccDataRef = await getConfig('CC_DATA_REFERENCIA');
+
         // Build financial statements
         const dre = buildDRE(items, kpis);
-        const dfc = buildDFC(items, caixaAtual);
+        const dfc = buildDFC(items, caixaAtual, ccSaldoInicial);
         const forecast = buildForecast(items, caixaAtual);
         const categorized = buildCategorized(items);
 
@@ -266,6 +272,8 @@ export async function guardianReportsHandler(
             },
             treasury: {
                 caixaAtual,
+                caixaInicial: ccSaldoInicial,
+                dataReferencia: ccDataRef,
                 previsao30Dias: caixaAtual * 1.058,
                 investimentos: investmentAccounts.filter(a => a.ativo).map(a => ({
                     id: a.id,
