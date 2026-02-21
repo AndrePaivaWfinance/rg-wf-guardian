@@ -255,6 +255,14 @@
         .badge-inativa { background:var(--bg); color:var(--t4); }
         .reclass-select { padding:4px 8px; font-size:11px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--t1); cursor:pointer; max-width:160px; }
 
+        /* ---- Tabs ---- */
+        .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
+        .tab-btn { padding:10px 20px; font-size:13px; font-weight:600; color:var(--t3); background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-2px; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.15s; }
+        .tab-btn:hover { color:var(--t1); }
+        .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+        .tab-panel { display:none; }
+        .tab-panel.active { display:block; }
+
         /* ---- Responsive ---- */
         @media (max-width:1280px) { .kpi-grid { grid-template-columns:repeat(3,1fr); } }
         @media (max-width:1024px) { .sidebar { display:none; } .main { margin-left:0; max-width:100%; } }
@@ -280,6 +288,7 @@
         <span id="approval-badge" class="sidebar-badge" style="display:none">0</span>
     </div>
     <div class="sidebar-item" data-page="mensal"><i data-lucide="bar-chart-3"></i> Relatorios Mensais</div>
+    <div class="sidebar-item" data-page="cadastros"><i data-lucide="settings"></i> Cadastros</div>
 
     <div class="sidebar-section">Acoes</div>
     <div class="sidebar-item" data-action="sync"><i data-lucide="refresh-cw"></i> Sincronizar</div>
@@ -380,25 +389,70 @@
             </div>
         </header>
 
-        <!-- Summary Cards -->
-        <section class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-            <div class="kpi-card red"><div class="kpi-label">Pendentes</div><div id="s-pending" class="kpi-value">--</div><div class="kpi-sub">Aguardando aprovacao</div></div>
-            <div class="kpi-card green"><div class="kpi-label">Ja Recebido</div><div id="s-recebido" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
-            <div class="kpi-card blue"><div class="kpi-label">Ja Pago</div><div id="s-pago" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
-            <div class="kpi-card purple"><div class="kpi-label">Alertas</div><div id="s-alertas" class="kpi-value">--</div><div class="kpi-sub">Orcamento</div></div>
-        </section>
-
-        <!-- Transacoes para Aprovacao -->
-        <div class="section-title"><i data-lucide="check-circle"></i> Transacoes para Aprovacao</div>
-        <div class="card" id="approval-list" style="padding:0;overflow:hidden">
-            <div class="empty-state"><span class="spinner"></span></div>
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-visao">Visao Semanal</button>
+            <button class="tab-btn" data-tab="tab-rotinas">Rotinas Diarias</button>
         </div>
 
-        <!-- Movimentacoes Internas -->
-        <div class="section-title"><i data-lucide="repeat"></i> Movimentacoes Internas <span id="mov-internas-badge" class="badge" style="background:var(--t3);display:none"></span></div>
-        <div class="card" id="mov-internas-list" style="padding:0;overflow:hidden">
-            <div class="empty-state">Nenhuma movimentacao interna.</div>
+        <!-- TAB: Visao Semanal -->
+        <div id="tab-visao" class="tab-panel active">
+            <!-- Summary Cards -->
+            <section class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+                <div class="kpi-card red"><div class="kpi-label">Pendentes</div><div id="s-pending" class="kpi-value">--</div><div class="kpi-sub">Aguardando aprovacao</div></div>
+                <div class="kpi-card green"><div class="kpi-label">Ja Recebido</div><div id="s-recebido" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
+                <div class="kpi-card blue"><div class="kpi-label">Ja Pago</div><div id="s-pago" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Alertas</div><div id="s-alertas" class="kpi-value">--</div><div class="kpi-sub">Orcamento</div></div>
+            </section>
+
+            <!-- Ja Pago / Ja Recebido -->
+            <div class="g2">
+                <div class="card">
+                    <div class="card-header"><div class="card-title" style="color:var(--danger)"><i data-lucide="arrow-down-left" style="color:var(--danger)"></i> Ja Pago (Mes)</div></div>
+                    <div id="ja-pago-list"><div class="empty-state">Nenhum pagamento registrado.</div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title" style="color:var(--success)"><i data-lucide="arrow-up-right" style="color:var(--success)"></i> Ja Recebido (Mes)</div></div>
+                    <div id="ja-recebido-list"><div class="empty-state">Nenhum recebimento registrado.</div></div>
+                </div>
+            </div>
         </div>
+
+        <!-- TAB: Rotinas Diarias -->
+        <div id="tab-rotinas" class="tab-panel">
+            <!-- Transacoes para Aprovacao -->
+            <div class="section-title"><i data-lucide="check-circle"></i> Transacoes para Aprovacao</div>
+            <div class="card" id="approval-list" style="padding:0;overflow:hidden">
+                <div class="empty-state"><span class="spinner"></span></div>
+            </div>
+
+            <!-- Movimentacoes Internas -->
+            <div class="section-title"><i data-lucide="repeat"></i> Movimentacoes Internas <span id="mov-internas-badge" class="badge" style="background:var(--t3);display:none"></span></div>
+            <div class="card" id="mov-internas-list" style="padding:0;overflow:hidden">
+                <div class="empty-state">Nenhuma movimentacao interna.</div>
+            </div>
+
+            <!-- Upload -->
+            <div class="section-title"><i data-lucide="upload-cloud"></i> Upload de Documentos</div>
+            <div class="card">
+                <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+                    <i data-lucide="file-plus" style="width:24px;height:24px;color:var(--primary);opacity:0.5"></i>
+                    <p>Arraste ou clique para enviar</p>
+                    <small>PDF, XML, OFX, CSV — OCR automatico</small>
+                </div>
+                <div id="upload-status" style="margin-top:8px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======== PAGE: CADASTROS ======== -->
+    <div id="page-cadastros" class="page">
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1>Cadastros</h1>
+                <p>Configuracoes de contas, categorias e parametros</p>
+            </div>
+        </header>
 
         <!-- Contas Correntes -->
         <div class="section-title"><i data-lucide="landmark"></i> Contas Correntes <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openContaModal()">+ Nova Conta</button></div>
@@ -410,29 +464,6 @@
         <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
         <div class="card" style="padding:0;overflow:hidden">
             <div id="categorias-list"><div class="empty-state"><span class="spinner"></span></div></div>
-        </div>
-
-        <!-- Upload -->
-        <div class="section-title"><i data-lucide="upload-cloud"></i> Upload de Documentos</div>
-        <div class="card">
-            <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
-                <i data-lucide="file-plus" style="width:24px;height:24px;color:var(--primary);opacity:0.5"></i>
-                <p>Arraste ou clique para enviar</p>
-                <small>PDF, XML, OFX, CSV — OCR automatico</small>
-            </div>
-            <div id="upload-status" style="margin-top:8px"></div>
-        </div>
-
-        <!-- Ja Pago / Ja Recebido -->
-        <div class="g2">
-            <div class="card">
-                <div class="card-header"><div class="card-title" style="color:var(--danger)"><i data-lucide="arrow-down-left" style="color:var(--danger)"></i> Ja Pago (Mes)</div></div>
-                <div id="ja-pago-list"><div class="empty-state">Nenhum pagamento registrado.</div></div>
-            </div>
-            <div class="card">
-                <div class="card-header"><div class="card-title" style="color:var(--success)"><i data-lucide="arrow-up-right" style="color:var(--success)"></i> Ja Recebido (Mes)</div></div>
-                <div id="ja-recebido-list"><div class="empty-state">Nenhum recebimento registrado.</div></div>
-            </div>
         </div>
     </div>
 
@@ -596,6 +627,21 @@ document.querySelector('.sidebar').addEventListener('click',function(e){
     if(page)navigateTo(page);
     else if(action==='sync')runSync();
     else if(action==='upload')document.getElementById('file-input').click();
+});
+
+// ---- Tab switching ----
+document.addEventListener('click',function(e){
+    const btn=e.target.closest('.tab-btn');
+    if(!btn)return;
+    const bar=btn.closest('.tab-bar');
+    const page=btn.closest('.page');
+    if(!bar||!page)return;
+    bar.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    page.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    const panel=document.getElementById(btn.dataset.tab);
+    if(panel)panel.classList.add('active');
+    if(typeof lucide!=='undefined')lucide.createIcons();
 });
 
 // Auth
@@ -1133,7 +1179,7 @@ async function deleteConta(id){
 // Init
 checkAuth();
 const hash=window.location.hash.replace('#','');
-if(hash&&['home','semanal','mensal'].includes(hash))navigateTo(hash);
+if(hash&&['home','semanal','mensal','cadastros'].includes(hash))navigateTo(hash);
 loadDashboard();
 loadContas();
 lucide.createIcons();
