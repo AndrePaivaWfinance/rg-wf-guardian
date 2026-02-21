@@ -754,95 +754,109 @@ function renderTxList(elId,items,type){
 }
 
 // ---- Data Loading (Single BFF call) ----
+function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val}
+
 async function loadDashboard(){
+    function safe(label,fn){try{fn()}catch(e){console.error('Dashboard ['+label+']:',e)}}
     try{
         const r=await fetch(api('/api/guardianDashboard'),{signal:AbortSignal.timeout(30000)});
         if(!r.ok)throw new Error('Status '+r.status);
         const d=await r.json();
         if(!d.success)throw new Error(d.error||'Erro');
         dashData=d;
-
-        // ---- HOME PAGE ----
         const h=d.home||{};
         const ind=h.indicators||{};
-        function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val}
-        setEl('k-mb',ind.margemBruta||'0.0%');
-        setEl('k-ml',ind.margemLiquida||'0.0%');
-        setEl('k-lucro',brl(ind.lucroLiquido));
-        setEl('k-fc',brl(ind.fluxoCaixa));
-        setEl('k-fat',brl(ind.faturamentoAtual));
-        setEl('k-pat',brl(ind.caixaAtual));
-        const healthPill=document.getElementById('health-pill');
-        if(healthPill){healthPill.textContent=ind.saudeFinanceira||'--';healthPill.className='pill '+(ind.saudeFinanceira==='saudavel'?'pill-success':'pill-primary')}
+        const s=d.semanal||{};
+        const m=d.mensal||{};
 
-        renderPatrimonio(h.treasury);
-        renderInsights(h.insights,'insights-panel');
-        renderBillingChart(h.monthlyHistory);
-        renderForecast(h.forecast,'forecast-chart');
+        // ---- HOME KPIs ----
+        safe('home-kpi',function(){
+            setEl('k-mb',ind.margemBruta||'0.0%');
+            setEl('k-ml',ind.margemLiquida||'0.0%');
+            setEl('k-lucro',brl(ind.lucroLiquido));
+            setEl('k-fc',brl(ind.fluxoCaixa));
+            setEl('k-fat',brl(ind.faturamentoAtual));
+            setEl('k-pat',brl(ind.caixaAtual));
+            var hp=document.getElementById('health-pill');
+            if(hp){hp.textContent=ind.saudeFinanceira||'--';hp.className='pill '+(ind.saudeFinanceira==='saudavel'?'pill-success':'pill-primary')}
+        });
 
-        // FC Panel
-        const fcPanel=document.getElementById('fc-panel');
-        if(fcPanel){fcPanel.innerHTML=
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+
-            '<div><div class="kpi-label">FC NECESSARIO</div><div style="font-size:20px;font-weight:700;color:var(--danger)">'+brl(h.fcNecessario)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Para cobrir despesas dos proximos '+(h.diasRestantesMes||0)+' dias</div></div>'+
-            '<div><div class="kpi-label">FC PROJETADO</div><div style="font-size:20px;font-weight:700;color:'+((h.fcProjetado||0)>=0?'var(--success)':'var(--danger)')+'">'+brl(h.fcProjetado)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Projecao ate o fim do mes</div></div>'+
-            '</div>'}
-
-        // Panorama
-        const panoramaPanel=document.getElementById('panorama-panel');
-        if(panoramaPanel) panoramaPanel.innerHTML=
-            '<div style="display:grid;gap:12px">'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Caixa Atual</span><strong>'+brl(ind.caixaAtual)+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Faturamento</span><strong>'+brl(ind.faturamentoAtual)+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Despesas Op.</span><strong style="color:var(--danger)">'+brl(ind.despesasOperacionais)+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Indice MC</span><strong style="color:var(--success)">'+ind.margemBruta+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Operacional</span><strong style="color:var(--primary)">'+ind.margemOperacional+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Liquida</span><strong style="color:var(--primary)">'+ind.margemLiquida+'</strong></div>'+
-            '<div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--t2);font-weight:600">Ponto de Equilibrio</span><strong style="color:#B45309">'+brl(ind.pontoEquilibrio)+'</strong></div>'+
-            '</div>';
+        // ---- HOME Panels ----
+        safe('home-panels',function(){
+            renderPatrimonio(h.treasury);
+            renderInsights(h.insights,'insights-panel');
+        });
+        safe('home-charts',function(){
+            renderBillingChart(h.monthlyHistory);
+            renderForecast(h.forecast,'forecast-chart');
+        });
+        safe('fc-panel',function(){
+            var fp=document.getElementById('fc-panel');
+            if(fp){fp.innerHTML=
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+
+                '<div><div class="kpi-label">FC NECESSARIO</div><div style="font-size:20px;font-weight:700;color:var(--danger)">'+brl(h.fcNecessario)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Para cobrir despesas dos proximos '+(h.diasRestantesMes||0)+' dias</div></div>'+
+                '<div><div class="kpi-label">FC PROJETADO</div><div style="font-size:20px;font-weight:700;color:'+((h.fcProjetado||0)>=0?'var(--success)':'var(--danger)')+'">'+brl(h.fcProjetado)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Projecao ate o fim do mes</div></div>'+
+                '</div>'}
+        });
+        safe('panorama',function(){
+            var pp=document.getElementById('panorama-panel');
+            if(pp) pp.innerHTML=
+                '<div style="display:grid;gap:12px">'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Caixa Atual</span><strong>'+brl(ind.caixaAtual)+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Faturamento</span><strong>'+brl(ind.faturamentoAtual)+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Despesas Op.</span><strong style="color:var(--danger)">'+brl(ind.despesasOperacionais)+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Indice MC</span><strong style="color:var(--success)">'+(ind.margemBruta||'--')+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Operacional</span><strong style="color:var(--primary)">'+(ind.margemOperacional||'--')+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Margem Liquida</span><strong style="color:var(--primary)">'+(ind.margemLiquida||'--')+'</strong></div>'+
+                '<div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--t2);font-weight:600">Ponto de Equilibrio</span><strong style="color:#B45309">'+brl(ind.pontoEquilibrio)+'</strong></div>'+
+                '</div>';
+        });
 
         // ---- SEMANAL PAGE ----
-        const s=d.semanal||{};
-        const pendingList=s.transacoesEncontradas||[];
+        var pendingList=s.transacoesEncontradas||[];
         categoriasCache=s.categorias||[];
-        setEl('s-pending',pendingList.length);
-        setEl('s-recebido',brl(s.totalJaRecebido));
-        setEl('s-pago',brl(s.totalJaPago));
-        setEl('s-alertas',s.alertas||0);
-        setEl('auto-pill',(s.taxaAutomacao||'0%')+' auto');
-
-        const badge=document.getElementById('approval-badge');
-        if(badge){if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}}
-
-        renderCategorias(categoriasCache);
-        renderApprovalList(pendingList);
-
-        const movInternas=s.movimentacoesInternas||[];
-        const movBadge=document.getElementById('mov-internas-badge');
-        if(movBadge){if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}}
-        renderMovInternas(movInternas);
-
-        renderTxList('ja-pago-list',s.jaPago||[],'out');
-        renderTxList('ja-recebido-list',s.jaRecebido||[],'in');
+        safe('semanal-kpi',function(){
+            setEl('s-pending',pendingList.length);
+            setEl('s-recebido',brl(s.totalJaRecebido));
+            setEl('s-pago',brl(s.totalJaPago));
+            setEl('s-alertas',s.alertas||0);
+            setEl('auto-pill',(s.taxaAutomacao||'0%')+' auto');
+            var badge=document.getElementById('approval-badge');
+            if(badge){if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}}
+            var movInternas=s.movimentacoesInternas||[];
+            var movBadge=document.getElementById('mov-internas-badge');
+            if(movBadge){if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}}
+        });
+        safe('semanal-lists',function(){
+            renderCategorias(categoriasCache);
+            renderApprovalList(pendingList);
+            renderMovInternas(s.movimentacoesInternas||[]);
+            renderTxList('ja-pago-list',s.jaPago||[],'out');
+            renderTxList('ja-recebido-list',s.jaRecebido||[],'in');
+        });
 
         // ---- MENSAL PAGE ----
-        const m=d.mensal||{};
-        renderDRE(m.dre||{});
-        renderDFC(m.dfc||{});
-        renderCats(m.categorized||[]);
-        renderInsights(m.insights,'mensal-insights');
-        renderForecast(m.forecast,'mensal-forecast-chart');
+        safe('mensal',function(){
+            renderDRE(m.dre||{});
+            renderDFC(m.dfc||{});
+            renderCats(m.categorized||[]);
+            renderInsights(m.insights,'mensal-insights');
+            renderForecast(m.forecast,'mensal-forecast-chart');
+        });
 
         // Status
-        const dotInter=document.getElementById('dot-inter');if(dotInter)dotInter.classList.add('live');
-        const dotAi=document.getElementById('dot-ai');if(dotAi)dotAi.classList.add('live');
-        const dotGraph=document.getElementById('dot-graph');if(dotGraph)dotGraph.classList.add('live');
-        setEl('last-sync','Atualizado em '+new Date().toLocaleString('pt-BR'));
-        lucide.createIcons();
+        safe('status',function(){
+            var dotInter=document.getElementById('dot-inter');if(dotInter)dotInter.classList.add('live');
+            var dotAi=document.getElementById('dot-ai');if(dotAi)dotAi.classList.add('live');
+            var dotGraph=document.getElementById('dot-graph');if(dotGraph)dotGraph.classList.add('live');
+            setEl('last-sync','Atualizado em '+new Date().toLocaleString('pt-BR'));
+            if(typeof lucide!=='undefined')lucide.createIcons();
+        });
     }catch(e){
-        console.error('Dashboard:',e);
-        setEl('last-sync','Erro ao carregar: '+e.message);
-        ['dot-inter','dot-graph','dot-ai'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('live')});
+        console.error('Dashboard fetch error:',e);
+        toast('Erro ao carregar dashboard: '+e.message,'err');
+        setEl('last-sync','Erro: '+e.message);
+        ['dot-inter','dot-graph','dot-ai'].forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('live')});
     }
 }
 
