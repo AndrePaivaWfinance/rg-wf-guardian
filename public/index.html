@@ -645,22 +645,24 @@ function renderForecast(fc,canvasId){
 }
 
 function renderDRE(dre){
+    const el=document.getElementById('dre-body');if(!el||!dre)return;
     const r=(l,v,c)=>'<tr class="'+(c||'')+'"><td>'+l+'</td><td class="num '+(typeof v==='number'&&v<0?'negative':'')+'">'+
-        (typeof v==='number'?brl(v):v)+'</td></tr>';
-    const m=(l,pct)=>'<tr style="background:var(--primary-dim)"><td style="font-weight:600;color:var(--primary)">'+l+'</td><td class="num" style="font-weight:700;color:var(--primary)">'+pct+'</td></tr>';
+        (typeof v==='number'?brl(v):(v||'--'))+'</td></tr>';
+    const m=(l,pct)=>'<tr style="background:var(--primary-dim)"><td style="font-weight:600;color:var(--primary)">'+l+'</td><td class="num" style="font-weight:700;color:var(--primary)">'+(pct||'--')+'</td></tr>';
     const sec=(l)=>'<tr class="section-row"><td colspan="2">'+l+'</td></tr>';
     // Custos Variaveis sub-items
     let varRows='';
-    if(dre.variaveis&&dre.variaveis.grupos){Object.entries(dre.variaveis.grupos).forEach(([g,v])=>{varRows+=r('(-) '+g,-v,'sub')})}
+    if(dre.variaveis&&dre.variaveis.grupos){Object.entries(dre.variaveis.grupos).forEach(([g,v])=>{varRows+=r('(-) '+g,-(v||0),'sub')})}
     // Custos Fixos sub-items
     let fixRows='';
-    if(dre.fixos&&dre.fixos.grupos){Object.entries(dre.fixos.grupos).forEach(([g,v])=>{fixRows+=r('(-) '+g,-v,'sub')})}
+    if(dre.fixos&&dre.fixos.grupos){Object.entries(dre.fixos.grupos).forEach(([g,v])=>{fixRows+=r('(-) '+g,-(v||0),'sub')})}
     // Desp Financeiras sub-items
     let dfRows='';
     if(dre.resultadoFinanceiro&&dre.resultadoFinanceiro.despesasFinanceiras&&dre.resultadoFinanceiro.despesasFinanceiras.grupos){
-        Object.entries(dre.resultadoFinanceiro.despesasFinanceiras.grupos).forEach(([g,v])=>{dfRows+=r('(-) '+g,-v,'sub')})
+        Object.entries(dre.resultadoFinanceiro.despesasFinanceiras.grupos).forEach(([g,v])=>{dfRows+=r('(-) '+g,-(v||0),'sub')})
     }
-    document.getElementById('dre-body').innerHTML='<table class="tbl"><thead><tr><th>Conta</th><th>Valor</th></tr></thead><tbody>'+
+    const rf=dre.resultadoFinanceiro||{};
+    el.innerHTML='<table class="tbl"><thead><tr><th>Conta</th><th>Valor</th></tr></thead><tbody>'+
         sec('RECEITA')+
         r('(+) Receita Bruta',dre.receitaBruta,'')+
         r('(-) Deducoes PIS/COFINS/ISS',-dre.deducoes,'sub')+
@@ -676,9 +678,9 @@ function renderDRE(dre){
         r('= RESULTADO OPERACIONAL',dre.resultadoOperacional,'')+
         m('MARGEM OPERACIONAL',dre.margemOperacional)+
         sec('RESULTADO FINANCEIRO')+
-        r('(+) Receitas Financeiras',dre.resultadoFinanceiro?.receitasFinanceiras||0,'sub')+
+        r('(+) Receitas Financeiras',rf.receitasFinanceiras||0,'sub')+
         dfRows+
-        r('= Resultado Financeiro Liquido',dre.resultadoFinanceiro?.liquido||0,'')+
+        r('= Resultado Financeiro Liquido',rf.liquido||0,'')+
         r('= Resultado Antes IR',dre.resultadoAntesIR,'')+
         r('(-) IR / CSLL (34%)',-dre.irCSLL,'sub')+
         r('= RESULTADO LIQUIDO',dre.resultadoLiquido,'total')+
@@ -688,35 +690,39 @@ function renderDRE(dre){
 }
 
 function renderDFC(dfc){
+    const el=document.getElementById('dfc-body');if(!el||!dfc)return;
     const r=(l,v,c)=>'<tr class="'+(c||'')+'"><td>'+l+'</td><td class="num '+(typeof v==='number'&&v<0?'negative':typeof v==='number'&&v>0?'positive':'')+'">'+
-        (typeof v==='number'?brl(v):v)+'</td></tr>';
-    document.getElementById('dfc-body').innerHTML='<table class="tbl"><thead><tr><th>Fluxo</th><th>Valor</th></tr></thead><tbody>'+
+        (typeof v==='number'?brl(v):(v||'--'))+'</td></tr>';
+    const op=dfc.operacional||{};
+    const fin=dfc.financeiro||{};
+    el.innerHTML='<table class="tbl"><thead><tr><th>Fluxo</th><th>Valor</th></tr></thead><tbody>'+
         '<tr class="section-row"><td colspan="2">Atividades Operacionais</td></tr>'+
-        r('(+) Recebimentos de Clientes',dfc.operacional.recebimentosClientes,'sub')+
-        r('(-) Custos Variaveis',dfc.operacional.custosVariaveis,'sub')+
-        r('(-) Custos Fixos',dfc.operacional.custosFixos,'sub')+
-        r('= Caixa Operacional',dfc.operacional.total,'')+
+        r('(+) Recebimentos de Clientes',op.recebimentosClientes||0,'sub')+
+        r('(-) Custos Variaveis',op.custosVariaveis||0,'sub')+
+        r('(-) Custos Fixos',op.custosFixos||0,'sub')+
+        r('= Caixa Operacional',op.total||0,'')+
         '<tr class="section-row"><td colspan="2">Atividades Financeiras</td></tr>'+
-        r('(+) Receitas Financeiras',dfc.financeiro.receitasFinanceiras,'sub')+
-        r('(-) Despesas Financeiras',dfc.financeiro.despesasFinanceiras,'sub')+
-        r('= Caixa Financeiro',dfc.financeiro.total,'')+
-        r('= Variacao Liquida',dfc.variacaoLiquida,'total')+
-        r('Caixa Inicial',dfc.caixaInicial,'')+
-        r('Caixa Final',dfc.caixaFinal,'')+
+        r('(+) Receitas Financeiras',fin.receitasFinanceiras||0,'sub')+
+        r('(-) Despesas Financeiras',fin.despesasFinanceiras||0,'sub')+
+        r('= Caixa Financeiro',fin.total||0,'')+
+        r('= Variacao Liquida',dfc.variacaoLiquida||0,'total')+
+        r('Caixa Inicial',dfc.caixaInicial||0,'')+
+        r('Caixa Final',dfc.caixaFinal||0,'')+
         '</tbody></table>';
 }
 
 function renderCats(cats){
-    if(!cats||!cats.length){document.getElementById('cat-list').innerHTML='<div class="empty-state">Sem dados.</div>';return}
-    const max=cats[0].total;
-    document.getElementById('cat-list').innerHTML=cats.map(c=>{
+    const el=document.getElementById('cat-list');if(!el)return;
+    if(!cats||!cats.length){el.innerHTML='<div class="empty-state">Sem dados.</div>';return}
+    const max=cats[0].total||1;
+    el.innerHTML=cats.map(c=>{
         const pct=max>0?Math.round((c.total/max)*100):0;
         return '<div class="cat-row"><div class="cat-top"><span class="cat-name">'+esc(c.category)+'</span><span class="cat-val">'+brl(c.total)+'</span></div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:'+pct+'%"></div></div><div class="cat-count">'+c.count+' item(ns)</div></div>'
     }).join('');
 }
 
 function renderApprovalList(items){
-    const el=document.getElementById('approval-list');
+    const el=document.getElementById('approval-list');if(!el)return;
     if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma transacao pendente de aprovacao.</div>';return}
     const catOpts=categoriasCache.map(c=>'<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>').join('');
     el.innerHTML=items.map(i=>{
@@ -730,7 +736,7 @@ function renderApprovalList(items){
 }
 
 function renderMovInternas(items){
-    const el=document.getElementById('mov-internas-list');
+    const el=document.getElementById('mov-internas-list');if(!el)return;
     if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma movimentacao interna.</div>';return}
     el.innerHTML=items.map(i=>{
         const cls=esc(i.classificacao||'');
@@ -740,7 +746,7 @@ function renderMovInternas(items){
 }
 
 function renderTxList(elId,items,type){
-    const el=document.getElementById(elId);
+    const el=document.getElementById(elId);if(!el)return;
     if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhum registro.</div>';return}
     el.innerHTML=items.slice(0,15).map(i=>{
         return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+type+'"></div><div style="min-width:0"><div class="tx-name">'+esc(i.classificacao||'')+'</div><div class="tx-meta"><span>'+esc(i.descricao||'')+'</span><span>'+esc(i.data||'')+'</span></div></div></div><div><div class="tx-amount" style="color:'+(type==='in'?'var(--success)':'var(--t1)')+'">'+brl(i.valor)+'</div></div></div>'
@@ -835,15 +841,12 @@ async function loadDashboard(){
         lucide.createIcons();
     }catch(e){
         console.error('Dashboard:',e);
-        document.getElementById('last-sync').textContent='Erro ao carregar: '+e.message;
-        document.getElementById('dot-inter').classList.remove('live');
-        document.getElementById('dot-graph').classList.remove('live');
-        document.getElementById('dot-ai').classList.remove('live');
+        setEl('last-sync','Erro ao carregar: '+e.message);
+        ['dot-inter','dot-graph','dot-ai'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('live')});
     }
 }
 
 // ---- Categorias CRUD ----
-let categoriasCache=[];
 
 const TIPO_LABELS={'RECEITA_DIRETA':'Receita Direta','RECEITA_FINANCEIRA':'Receita Financeira','CUSTO_VARIAVEL':'Custo Variavel','CUSTO_FIXO':'Custo Fixo','DESPESA_FINANCEIRA':'Desp. Financeira'};
 const GRUPO_POR_TIPO={
@@ -856,7 +859,7 @@ const GRUPO_POR_TIPO={
 
 function renderCategorias(cats){
     categoriasCache=cats||[];
-    const el=document.getElementById('categorias-list');
+    const el=document.getElementById('categorias-list');if(!el)return;
     if(!cats||!cats.length){el.innerHTML='<div class="empty-state">Nenhuma categoria cadastrada.</div>';return}
     // Group by tipo
     const byTipo={};
