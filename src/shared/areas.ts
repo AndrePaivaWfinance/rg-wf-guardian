@@ -181,6 +181,20 @@ export interface Categoria {
     criadoEm: string;
 }
 
+export type ContaTipo = 'corrente' | 'poupanca' | 'investimento' | 'cartao' | 'caixa';
+
+export interface ContaCorrente {
+    id: string;
+    nome: string;
+    banco: string;
+    tipo: ContaTipo;
+    agencia?: string;
+    conta?: string;
+    saldoInicial: number;
+    ativa: boolean;
+    criadoEm: string;
+}
+
 export type CadastroType = 'categorias' | 'contas' | 'clientes' | 'fornecedores';
 
 // ============ UNIFIED ============
