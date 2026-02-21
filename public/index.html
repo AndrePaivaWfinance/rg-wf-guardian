@@ -400,6 +400,12 @@
             <div class="empty-state">Nenhuma movimentacao interna.</div>
         </div>
 
+        <!-- Contas Correntes -->
+        <div class="section-title"><i data-lucide="landmark"></i> Contas Correntes <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openContaModal()">+ Nova Conta</button></div>
+        <div class="card" style="padding:0;overflow:hidden">
+            <div id="contas-list"><div class="empty-state"><span class="spinner"></span></div></div>
+        </div>
+
         <!-- Categorias -->
         <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
         <div class="card" style="padding:0;overflow:hidden">
@@ -510,6 +516,55 @@
     </div>
 </div>
 
+<!-- Modal: Conta Corrente -->
+<div id="modal-conta" class="modal-bg" onclick="if(event.target===this)closeContaModal()">
+    <div class="modal">
+        <h3 id="modal-conta-title">Nova Conta Corrente</h3>
+        <p>Cadastre uma conta bancaria para acompanhamento patrimonial.</p>
+        <form id="conta-form" onsubmit="saveConta(event)">
+            <input type="hidden" id="conta-id">
+            <div class="form-group">
+                <label>Nome da Conta</label>
+                <input type="text" id="conta-nome" placeholder="Ex: Banco Inter PJ" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Banco</label>
+                    <input type="text" id="conta-banco" placeholder="Ex: Banco Inter" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="conta-tipo">
+                        <option value="corrente">Conta Corrente</option>
+                        <option value="poupanca">Poupanca</option>
+                        <option value="investimento">Investimento</option>
+                        <option value="cartao">Cartao de Credito</option>
+                        <option value="caixa">Caixa</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Agencia</label>
+                    <input type="text" id="conta-agencia" placeholder="0001">
+                </div>
+                <div class="form-group">
+                    <label>Conta</label>
+                    <input type="text" id="conta-numero" placeholder="12345-6">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Saldo Inicial (R$)</label>
+                <input type="number" id="conta-saldo" step="0.01" value="0">
+            </div>
+            <div class="modal-acts">
+                <button type="button" class="btn btn-outline" onclick="closeContaModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'?'http://localhost:7071':'https://func-guardian-sovereign.azurewebsites.net');
 const KEY=window.__GUARDIAN_API_KEY__||'';
@@ -600,6 +655,8 @@ async function rejectItem(id){
 function renderPatrimonio(t){
     const grid=document.getElementById('patrimonio-grid');
     if(!grid||!t)return;
+    // If dynamic accounts are loaded, they handle the patrimonio grid
+    if(contasCache&&contasCache.length>0)return;
     let html='<div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">'+brl(t.caixaAtual)+'</div></div>';
     html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Conta Corrente</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.caixaAtual)+'</div></div>';
     grid.innerHTML=html;
@@ -965,11 +1022,120 @@ async function reclassifyItem(id,selectEl){
     }catch(err){toast('Erro: '+err.message,'err')}
 }
 
+// ---- Contas Correntes CRUD ----
+
+const CONTA_TIPO_LABELS={'corrente':'Conta Corrente','poupanca':'Poupanca','investimento':'Investimento','cartao':'Cartao de Credito','caixa':'Caixa'};
+let contasCache=[];
+
+async function loadContas(){
+    try{
+        const r=await fetch(api('/api/guardianCadastros/contas'));
+        if(!r.ok)throw new Error('Status '+r.status);
+        const d=await r.json();
+        contasCache=(d.records||[]).filter(c=>c.ativa!==false);
+        renderContas(contasCache);
+        renderPatrimonioDynamic(contasCache);
+    }catch(e){console.error('loadContas:',e)}
+}
+
+function renderContas(contas){
+    const el=document.getElementById('contas-list');if(!el)return;
+    if(!contas||!contas.length){el.innerHTML='<div class="empty-state">Nenhuma conta cadastrada. Clique em "+ Nova Conta" para adicionar.</div>';return}
+    let html='<table class="cad-tbl"><thead><tr><th>Nome</th><th>Banco</th><th>Tipo</th><th>Ag/Conta</th><th>Saldo Inicial</th><th style="text-align:right">Acoes</th></tr></thead><tbody>';
+    contas.forEach(c=>{
+        const tipoLabel=CONTA_TIPO_LABELS[c.tipo]||c.tipo;
+        const agConta=(c.agencia||'')+(c.agencia&&c.conta?' / ':'')+(c.conta||'');
+        html+='<tr><td><strong>'+esc(c.nome)+'</strong></td><td>'+esc(c.banco||'')+'</td><td><span class="badge badge-ativa">'+esc(tipoLabel)+'</span></td><td style="font-size:11px;color:var(--t3);font-family:JetBrains Mono,monospace">'+esc(agConta||'--')+'</td><td class="num">'+brl(c.saldoInicial)+'</td><td class="acts"><button class="btn btn-outline btn-sm" onclick="openContaModal(\''+esc(c.id)+'\')">Editar</button> <button class="btn btn-danger btn-sm" onclick="deleteConta(\''+esc(c.id)+'\')">Remover</button></td></tr>';
+    });
+    html+='</tbody></table>';
+    el.innerHTML=html;
+}
+
+function renderPatrimonioDynamic(contas){
+    const grid=document.getElementById('patrimonio-grid');if(!grid)return;
+    if(!contas||!contas.length){
+        // Fallback: show default if no accounts registered
+        return;
+    }
+    let html='';
+    let totalPatrimonio=0;
+    contas.forEach(c=>{
+        const cardClass=c.tipo==='investimento'?'inv':'cc';
+        const colorVar=c.tipo==='investimento'?'var(--success)':'var(--info)';
+        const tipoLabel=CONTA_TIPO_LABELS[c.tipo]||c.tipo;
+        html+='<div class="patrimonio-card '+cardClass+'"><div class="patrimonio-label">'+esc(tipoLabel)+'</div><div class="patrimonio-nome">'+esc(c.nome)+'</div><div class="patrimonio-valor" style="color:'+colorVar+'">'+brl(c.saldoInicial)+'</div><div class="patrimonio-sub">'+esc(c.banco)+'</div></div>';
+        totalPatrimonio+=c.saldoInicial||0;
+    });
+    html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">'+contas.length+' conta(s)</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(totalPatrimonio)+'</div></div>';
+    grid.innerHTML=html;
+}
+
+function openContaModal(editId){
+    const m=document.getElementById('modal-conta');
+    const title=document.getElementById('modal-conta-title');
+    const form=document.getElementById('conta-form');
+    form.reset();
+    if(editId){
+        const c=contasCache.find(x=>x.id===editId);
+        if(c){
+            title.textContent='Editar Conta';
+            document.getElementById('conta-id').value=c.id;
+            document.getElementById('conta-nome').value=c.nome;
+            document.getElementById('conta-banco').value=c.banco||'';
+            document.getElementById('conta-tipo').value=c.tipo||'corrente';
+            document.getElementById('conta-agencia').value=c.agencia||'';
+            document.getElementById('conta-numero').value=c.conta||'';
+            document.getElementById('conta-saldo').value=c.saldoInicial||0;
+        }
+    }else{
+        title.textContent='Nova Conta Corrente';
+        document.getElementById('conta-id').value='CC_'+Date.now();
+    }
+    m.classList.add('open');
+}
+
+function closeContaModal(){document.getElementById('modal-conta').classList.remove('open')}
+
+async function saveConta(e){
+    e.preventDefault();
+    const id=document.getElementById('conta-id').value;
+    const nome=document.getElementById('conta-nome').value.trim();
+    const banco=document.getElementById('conta-banco').value.trim();
+    const tipo=document.getElementById('conta-tipo').value;
+    const agencia=document.getElementById('conta-agencia').value.trim();
+    const conta=document.getElementById('conta-numero').value.trim();
+    const saldoInicial=parseFloat(document.getElementById('conta-saldo').value)||0;
+    if(!nome){toast('Nome e obrigatorio.','err');return}
+    if(!banco){toast('Banco e obrigatorio.','err');return}
+    const exists=contasCache.find(c=>c.id===id);
+    const action=exists?'update':'create';
+    const record={id,nome,banco,tipo,agencia,conta,saldoInicial,ativa:true,criadoEm:exists?exists.criadoEm:new Date().toISOString()};
+    try{
+        const r=await fetch(api('/api/guardianCadastros/contas'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,record})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Conta salva com sucesso.','ok');closeContaModal();loadContas();
+    }catch(err){toast('Erro: '+err.message,'err')}
+}
+
+async function deleteConta(id){
+    if(!confirm('Remover esta conta?'))return;
+    const c=contasCache.find(x=>x.id===id);
+    if(c){
+        const record={...c,ativa:false};
+        try{
+            const r=await fetch(api('/api/guardianCadastros/contas'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',record})});
+            if(!r.ok)throw new Error('Status '+r.status);
+            toast('Conta removida.','ok');loadContas();
+        }catch(err){toast('Erro: '+err.message,'err')}
+    }
+}
+
 // Init
 checkAuth();
 const hash=window.location.hash.replace('#','');
 if(hash&&['home','semanal','mensal'].includes(hash))navigateTo(hash);
 loadDashboard();
+loadContas();
 lucide.createIcons();
 setInterval(loadDashboard,60000);
 </script>

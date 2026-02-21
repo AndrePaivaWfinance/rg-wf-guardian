@@ -7,6 +7,7 @@ import {
     ComercialDeal,
     CadastroType,
     Categoria,
+    ContaCorrente,
 } from '../shared/areas';
 
 const logger = createLogger('AreaTableClient');
@@ -206,7 +207,7 @@ const CADASTRO_TABLE_NAMES: Record<CadastroType, string> = {
     fornecedores: 'GuardianFornecedores',
 };
 
-type CadastroRecord = Categoria; // Will expand with ContaCorrente | Cliente | Fornecedor
+type CadastroRecord = Categoria | ContaCorrente;
 
 const cadastroInMemory: Map<string, CadastroRecord[]> = new Map();
 
