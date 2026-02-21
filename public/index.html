@@ -454,16 +454,26 @@
             </div>
         </header>
 
-        <!-- Contas Correntes -->
-        <div class="section-title"><i data-lucide="landmark"></i> Contas Correntes <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openContaModal()">+ Nova Conta</button></div>
-        <div class="card" style="padding:0;overflow:hidden">
-            <div id="contas-list"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-cad-contas">Contas Correntes</button>
+            <button class="tab-btn" data-tab="tab-cad-categorias">Categorias</button>
         </div>
 
-        <!-- Categorias -->
-        <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
-        <div class="card" style="padding:0;overflow:hidden">
-            <div id="categorias-list"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- TAB: Contas Correntes -->
+        <div id="tab-cad-contas" class="tab-panel active">
+            <div class="section-title"><i data-lucide="landmark"></i> Contas Correntes <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openContaModal()">+ Nova Conta</button></div>
+            <div class="card" style="padding:0;overflow:hidden">
+                <div id="contas-list"><div class="empty-state"><span class="spinner"></span></div></div>
+            </div>
+        </div>
+
+        <!-- TAB: Categorias -->
+        <div id="tab-cad-categorias" class="tab-panel">
+            <div class="section-title"><i data-lucide="tag"></i> Categorias <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openCategoriaModal()">+ Nova</button></div>
+            <div class="card" style="padding:0;overflow:hidden">
+                <div id="categorias-list"><div class="empty-state"><span class="spinner"></span></div></div>
+            </div>
         </div>
     </div>
 
@@ -476,32 +486,46 @@
             </div>
         </header>
 
-        <!-- DFC Completo -->
-        <div class="card">
-            <div class="card-header"><div class="card-title"><i data-lucide="wallet"></i> DFC — Demonstracao de Fluxo de Caixa Completo</div></div>
-            <div id="dfc-body"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-mensal-visao">Visao Mensal</button>
+            <button class="tab-btn" data-tab="tab-mensal-dre">DRE</button>
+            <button class="tab-btn" data-tab="tab-mensal-dfc">DFC</button>
         </div>
 
-        <!-- DRE baseada em Margem -->
-        <div class="card mt">
-            <div class="card-header"><div class="card-title"><i data-lucide="file-spreadsheet"></i> DRE — Analise de Margens</div></div>
-            <div id="dre-body"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- TAB: Visao Mensal -->
+        <div id="tab-mensal-visao" class="tab-panel active">
+            <!-- Insights Estrategicos e Preditivos -->
+            <div class="section-title"><i data-lucide="sparkles"></i> Insights Estrategicos e Preditivos</div>
+            <div id="mensal-insights"><div class="empty-state"><span class="spinner"></span></div></div>
+
+            <!-- Categorias -->
+            <div class="card mt">
+                <div class="card-header"><div class="card-title"><i data-lucide="layers"></i> Categorias de Despesas</div></div>
+                <div id="cat-list"><div class="empty-state"><span class="spinner"></span></div></div>
+            </div>
+
+            <!-- Forecast -->
+            <div class="card mt">
+                <div class="card-header"><div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div></div>
+                <div class="chart-wrap"><canvas id="mensal-forecast-chart"></canvas></div>
+            </div>
         </div>
 
-        <!-- Categorias -->
-        <div class="card mt">
-            <div class="card-header"><div class="card-title"><i data-lucide="layers"></i> Categorias de Despesas</div></div>
-            <div id="cat-list"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- TAB: DRE -->
+        <div id="tab-mensal-dre" class="tab-panel">
+            <div class="card">
+                <div class="card-header"><div class="card-title"><i data-lucide="file-spreadsheet"></i> DRE — Analise de Margens</div></div>
+                <div id="dre-body"><div class="empty-state"><span class="spinner"></span></div></div>
+            </div>
         </div>
 
-        <!-- Insights Estrategicos e Preditivos -->
-        <div class="section-title"><i data-lucide="sparkles"></i> Insights Estrategicos e Preditivos</div>
-        <div id="mensal-insights"><div class="empty-state"><span class="spinner"></span></div></div>
-
-        <!-- Forecast -->
-        <div class="card mt">
-            <div class="card-header"><div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div></div>
-            <div class="chart-wrap"><canvas id="mensal-forecast-chart"></canvas></div>
+        <!-- TAB: DFC -->
+        <div id="tab-mensal-dfc" class="tab-panel">
+            <div class="card">
+                <div class="card-header"><div class="card-title"><i data-lucide="wallet"></i> DFC — Demonstracao de Fluxo de Caixa Completo</div></div>
+                <div id="dfc-body"><div class="empty-state"><span class="spinner"></span></div></div>
+            </div>
         </div>
     </div>
 </div>
