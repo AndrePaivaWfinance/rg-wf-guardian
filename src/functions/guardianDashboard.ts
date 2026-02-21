@@ -9,6 +9,28 @@ import { Categoria } from '../shared/areas';
 
 const logger = createLogger('GuardianDashboard');
 
+// In-memory cache for categories (rarely change, avoid re-querying Table Storage every request)
+let cachedCategorias: Categoria[] | null = null;
+let cachedCategoriasAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function invalidateCategoriasCache() { cachedCategorias = null; }
+
+async function getCategoriasCached(): Promise<Categoria[]> {
+    const now = Date.now();
+    if (cachedCategorias && (now - cachedCategoriasAt) < CACHE_TTL_MS) {
+        return cachedCategorias;
+    }
+    cachedCategorias = await seedCategoriasIfEmpty();
+    cachedCategoriasAt = now;
+    return cachedCategorias;
+}
+
+// Cache balance to avoid hitting Inter API on every dashboard load
+let cachedBalance: number | null = null;
+let cachedBalanceAt = 0;
+const BALANCE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
 // ---- Financial Statement Builders ----
 
 /** Build category-type lookup from active categories */
@@ -330,13 +352,13 @@ export async function guardianDashboardHandler(
     context.log('BFF: Carregando dashboard completo...');
 
     try {
-        // Fetch approved items (for calculations) and pending items (for review) in parallel
+        // Fetch data in parallel — categorias are cached in memory
         const [approvedItems, pendingItems, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
             getApprovedAuthorizations(),
             getGuardianAuthorizations(),
             getConfig('CC_SALDO_INICIAL'),
             getConfig('CC_DATA_REFERENCIA'),
-            seedCategoriasIfEmpty(),
+            getCategoriasCached(),
         ]);
 
         const inter = new InterConnector();
@@ -368,16 +390,23 @@ export async function guardianDashboardHandler(
             status: (receitaDireta - custoVariavel - custoFixo) >= 0 ? 'saudavel' : 'atencao',
         };
 
-        // Balance
+        // Balance — cached for 2 min to avoid slow Inter API calls
         let caixaAtual: number;
-        try {
-            const balance = await inter.getBalance();
-            caixaAtual = balance.total;
-        } catch {
-            logger.warn('Inter API indisponivel — calculando saldo a partir dos dados persistidos');
-            const totalReceitas = items.filter(i => isReceita(i)).reduce((s, i) => s + i.valor, 0);
-            const totalDespesas = items.filter(i => isDespesa(i)).reduce((s, i) => s + i.valor, 0);
-            caixaAtual = totalReceitas - totalDespesas;
+        const now2 = Date.now();
+        if (cachedBalance !== null && (now2 - cachedBalanceAt) < BALANCE_TTL_MS) {
+            caixaAtual = cachedBalance;
+        } else {
+            try {
+                const balance = await inter.getBalance();
+                caixaAtual = balance.total;
+                cachedBalance = caixaAtual;
+                cachedBalanceAt = Date.now();
+            } catch {
+                logger.warn('Inter API indisponivel — usando fallback');
+                const totalReceitas = items.filter(i => isReceita(i)).reduce((s, i) => s + i.valor, 0);
+                const totalDespesas = items.filter(i => isDespesa(i)).reduce((s, i) => s + i.valor, 0);
+                caixaAtual = cachedBalance ?? (totalReceitas - totalDespesas);
+            }
         }
 
         const ccSaldoInicial = ccSaldoInicialStr ? parseFloat(ccSaldoInicialStr) : null;

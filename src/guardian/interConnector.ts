@@ -54,6 +54,7 @@ export class InterConnector {
                     path: url.pathname + url.search,
                     method: 'GET',
                     headers: { Accept: 'application/json' },
+                    timeout: 5000,
                 },
                 (res) => {
                     const chunks: Buffer[] = [];
@@ -68,6 +69,10 @@ export class InterConnector {
                     });
                 }
             );
+            req.setTimeout(5000, () => {
+                req.destroy();
+                reject(new Error('inter-ops timeout (5s)'));
+            });
             req.on('error', reject);
             req.end();
         });
