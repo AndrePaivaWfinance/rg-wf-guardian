@@ -62,9 +62,10 @@ export class InterConnector {
                     res.on('end', () => {
                         const data = Buffer.concat(chunks).toString();
                         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                            resolve(JSON.parse(data) as T);
+                            try { resolve(JSON.parse(data) as T); }
+                            catch { reject(new Error(`inter-ops JSON invalido: ${data.substring(0, 200)}`)); }
                         } else {
-                            reject(new Error(`inter-ops ${url.pathname} ${res.statusCode}: ${data}`));
+                            reject(new Error(`inter-ops ${url.pathname} ${res.statusCode}: ${data.substring(0, 200)}`));
                         }
                     });
                 }
@@ -127,7 +128,7 @@ export class InterConnector {
             id: generateId('INTER'),
             data: tx.dataEntrada,
             tipo: (tx.tipoOperacao === 'C' ? 'CREDITO' : 'DEBITO') as 'CREDITO' | 'DEBITO',
-            valor: parseFloat(tx.valor),
+            valor: parseFloat(tx.valor) || 0,
             descricao: tx.descricao || tx.titulo,
             cpfCnpj: tx.cpfCnpj,
         }));

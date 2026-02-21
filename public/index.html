@@ -515,10 +515,11 @@ const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'|
 const KEY=window.__GUARDIAN_API_KEY__||'';
 let forecastChart=null, billingChart=null, mensalForecastChart=null;
 let dashData=null;
+let categoriasCache=[];
 
 function api(p){const b=API+p;return KEY?b+(b.includes('?')?'&':'?')+'code='+KEY:b}
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
-function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)}
+function brl(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0)}
 function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+(t||'info');e.textContent=m;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),5000)}
 
 // ---- Navigation ----
@@ -598,6 +599,7 @@ async function rejectItem(id){
 // ---- Renderers ----
 function renderPatrimonio(t){
     const grid=document.getElementById('patrimonio-grid');
+    if(!grid||!t)return;
     let html='<div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">'+brl(t.caixaAtual)+'</div></div>';
     html+='<div class="patrimonio-card total"><div class="patrimonio-label">Patrimonio Total</div><div class="patrimonio-nome">Conta Corrente</div><div class="patrimonio-valor" style="color:var(--primary)">'+brl(t.caixaAtual)+'</div></div>';
     grid.innerHTML=html;
@@ -605,12 +607,14 @@ function renderPatrimonio(t){
 
 function renderInsights(insights,targetId){
     const el=document.getElementById(targetId);
+    if(!el)return;
     if(!insights||!insights.length){el.innerHTML='<div class="empty-state">Nenhum insight disponivel.</div>';return}
-    el.innerHTML=insights.map(i=>'<div class="insight-card '+esc(i.type)+'"><div class="insight-title">'+esc(i.title)+'</div><div class="insight-text">'+esc(i.text)+'</div></div>').join('');
+    el.innerHTML=insights.map(i=>'<div class="insight-card '+esc(i.type||'info')+'"><div class="insight-title">'+esc(i.title||'')+'</div><div class="insight-text">'+esc(i.text||'')+'</div></div>').join('');
 }
 
 function renderBillingChart(history){
-    const ctx=document.getElementById('billing-chart').getContext('2d');
+    const ce=document.getElementById('billing-chart');if(!ce)return;
+    const ctx=ce.getContext('2d');
     if(billingChart)billingChart.destroy();
     if(!history||!history.length){return}
     billingChart=new Chart(ctx,{
@@ -624,7 +628,8 @@ function renderBillingChart(history){
 }
 
 function renderForecast(fc,canvasId){
-    const ctx=document.getElementById(canvasId).getContext('2d');
+    const fce=document.getElementById(canvasId);if(!fce||!fc||!fc.length)return;
+    const ctx=fce.getContext('2d');
     const existing=canvasId==='forecast-chart'?forecastChart:mensalForecastChart;
     if(existing)existing.destroy();
     const chart=new Chart(ctx,{
@@ -745,23 +750,24 @@ function renderTxList(elId,items,type){
 // ---- Data Loading (Single BFF call) ----
 async function loadDashboard(){
     try{
-        const r=await fetch(api('/api/guardianDashboard'),{signal:AbortSignal.timeout(15000)});
+        const r=await fetch(api('/api/guardianDashboard'),{signal:AbortSignal.timeout(30000)});
         if(!r.ok)throw new Error('Status '+r.status);
         const d=await r.json();
         if(!d.success)throw new Error(d.error||'Erro');
         dashData=d;
 
         // ---- HOME PAGE ----
-        const h=d.home;
-        const ind=h.indicators;
-        document.getElementById('k-mb').textContent=ind.margemBruta;
-        document.getElementById('k-ml').textContent=ind.margemLiquida;
-        document.getElementById('k-lucro').textContent=brl(ind.lucroLiquido);
-        document.getElementById('k-fc').textContent=brl(ind.fluxoCaixa);
-        document.getElementById('k-fat').textContent=brl(ind.faturamentoAtual);
-        document.getElementById('k-pat').textContent=brl(ind.patrimonioTotal);
-        document.getElementById('health-pill').textContent=ind.saudeFinanceira;
-        document.getElementById('health-pill').className='pill '+(ind.saudeFinanceira==='Healthy'?'pill-success':'pill-primary');
+        const h=d.home||{};
+        const ind=h.indicators||{};
+        function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val}
+        setEl('k-mb',ind.margemBruta||'0.0%');
+        setEl('k-ml',ind.margemLiquida||'0.0%');
+        setEl('k-lucro',brl(ind.lucroLiquido));
+        setEl('k-fc',brl(ind.fluxoCaixa));
+        setEl('k-fat',brl(ind.faturamentoAtual));
+        setEl('k-pat',brl(ind.caixaAtual));
+        const healthPill=document.getElementById('health-pill');
+        if(healthPill){healthPill.textContent=ind.saudeFinanceira||'--';healthPill.className='pill '+(ind.saudeFinanceira==='saudavel'?'pill-success':'pill-primary')}
 
         renderPatrimonio(h.treasury);
         renderInsights(h.insights,'insights-panel');
@@ -769,14 +775,16 @@ async function loadDashboard(){
         renderForecast(h.forecast,'forecast-chart');
 
         // FC Panel
-        document.getElementById('fc-panel').innerHTML=
+        const fcPanel=document.getElementById('fc-panel');
+        if(fcPanel){fcPanel.innerHTML=
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+
-            '<div><div class="kpi-label">FC NECESSARIO</div><div style="font-size:20px;font-weight:700;color:var(--danger)">'+brl(h.fcNecessario)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Para cobrir despesas dos proximos '+h.diasRestantesMes+' dias</div></div>'+
-            '<div><div class="kpi-label">FC PROJETADO</div><div style="font-size:20px;font-weight:700;color:'+(h.fcProjetado>=0?'var(--success)':'var(--danger)')+'">'+brl(h.fcProjetado)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Projecao ate o fim do mes</div></div>'+
-            '</div>';
+            '<div><div class="kpi-label">FC NECESSARIO</div><div style="font-size:20px;font-weight:700;color:var(--danger)">'+brl(h.fcNecessario)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Para cobrir despesas dos proximos '+(h.diasRestantesMes||0)+' dias</div></div>'+
+            '<div><div class="kpi-label">FC PROJETADO</div><div style="font-size:20px;font-weight:700;color:'+((h.fcProjetado||0)>=0?'var(--success)':'var(--danger)')+'">'+brl(h.fcProjetado)+'</div><div style="font-size:11px;color:var(--t3);margin-top:4px">Projecao ate o fim do mes</div></div>'+
+            '</div>'}
 
         // Panorama
-        document.getElementById('panorama-panel').innerHTML=
+        const panoramaPanel=document.getElementById('panorama-panel');
+        if(panoramaPanel) panoramaPanel.innerHTML=
             '<div style="display:grid;gap:12px">'+
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Caixa Atual</span><strong>'+brl(ind.caixaAtual)+'</strong></div>'+
             '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--t2)">Faturamento</span><strong>'+brl(ind.faturamentoAtual)+'</strong></div>'+
@@ -788,41 +796,42 @@ async function loadDashboard(){
             '</div>';
 
         // ---- SEMANAL PAGE ----
-        const s=d.semanal;
-        const pendingList=s.transacoesEncontradas||s.pendingApproval||[];
-        document.getElementById('s-pending').textContent=pendingList.length;
-        document.getElementById('s-recebido').textContent=brl(s.totalJaRecebido);
-        document.getElementById('s-pago').textContent=brl(s.totalJaPago);
-        document.getElementById('s-alertas').textContent=s.alertas;
-        document.getElementById('auto-pill').textContent=s.taxaAutomacao+' auto';
+        const s=d.semanal||{};
+        const pendingList=s.transacoesEncontradas||[];
+        categoriasCache=s.categorias||[];
+        setEl('s-pending',pendingList.length);
+        setEl('s-recebido',brl(s.totalJaRecebido));
+        setEl('s-pago',brl(s.totalJaPago));
+        setEl('s-alertas',s.alertas||0);
+        setEl('auto-pill',(s.taxaAutomacao||'0%')+' auto');
 
         const badge=document.getElementById('approval-badge');
-        if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}
+        if(badge){if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}}
 
-        renderCategorias(s.categorias||[]);
+        renderCategorias(categoriasCache);
         renderApprovalList(pendingList);
 
         const movInternas=s.movimentacoesInternas||[];
         const movBadge=document.getElementById('mov-internas-badge');
-        if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}
+        if(movBadge){if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}}
         renderMovInternas(movInternas);
 
-        renderTxList('ja-pago-list',s.jaPago,'out');
-        renderTxList('ja-recebido-list',s.jaRecebido,'in');
+        renderTxList('ja-pago-list',s.jaPago||[],'out');
+        renderTxList('ja-recebido-list',s.jaRecebido||[],'in');
 
         // ---- MENSAL PAGE ----
-        const m=d.mensal;
-        renderDRE(m.dre);
-        renderDFC(m.dfc);
-        renderCats(m.categorized);
+        const m=d.mensal||{};
+        renderDRE(m.dre||{});
+        renderDFC(m.dfc||{});
+        renderCats(m.categorized||[]);
         renderInsights(m.insights,'mensal-insights');
         renderForecast(m.forecast,'mensal-forecast-chart');
 
         // Status
-        document.getElementById('dot-inter').classList.add('live');
-        document.getElementById('dot-ai').classList.add('live');
-        document.getElementById('dot-graph').classList.add('live');
-        document.getElementById('last-sync').textContent='Atualizado em '+new Date().toLocaleString('pt-BR');
+        const dotInter=document.getElementById('dot-inter');if(dotInter)dotInter.classList.add('live');
+        const dotAi=document.getElementById('dot-ai');if(dotAi)dotAi.classList.add('live');
+        const dotGraph=document.getElementById('dot-graph');if(dotGraph)dotGraph.classList.add('live');
+        setEl('last-sync','Atualizado em '+new Date().toLocaleString('pt-BR'));
         lucide.createIcons();
     }catch(e){
         console.error('Dashboard:',e);

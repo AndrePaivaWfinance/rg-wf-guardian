@@ -21,7 +21,12 @@ export async function guardianApproveHandler(
     context.log('Processando aprovação de transação...');
 
     try {
-        const body = await request.json() as ApproveBody;
+        let body: ApproveBody;
+        try { body = await request.json() as ApproveBody; }
+        catch { return { status: 400, jsonBody: { error: 'Request body inválido (JSON esperado).' } }; }
+        if (!body || !body.action) {
+            return { status: 400, jsonBody: { error: 'Campo "action" é obrigatório.' } };
+        }
 
         // ---- Clear all data ----
         if (body.action === 'clear_all') {
