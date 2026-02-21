@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wfinance | Guardian Sovereign Cockpit</title>
+    <title>Wfinance | Guardian</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.426.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -282,17 +282,12 @@
     </div>
 
     <div class="sidebar-section">Paginas</div>
-    <div class="sidebar-item active" data-page="home"><i data-lucide="layout-dashboard"></i> Pagina Inicial</div>
+    <div class="sidebar-item active" data-page="guardian"><i data-lucide="eye"></i> Visao Guardian</div>
     <div class="sidebar-item" data-page="semanal">
         <i data-lucide="calendar-days"></i> Relatorios Semanais
         <span id="approval-badge" class="sidebar-badge" style="display:none">0</span>
     </div>
-    <div class="sidebar-item" data-page="mensal"><i data-lucide="bar-chart-3"></i> Relatorios Mensais</div>
     <div class="sidebar-item" data-page="cadastros"><i data-lucide="settings"></i> Cadastros</div>
-
-    <div class="sidebar-section">Acoes</div>
-    <div class="sidebar-item" data-action="sync"><i data-lucide="refresh-cw"></i> Sincronizar</div>
-    <div class="sidebar-item" data-action="upload"><i data-lucide="upload-cloud"></i> Upload OCR</div>
 
     <div class="sidebar-spacer"></div>
 
@@ -316,66 +311,6 @@
 <!-- ============ MAIN ============ -->
 <div class="main">
     <input id="file-input" type="file" accept=".pdf,.xml,.ofx,.csv" style="display:none" onchange="handleFileSelect(event)">
-
-    <!-- ======== PAGE: HOME ======== -->
-    <div id="page-home" class="page active">
-        <header class="topbar">
-            <div class="topbar-left">
-                <h1>Pagina Inicial</h1>
-                <p id="last-sync">Carregando dados...</p>
-            </div>
-            <div class="topbar-right">
-                <span id="health-pill" class="pill pill-primary">--</span>
-                <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
-                    <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Sincronizar
-                </button>
-            </div>
-        </header>
-
-        <!-- KPIs -->
-        <section class="kpi-grid">
-            <div class="kpi-card green"><div class="kpi-label">Indice MC</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Margem Contribuicao / RL</div></div>
-            <div class="kpi-card purple"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Resultado Liq. / Receita</div></div>
-            <div class="kpi-card blue"><div class="kpi-label">Resultado Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
-            <div class="kpi-card blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional</div></div>
-            <div class="kpi-card green"><div class="kpi-label">Faturamento</div><div id="k-fat" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
-            <div class="kpi-card purple"><div class="kpi-label">Patrimonio</div><div id="k-pat" class="kpi-value">--</div><div class="kpi-sub">Total consolidado</div></div>
-        </section>
-
-        <!-- Patrimonio -->
-        <div class="section-title" style="margin-top:24px"><i data-lucide="landmark"></i> Visao Patrimonial</div>
-        <div id="patrimonio-grid" class="patrimonio-grid">
-            <div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">--</div></div>
-        </div>
-
-        <!-- Insights -->
-        <div class="section-title"><i data-lucide="brain"></i> Insights Estrategicos</div>
-        <div id="insights-panel" class="card" style="padding:16px"><div class="empty-state"><span class="spinner"></span></div></div>
-
-        <!-- Historico Faturamento + FC Projetado -->
-        <div class="g2">
-            <div class="card">
-                <div class="card-header"><div class="card-title"><i data-lucide="bar-chart-3"></i> Historico de Faturamento Mensal</div></div>
-                <div class="chart-wrap"><canvas id="billing-chart"></canvas></div>
-            </div>
-            <div class="card">
-                <div class="card-header"><div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div></div>
-                <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
-            </div>
-        </div>
-
-        <!-- FC Necessario + Panorama -->
-        <div class="g2">
-            <div class="card">
-                <div class="card-header"><div class="card-title"><i data-lucide="target"></i> Fluxo de Caixa — Fechamento do Mes</div></div>
-                <div id="fc-panel"><div class="empty-state"><span class="spinner"></span></div></div>
-            </div>
-            <div class="card">
-                <div class="card-header"><div class="card-title"><i data-lucide="gauge"></i> Panorama Geral</div></div>
-                <div id="panorama-panel"><div class="empty-state"><span class="spinner"></span></div></div>
-            </div>
-        </div>
-    </div>
 
     <!-- ======== PAGE: SEMANAL ======== -->
     <div id="page-semanal" class="page">
@@ -477,43 +412,83 @@
         </div>
     </div>
 
-    <!-- ======== PAGE: MENSAL ======== -->
-    <div id="page-mensal" class="page">
+    <!-- ======== PAGE: VISAO GUARDIAN ======== -->
+    <div id="page-guardian" class="page active">
         <header class="topbar">
             <div class="topbar-left">
-                <h1>Relatorios Mensais</h1>
-                <p>Analise estrategica e demonstrativos</p>
+                <h1>Visao Guardian</h1>
+                <p id="last-sync">Carregando dados...</p>
+            </div>
+            <div class="topbar-right">
+                <span id="health-pill" class="pill pill-primary">--</span>
+                <button id="btn-sync" class="btn btn-primary" onclick="runSync()">
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Sincronizar
+                </button>
             </div>
         </header>
 
         <!-- Tabs -->
         <div class="tab-bar">
-            <button class="tab-btn active" data-tab="tab-mensal-visao">Visao Mensal</button>
-            <button class="tab-btn" data-tab="tab-mensal-dre">DRE</button>
-            <button class="tab-btn" data-tab="tab-mensal-dfc">DFC</button>
+            <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="tab-dre">DRE</button>
+            <button class="tab-btn" data-tab="tab-dfc">DFC</button>
         </div>
 
-        <!-- TAB: Visao Mensal -->
-        <div id="tab-mensal-visao" class="tab-panel active">
-            <!-- Insights Estrategicos e Preditivos -->
-            <div class="section-title"><i data-lucide="sparkles"></i> Insights Estrategicos e Preditivos</div>
-            <div id="mensal-insights"><div class="empty-state"><span class="spinner"></span></div></div>
+        <!-- TAB: Dashboard -->
+        <div id="tab-dashboard" class="tab-panel active">
+            <!-- KPIs -->
+            <section class="kpi-grid">
+                <div class="kpi-card green"><div class="kpi-label">Indice MC</div><div id="k-mb" class="kpi-value">--</div><div class="kpi-sub">Margem Contribuicao / RL</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Margem Liquida</div><div id="k-ml" class="kpi-value">--</div><div class="kpi-sub">Resultado Liq. / Receita</div></div>
+                <div class="kpi-card blue"><div class="kpi-label">Resultado Liquido</div><div id="k-lucro" class="kpi-value">--</div><div class="kpi-sub">Apos IR/CSLL</div></div>
+                <div class="kpi-card blue"><div class="kpi-label">Fluxo de Caixa</div><div id="k-fc" class="kpi-value">--</div><div class="kpi-sub">Operacional</div></div>
+                <div class="kpi-card green"><div class="kpi-label">Faturamento</div><div id="k-fat" class="kpi-value">--</div><div class="kpi-sub">Mes atual</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Patrimonio</div><div id="k-pat" class="kpi-value">--</div><div class="kpi-sub">Total consolidado</div></div>
+            </section>
 
-            <!-- Categorias -->
+            <!-- Patrimonio -->
+            <div class="section-title" style="margin-top:24px"><i data-lucide="landmark"></i> Visao Patrimonial</div>
+            <div id="patrimonio-grid" class="patrimonio-grid">
+                <div class="patrimonio-card cc"><div class="patrimonio-label">Conta Corrente</div><div class="patrimonio-nome">Banco Inter PJ</div><div class="patrimonio-valor" style="color:var(--info)">--</div></div>
+            </div>
+
+            <!-- Insights -->
+            <div class="section-title"><i data-lucide="sparkles"></i> Insights Estrategicos e Preditivos</div>
+            <div id="insights-panel" class="card" style="padding:16px"><div class="empty-state"><span class="spinner"></span></div></div>
+
+            <!-- Historico Faturamento + Projecao -->
+            <div class="g2">
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i data-lucide="bar-chart-3"></i> Historico de Faturamento Mensal</div></div>
+                    <div class="chart-wrap"><canvas id="billing-chart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div></div>
+                    <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- FC Fechamento + Panorama -->
+            <div class="g2">
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i data-lucide="target"></i> Fluxo de Caixa — Fechamento do Mes</div></div>
+                    <div id="fc-panel"><div class="empty-state"><span class="spinner"></span></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i data-lucide="gauge"></i> Panorama Geral</div></div>
+                    <div id="panorama-panel"><div class="empty-state"><span class="spinner"></span></div></div>
+                </div>
+            </div>
+
+            <!-- Categorias de Despesas -->
             <div class="card mt">
                 <div class="card-header"><div class="card-title"><i data-lucide="layers"></i> Categorias de Despesas</div></div>
                 <div id="cat-list"><div class="empty-state"><span class="spinner"></span></div></div>
             </div>
-
-            <!-- Forecast -->
-            <div class="card mt">
-                <div class="card-header"><div class="card-title"><i data-lucide="trending-up"></i> Projecao 6 Meses</div></div>
-                <div class="chart-wrap"><canvas id="mensal-forecast-chart"></canvas></div>
-            </div>
         </div>
 
         <!-- TAB: DRE -->
-        <div id="tab-mensal-dre" class="tab-panel">
+        <div id="tab-dre" class="tab-panel">
             <div class="card">
                 <div class="card-header"><div class="card-title"><i data-lucide="file-spreadsheet"></i> DRE — Analise de Margens</div></div>
                 <div id="dre-body"><div class="empty-state"><span class="spinner"></span></div></div>
@@ -521,7 +496,7 @@
         </div>
 
         <!-- TAB: DFC -->
-        <div id="tab-mensal-dfc" class="tab-panel">
+        <div id="tab-dfc" class="tab-panel">
             <div class="card">
                 <div class="card-header"><div class="card-title"><i data-lucide="wallet"></i> DFC — Demonstracao de Fluxo de Caixa Completo</div></div>
                 <div id="dfc-body"><div class="empty-state"><span class="spinner"></span></div></div>
@@ -623,7 +598,7 @@
 <script>
 const API=window.__GUARDIAN_API_BASE__||(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'?'http://localhost:7071':'https://func-guardian-sovereign.azurewebsites.net');
 const KEY=window.__GUARDIAN_API_KEY__||'';
-let forecastChart=null, billingChart=null, mensalForecastChart=null;
+let forecastChart=null, billingChart=null;
 let dashData=null;
 let categoriasCache=[];
 
@@ -647,10 +622,7 @@ document.querySelector('.sidebar').addEventListener('click',function(e){
     const item=e.target.closest('.sidebar-item');
     if(!item)return;
     const page=item.dataset.page;
-    const action=item.dataset.action;
     if(page)navigateTo(page);
-    else if(action==='sync')runSync();
-    else if(action==='upload')document.getElementById('file-input').click();
 });
 
 // ---- Tab switching ----
@@ -757,8 +729,7 @@ function renderBillingChart(history){
 function renderForecast(fc,canvasId){
     const fce=document.getElementById(canvasId);if(!fce||!fc||!fc.length)return;
     const ctx=fce.getContext('2d');
-    const existing=canvasId==='forecast-chart'?forecastChart:mensalForecastChart;
-    if(existing)existing.destroy();
+    if(forecastChart)forecastChart.destroy();
     const chart=new Chart(ctx,{
         type:'line',
         data:{labels:fc.map(f=>f.month),datasets:[
@@ -768,7 +739,7 @@ function renderForecast(fc,canvasId){
         ]},
         options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:11,family:'Inter',weight:'500'},usePointStyle:true,pointStyle:'circle',padding:20}},tooltip:{backgroundColor:'#1A1D26',titleFont:{size:12,family:'Inter'},bodyFont:{size:12,family:'JetBrains Mono'},padding:12,cornerRadius:8,callbacks:{label:c=>' '+c.dataset.label+': '+brl(c.raw)}}},scales:{y:{position:'left',ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k',font:{size:10},color:'#9096A2'},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}},y1:{position:'right',ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k',font:{size:10},color:'#9096A2'},grid:{display:false},border:{display:false}},x:{ticks:{font:{size:11},color:'#9096A2'},grid:{display:false},border:{display:false}}}}
     });
-    if(canvasId==='forecast-chart')forecastChart=chart;else mensalForecastChart=chart;
+    forecastChart=chart;
 }
 
 function renderDRE(dre){
@@ -908,14 +879,15 @@ async function loadDashboard(){
             if(hp){hp.textContent=ind.saudeFinanceira||'--';hp.className='pill '+(ind.saudeFinanceira==='saudavel'?'pill-success':'pill-primary')}
         });
 
-        // ---- HOME Panels ----
-        safe('home-panels',function(){
+        // ---- Dashboard Panels ----
+        safe('dashboard-panels',function(){
             renderPatrimonio(h.treasury);
-            renderInsights(h.insights,'insights-panel');
+            // Prefer mensal insights (richer), fallback to home insights
+            renderInsights(m.insights||h.insights,'insights-panel');
         });
-        safe('home-charts',function(){
+        safe('dashboard-charts',function(){
             renderBillingChart(h.monthlyHistory);
-            renderForecast(h.forecast,'forecast-chart');
+            renderForecast(m.forecast||h.forecast,'forecast-chart');
         });
         safe('fc-panel',function(){
             var fp=document.getElementById('fc-panel');
@@ -962,13 +934,11 @@ async function loadDashboard(){
             renderTxList('ja-recebido-list',s.jaRecebido||[],'in');
         });
 
-        // ---- MENSAL PAGE ----
-        safe('mensal',function(){
+        // ---- GUARDIAN: DRE, DFC, Categorias ----
+        safe('guardian-tabs',function(){
             renderDRE(m.dre||{});
             renderDFC(m.dfc||{});
             renderCats(m.categorized||[]);
-            renderInsights(m.insights,'mensal-insights');
-            renderForecast(m.forecast,'mensal-forecast-chart');
         });
 
         // Status
@@ -1203,7 +1173,7 @@ async function deleteConta(id){
 // Init
 checkAuth();
 const hash=window.location.hash.replace('#','');
-if(hash&&['home','semanal','mensal','cadastros'].includes(hash))navigateTo(hash);
+if(hash&&['guardian','semanal','cadastros'].includes(hash))navigateTo(hash);
 loadDashboard();
 loadContas();
 lucide.createIcons();
