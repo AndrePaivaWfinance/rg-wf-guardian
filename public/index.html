@@ -253,7 +253,8 @@
         .badge-DESPESA_FINANCEIRA { background:rgba(139,92,246,0.08); color:#7C3AED; }
         .badge-ativa { background:var(--success-dim); color:var(--success); }
         .badge-inativa { background:var(--bg); color:var(--t4); }
-        .reclass-select { padding:4px 8px; font-size:11px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--t1); cursor:pointer; max-width:160px; }
+        .reclass-select { padding:4px 8px; font-size:11px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--t1); cursor:pointer; max-width:180px; }
+        .reclass-select optgroup { font-weight:600; color:var(--primary); background:rgba(87,70,175,0.06); font-size:11px; }
 
         /* ---- Tabs ---- */
         .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
@@ -321,8 +322,13 @@
             </div>
             <div class="topbar-right">
                 <span id="auto-pill" class="pill pill-primary">-- %</span>
+                <!-- Upload discreto -->
+                <button class="btn btn-outline" onclick="document.getElementById('file-input').click()" style="gap:5px">
+                    <i data-lucide="upload-cloud" style="width:14px;height:14px"></i> Importar
+                </button>
             </div>
         </header>
+        <div id="upload-status" style="margin-bottom:8px"></div>
 
         <!-- Tabs -->
         <div class="tab-bar">
@@ -355,28 +361,12 @@
 
         <!-- TAB: Rotinas Diarias -->
         <div id="tab-rotinas" class="tab-panel">
-            <!-- Transacoes para Aprovacao -->
+            <!-- Transacoes para Aprovacao (unificada) -->
             <div class="section-title"><i data-lucide="check-circle"></i> Transacoes para Aprovacao</div>
             <div class="card" id="approval-list" style="padding:0;overflow:hidden">
                 <div class="empty-state"><span class="spinner"></span></div>
             </div>
 
-            <!-- Movimentacoes Internas -->
-            <div class="section-title"><i data-lucide="repeat"></i> Movimentacoes Internas <span id="mov-internas-badge" class="badge" style="background:var(--t3);display:none"></span></div>
-            <div class="card" id="mov-internas-list" style="padding:0;overflow:hidden">
-                <div class="empty-state">Nenhuma movimentacao interna.</div>
-            </div>
-
-            <!-- Upload -->
-            <div class="section-title"><i data-lucide="upload-cloud"></i> Upload de Documentos</div>
-            <div class="card">
-                <div class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
-                    <i data-lucide="file-plus" style="width:24px;height:24px;color:var(--primary);opacity:0.5"></i>
-                    <p>Arraste ou clique para enviar</p>
-                    <small>PDF, XML, OFX, CSV — OCR automatico</small>
-                </div>
-                <div id="upload-status" style="margin-top:8px"></div>
-            </div>
         </div>
     </div>
 
@@ -590,6 +580,35 @@
             <div class="modal-acts">
                 <button type="button" class="btn btn-outline" onclick="closeContaModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Transferencia entre Contas -->
+<div id="modal-transfer" class="modal-bg" onclick="if(event.target===this)closeTransferModal()">
+    <div class="modal">
+        <h3>Registrar Transferencia</h3>
+        <p id="transfer-desc">Selecione a conta destino para esta movimentacao.</p>
+        <form id="transfer-form" onsubmit="saveTransfer(event)">
+            <input type="hidden" id="transfer-tx-id">
+            <div class="form-group">
+                <label>Transacao</label>
+                <input type="text" id="transfer-label" disabled style="background:var(--bg);color:var(--t2)">
+            </div>
+            <div class="form-group">
+                <label>Valor</label>
+                <input type="text" id="transfer-valor" disabled style="background:var(--bg);color:var(--t2);font-family:'JetBrains Mono',monospace">
+            </div>
+            <div class="form-group">
+                <label>Conta Destino</label>
+                <select id="transfer-conta-destino" required>
+                    <option value="">Selecione a conta...</option>
+                </select>
+            </div>
+            <div class="modal-acts">
+                <button type="button" class="btn btn-outline" onclick="closeTransferModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Confirmar Transferencia</button>
             </div>
         </form>
     </div>
@@ -819,28 +838,76 @@ function renderCats(cats){
     }).join('');
 }
 
-function renderApprovalList(items){
-    const el=document.getElementById('approval-list');if(!el)return;
-    if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma transacao pendente de aprovacao.</div>';return}
-    const catOpts=categoriasCache.map(c=>'<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>').join('');
-    el.innerHTML=items.map(i=>{
-        const cls=esc(i.classificacao||'');
-        const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
-        const isCredit=i.classificacao&&i.classificacao.includes('Receita');
-        const dotCls=isCredit?'in':'out';
-        const desc=i.descricao?esc(i.descricao):'';
-        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span><span class="tag tag-review">'+conf+'% conf.</span></div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:'+(isCredit?'var(--success)':'var(--t1)')+'">'+brl(i.valor)+'</div></div><div class="tx-actions"><select class="reclass-select" onchange="reclassifyItem(\''+esc(i.id)+'\',this)"><option value="">Reclassificar...</option>'+catOpts+'</select><button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Aprovar</button><button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button></div></div></div>'
-    }).join('');
+function buildCatOptions(){
+    const byTipo={};
+    categoriasCache.forEach(c=>{if(!byTipo[c.tipo])byTipo[c.tipo]=[];byTipo[c.tipo].push(c)});
+    const order=['RECEITA_DIRETA','RECEITA_FINANCEIRA','CUSTO_VARIAVEL','CUSTO_FIXO','DESPESA_FINANCEIRA'];
+    let html='';
+    order.forEach(tipo=>{
+        const items=byTipo[tipo]||[];if(!items.length)return;
+        html+='<optgroup label="'+(TIPO_LABELS[tipo]||tipo)+'">';
+        items.forEach(c=>{html+='<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>'});
+        html+='</optgroup>';
+    });
+    return html;
 }
 
-function renderMovInternas(items){
-    const el=document.getElementById('mov-internas-list');if(!el)return;
-    if(!items||!items.length){el.innerHTML='<div class="empty-state">Nenhuma movimentacao interna.</div>';return}
-    el.innerHTML=items.map(i=>{
+function renderApprovalList(items,movInternas){
+    const el=document.getElementById('approval-list');if(!el)return;
+    // Merge: regular pending + mov internas (tagged)
+    const all=[];
+    (items||[]).forEach(i=>{all.push({...i,_tipo:'pending'})});
+    (movInternas||[]).forEach(i=>{all.push({...i,_tipo:'interna'})});
+    if(!all.length){el.innerHTML='<div class="empty-state">Nenhuma transacao pendente de aprovacao.</div>';return}
+    const catOpts=buildCatOptions();
+    el.innerHTML=all.map(i=>{
         const cls=esc(i.classificacao||'');
         const desc=i.descricao?esc(i.descricao):'';
-        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot" style="background:var(--t3)"></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span><span>'+esc(i.data||'')+'</span></div><div class="tx-meta"><span class="tag" style="background:var(--surface2);color:var(--t2)">Nao impacta DRE</span></div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:var(--t2)">'+brl(i.valor)+'</div></div><div class="tx-actions"><button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Confirmar</button><button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button></div></div></div>'
+        const isInterna=i._tipo==='interna';
+        const conf=typeof i.confianca==='number'?Math.round(i.confianca*100):0;
+        const isCredit=i.classificacao&&i.classificacao.includes('Receita');
+        const dotCls=isInterna?'':isCredit?'in':'out';
+        const dotStyle=isInterna?' style="background:var(--info)"':'';
+        const tagHtml=isInterna?'<span class="tag" style="background:var(--info-dim);color:var(--info)">Mov. Interna</span>':'<span class="tag tag-review">'+conf+'% conf.</span>';
+        const amountColor=isInterna?'var(--t2)':(isCredit?'var(--success)':'var(--t1)');
+        // Actions
+        let acts='';
+        if(isInterna){
+            acts='<button class="btn btn-outline btn-sm" onclick="openTransferModal(\''+esc(i.id)+'\',\''+esc(cls)+'\','+((i.valor)||0)+')"><i data-lucide="arrow-right-left" style="width:12px;height:12px"></i> Transferencia</button>'+
+                '<button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Confirmar</button>'+
+                '<button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button>';
+        }else{
+            acts='<select class="reclass-select" onchange="reclassifyItem(\''+esc(i.id)+'\',this)"><option value="">Reclassificar...</option>'+catOpts+'</select>'+
+                '<button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Aprovar</button>'+
+                '<button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button>';
+        }
+        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"'+dotStyle+'></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span>'+tagHtml+'</div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:'+amountColor+'">'+brl(i.valor)+'</div></div><div class="tx-actions">'+acts+'</div></div></div>'
     }).join('');
+    if(typeof lucide!=='undefined')lucide.createIcons();
+}
+
+// ---- Transfer Modal ----
+function openTransferModal(txId,label,valor){
+    document.getElementById('transfer-tx-id').value=txId;
+    document.getElementById('transfer-label').value=label;
+    document.getElementById('transfer-valor').value=brl(valor);
+    const sel=document.getElementById('transfer-conta-destino');
+    sel.innerHTML='<option value="">Selecione a conta...</option>'+
+        contasCache.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.nome)+' ('+esc(c.banco||'')+')</option>').join('');
+    document.getElementById('modal-transfer').classList.add('open');
+}
+function closeTransferModal(){document.getElementById('modal-transfer').classList.remove('open')}
+
+async function saveTransfer(e){
+    e.preventDefault();
+    const txId=document.getElementById('transfer-tx-id').value;
+    const contaDestino=document.getElementById('transfer-conta-destino').value;
+    if(!contaDestino){toast('Selecione a conta destino.','err');return}
+    try{
+        const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:txId,action:'transfer',contaDestino})});
+        if(!r.ok)throw new Error('Status '+r.status);
+        toast('Transferencia registrada.','ok');closeTransferModal();loadDashboard();
+    }catch(err){toast('Erro: '+err.message,'err')}
 }
 
 function renderTxList(elId,items,type){
@@ -921,15 +988,13 @@ async function loadDashboard(){
             setEl('s-alertas',s.alertas||0);
             setEl('auto-pill',(s.taxaAutomacao||'0%')+' auto');
             var badge=document.getElementById('approval-badge');
-            if(badge){if(pendingList.length>0){badge.style.display='';badge.textContent=pendingList.length}else{badge.style.display='none'}}
             var movInternas=s.movimentacoesInternas||[];
-            var movBadge=document.getElementById('mov-internas-badge');
-            if(movBadge){if(movInternas.length>0){movBadge.style.display='';movBadge.textContent=movInternas.length}else{movBadge.style.display='none'}}
+            var totalPending=pendingList.length+movInternas.length;
+            if(badge){if(totalPending>0){badge.style.display='';badge.textContent=totalPending}else{badge.style.display='none'}}
         });
         safe('semanal-lists',function(){
             renderCategorias(categoriasCache);
-            renderApprovalList(pendingList);
-            renderMovInternas(s.movimentacoesInternas||[]);
+            renderApprovalList(pendingList,s.movimentacoesInternas||[]);
             renderTxList('ja-pago-list',s.jaPago||[],'out');
             renderTxList('ja-recebido-list',s.jaRecebido||[],'in');
         });
