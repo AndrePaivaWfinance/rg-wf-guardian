@@ -247,7 +247,7 @@ export class GuardianAgents {
 
     async classifyTransaction(tx: InterTransaction): Promise<AnalysisResult> {
         logger.info(`Classifying transaction: ${tx.descricao}`);
-        const desc = tx.descricao.toUpperCase();
+        const desc = (tx.descricao || '').toUpperCase();
         const { classification, confidence } = this.classifyByDescription(desc, tx.tipo);
 
         return {
