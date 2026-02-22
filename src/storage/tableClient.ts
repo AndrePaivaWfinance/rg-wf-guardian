@@ -1,6 +1,6 @@
 import { TableClient } from '@azure/data-tables';
 import { createLogger } from '../shared/utils';
-import { GuardianAuthorization, hydrateAuth, LearningRule, hydrateLearningRule } from '../shared/types';
+import { GuardianAuthorization, hydrateAuth, LearningRule, hydrateLearningRule, AuditLogEntry } from '../shared/types';
 
 const logger = createLogger('TableClient');
 
@@ -8,6 +8,7 @@ const TABLES = {
     GUARDIAN_AUTH: 'GuardianAuthorizations',
     GUARDIAN_LEDGER: 'GuardianLedger',
     GUARDIAN_LEARNING: 'GuardianLearning',
+    GUARDIAN_AUDIT_LOG: 'GuardianAuditLog',
 } as const;
 
 // In-memory fallback for local development
@@ -223,4 +224,50 @@ export async function upsertLearningRule(rule: LearningRule): Promise<void> {
         ...storableRule,
     });
     logger.info(`Learning rule persisted: ${rule.id} → ${rule.classificacao} (${rule.hits} hits)`);
+}
+
+// ============ AUDIT LOG (GAP #1) ============
+
+const auditLogInMemory: AuditLogEntry[] = [];
+
+/** Inserts a new audit log entry */
+export async function insertAuditLog(entry: AuditLogEntry): Promise<void> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUDIT_LOG);
+
+    if (!client) {
+        auditLogInMemory.push(entry);
+        logger.info(`[In-Memory] Audit log: ${entry.acao} on ${entry.authId}`);
+        return;
+    }
+
+    await client.createEntity({
+        partitionKey: 'AUDIT',
+        rowKey: entry.id,
+        ...entry,
+    });
+    logger.info(`Audit log persisted: ${entry.acao} on ${entry.authId}`);
+}
+
+/** Returns all audit log entries, optionally filtered by authId */
+export async function getAuditLogs(authId?: string): Promise<AuditLogEntry[]> {
+    const client = await getTableClient(TABLES.GUARDIAN_AUDIT_LOG);
+
+    if (!client) {
+        if (authId) return auditLogInMemory.filter(e => e.authId === authId);
+        return [...auditLogInMemory];
+    }
+
+    const items: AuditLogEntry[] = [];
+    try {
+        const opts = authId
+            ? { queryOptions: { filter: `authId eq '${authId}'` } }
+            : undefined;
+        const entities = client.listEntities(opts);
+        for await (const entity of entities) {
+            items.push(entity as unknown as AuditLogEntry);
+        }
+    } catch (error) {
+        logger.error('Erro ao listar audit log', error);
+    }
+    return items;
 }

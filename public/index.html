@@ -698,8 +698,18 @@ async function uploadFile(file){
 }
 
 // ---- Approval Actions ----
+// GAP #14: Read competência override from the row's month input
+function getCompetenciaOverride(id){
+    const el=document.getElementById('comp-'+id);
+    if(el&&el.value)return el.value+'-01'; // YYYY-MM → YYYY-MM-01
+    return undefined;
+}
 async function approveItem(id){
-    try{const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
+    try{
+        const payload={id,action:'approve'};
+        const dc=getCompetenciaOverride(id);
+        if(dc)payload.dataCompetencia=dc;
+        const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
         if(!r.ok)throw new Error('Status '+r.status);
         toast('Transacao aprovada.','ok');loadDashboard();
     }catch(e){toast('Erro: '+e.message,'err')}
@@ -870,6 +880,9 @@ function renderApprovalList(items,movInternas){
         const dotStyle=isInterna?' style="background:var(--info)"':'';
         const tagHtml=isInterna?'<span class="tag" style="background:var(--info-dim);color:var(--info)">Mov. Interna</span>':'<span class="tag tag-review">'+conf+'% conf.</span>';
         const amountColor=isInterna?'var(--t2)':(isCredit?'var(--success)':'var(--t1)');
+        // GAP #14: Competência month input — default to transaction month
+        const compDefault=i.dataCompetencia?i.dataCompetencia.substring(0,7):(i.data?i.data.substring(0,7):'');
+        const compInput='<input type="month" id="comp-'+esc(i.id)+'" value="'+compDefault+'" title="Mes de competencia" style="width:120px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--t1);font-size:11px;font-family:JetBrains Mono,monospace">';
         // Actions
         let acts='';
         if(isInterna){
@@ -881,7 +894,7 @@ function renderApprovalList(items,movInternas){
                 '<button class="btn btn-success btn-sm" onclick="approveItem(\''+esc(i.id)+'\')">Aprovar</button>'+
                 '<button class="btn btn-danger btn-sm" onclick="rejectItem(\''+esc(i.id)+'\')">Rejeitar</button>';
         }
-        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"'+dotStyle+'></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span>'+tagHtml+'</div></div></div><div style="display:flex;align-items:center;gap:12px"><div><div class="tx-amount" style="color:'+amountColor+'">'+brl(i.valor)+'</div></div><div class="tx-actions">'+acts+'</div></div></div>'
+        return '<div class="tx-row"><div class="tx-left"><div class="tx-dot '+dotCls+'"'+dotStyle+'></div><div style="min-width:0"><div class="tx-name">'+cls+'</div><div class="tx-meta"><span>'+desc+'</span></div><div class="tx-meta"><span>'+esc(i.data||'')+'</span>'+tagHtml+'</div></div></div><div style="display:flex;align-items:center;gap:12px">'+compInput+'<div><div class="tx-amount" style="color:'+amountColor+'">'+brl(i.valor)+'</div></div><div class="tx-actions">'+acts+'</div></div></div>'
     }).join('');
     if(typeof lucide!=='undefined')lucide.createIcons();
 }
@@ -1121,7 +1134,10 @@ async function reclassifyItem(id,selectEl){
     const newCat=selectEl.value;
     if(!newCat)return;
     try{
-        const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'reclassify',classificacao:newCat})});
+        const payload={id,action:'reclassify',classificacao:newCat};
+        const dc=getCompetenciaOverride(id);
+        if(dc)payload.dataCompetencia=dc;
+        const r=await fetch(api('/api/guardianApprove'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
         if(!r.ok)throw new Error('Status '+r.status);
         toast('Transacao reclassificada para: '+newCat,'ok');loadDashboard();
     }catch(err){toast('Erro: '+err.message,'err')}

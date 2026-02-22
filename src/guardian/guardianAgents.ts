@@ -187,20 +187,209 @@ export class GuardianAgents {
             ? doc.attachments
             : [{ name: doc.name, type: doc.type, blobUrl: doc.contentUrl, size: doc.size }];
 
-        if (this.isAIConfigured()) {
-            return this.extractWithAI(attachments);
+        const results: AnalysisResult[] = [];
+
+        for (const att of attachments) {
+            const ext = att.name.split('.').pop()?.toLowerCase() || att.type;
+
+            // GAP #5: Dedicated parsers for OFX and CSV
+            if (ext === 'ofx' || att.type.includes('ofx')) {
+                const ofxResults = await this.parseOFXFromUrl(att.blobUrl);
+                results.push(...ofxResults);
+            } else if (ext === 'csv' || att.type.includes('csv')) {
+                const csvResults = await this.parseCSVFromUrl(att.blobUrl);
+                results.push(...csvResults);
+            } else if (this.isAIConfigured()) {
+                const aiResults = await this.extractWithAI([att]);
+                results.push(...aiResults);
+            } else {
+                logger.warn(`Sem parser para ${ext} e Azure AI não configurado — pendente OCR`);
+                results.push({
+                    id: generateId('EXT'),
+                    type: 'document',
+                    classification: 'Documento Pendente OCR',
+                    confidence: 0.0,
+                    value: 0,
+                    needsReview: true,
+                    suggestedAction: 'investigate',
+                });
+            }
         }
 
-        logger.warn('Azure AI Document Intelligence não configurado — documento pendente de OCR');
-        return attachments.map(att => ({
-            id: generateId('EXT'),
-            type: 'document' as const,
-            classification: 'Documento Pendente OCR',
-            confidence: 0.0,
-            value: 0,
-            needsReview: true,
-            suggestedAction: 'investigate' as const,
-        }));
+        return results;
+    }
+
+    /**
+     * GAP #5: Parse OFX (Open Financial Exchange) file.
+     * OFX is XML-based; extracts <STMTTRN> transaction elements.
+     */
+    async parseOFXFromUrl(blobUrl: string): Promise<AnalysisResult[]> {
+        try {
+            const content = await this.fetchTextContent(blobUrl);
+            return this.parseOFXContent(content);
+        } catch (error) {
+            logger.error(`Erro ao parsear OFX: ${error}`);
+            return [{
+                id: generateId('OFX'),
+                type: 'document',
+                classification: 'Documento Pendente OCR',
+                confidence: 0,
+                value: 0,
+                needsReview: true,
+                suggestedAction: 'investigate',
+            }];
+        }
+    }
+
+    /** Parses OFX text content into AnalysisResult transactions */
+    parseOFXContent(content: string): AnalysisResult[] {
+        const results: AnalysisResult[] = [];
+
+        // OFX can be SGML (no closing tags) or XML. Match <STMTTRN> blocks.
+        const txBlocks = content.match(/<STMTTRN>([\s\S]*?)(<\/STMTTRN>|(?=<STMTTRN>))/gi) || [];
+
+        for (const block of txBlocks) {
+            const getValue = (tag: string): string => {
+                // SGML style: <TAG>value\n  or XML style: <TAG>value</TAG>
+                const match = block.match(new RegExp(`<${tag}>([^<\\n]+)`, 'i'));
+                return match ? match[1].trim() : '';
+            };
+
+            const trnType = getValue('TRNTYPE'); // DEBIT, CREDIT, etc
+            const dtPosted = getValue('DTPOSTED'); // YYYYMMDDHHMMSS
+            const trnAmt = parseFloat(getValue('TRNAMT')) || 0;
+            const name = getValue('NAME') || getValue('MEMO') || 'Transacao OFX';
+
+            // Parse date: YYYYMMDD → YYYY-MM-DD
+            const dateStr = dtPosted.length >= 8
+                ? `${dtPosted.substring(0, 4)}-${dtPosted.substring(4, 6)}-${dtPosted.substring(6, 8)}`
+                : '';
+
+            const tipo: 'CREDITO' | 'DEBITO' = trnAmt >= 0 ? 'CREDITO' : 'DEBITO';
+            const { classification, confidence } = this.classifyByDescription(name.toUpperCase(), tipo);
+
+            results.push({
+                id: generateId('OFX'),
+                type: 'transaction',
+                classification,
+                confidence,
+                value: Math.abs(trnAmt),
+                needsReview: true,
+                suggestedAction: confidence >= 0.90 ? 'approve' : 'investigate',
+            });
+
+            // Store date as a property we can use later
+            if (dateStr) {
+                (results[results.length - 1] as AnalysisResult & { _data?: string })._data = dateStr;
+            }
+        }
+
+        logger.info(`OFX parsed: ${results.length} transactions extracted`);
+        return results;
+    }
+
+    /**
+     * GAP #5: Parse CSV bank statement.
+     * Auto-detects columns for date, description, value, and type.
+     */
+    async parseCSVFromUrl(blobUrl: string): Promise<AnalysisResult[]> {
+        try {
+            const content = await this.fetchTextContent(blobUrl);
+            return this.parseCSVContent(content);
+        } catch (error) {
+            logger.error(`Erro ao parsear CSV: ${error}`);
+            return [{
+                id: generateId('CSV'),
+                type: 'document',
+                classification: 'Documento Pendente OCR',
+                confidence: 0,
+                value: 0,
+                needsReview: true,
+                suggestedAction: 'investigate',
+            }];
+        }
+    }
+
+    /** Parses CSV text content into AnalysisResult transactions */
+    parseCSVContent(content: string): AnalysisResult[] {
+        const results: AnalysisResult[] = [];
+        const lines = content.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) return results;
+
+        // Detect separator (;, , or \t)
+        const header = lines[0];
+        const separator = header.includes(';') ? ';' : header.includes('\t') ? '\t' : ',';
+        const cols = header.split(separator).map(c => c.trim().toLowerCase().replace(/"/g, ''));
+
+        // Auto-detect column indices
+        const dateCol = cols.findIndex(c => /data|date|dt|posted/.test(c));
+        const descCol = cols.findIndex(c => /desc|descricao|description|historico|memo|nome/.test(c));
+        const valorCol = cols.findIndex(c => /valor|value|amount|amt|montante/.test(c));
+        const tipoCol = cols.findIndex(c => /tipo|type|trntype|operacao|natureza|dc/.test(c));
+
+        if (valorCol < 0) {
+            logger.warn('CSV: coluna de valor não encontrada');
+            return results;
+        }
+
+        for (let i = 1; i < lines.length; i++) {
+            const fields = lines[i].split(separator).map(f => f.trim().replace(/^"|"$/g, ''));
+
+            const rawValor = fields[valorCol] || '0';
+            // Handle Brazilian number format: 1.234,56 → 1234.56
+            const valor = parseFloat(rawValor.replace(/\./g, '').replace(',', '.')) || 0;
+            if (valor === 0) continue;
+
+            const desc = descCol >= 0 ? fields[descCol] : `Linha ${i}`;
+            const tipoRaw = tipoCol >= 0 ? fields[tipoCol].toUpperCase() : '';
+            const tipo: 'CREDITO' | 'DEBITO' = tipoRaw.includes('C') || tipoRaw.includes('CREDIT') || valor > 0
+                ? 'CREDITO' : 'DEBITO';
+
+            const { classification, confidence } = this.classifyByDescription(desc.toUpperCase(), tipo);
+
+            results.push({
+                id: generateId('CSV'),
+                type: 'transaction',
+                classification,
+                confidence,
+                value: Math.abs(valor),
+                needsReview: true,
+                suggestedAction: confidence >= 0.90 ? 'approve' : 'investigate',
+            });
+        }
+
+        logger.info(`CSV parsed: ${results.length} transactions extracted`);
+        return results;
+    }
+
+    /** Fetches text content from a URL (for OFX/CSV parsing) */
+    private async fetchTextContent(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const parsedUrl = new URL(url);
+            const protocol = parsedUrl.protocol === 'https:' ? https : https; // always https in prod
+            const req = protocol.request(
+                {
+                    hostname: parsedUrl.hostname,
+                    path: parsedUrl.pathname + parsedUrl.search,
+                    method: 'GET',
+                    headers: { Accept: 'text/plain, application/xml, text/csv, */*' },
+                },
+                (res) => {
+                    const chunks: Buffer[] = [];
+                    res.on('data', (chunk: Buffer) => chunks.push(chunk));
+                    res.on('end', () => {
+                        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(Buffer.concat(chunks).toString('utf-8'));
+                        } else {
+                            reject(new Error(`Fetch ${url} failed: ${res.statusCode}`));
+                        }
+                    });
+                }
+            );
+            req.on('error', reject);
+            req.setTimeout(15000, () => { req.destroy(); reject(new Error('Fetch timeout')); });
+            req.end();
+        });
     }
 
     /** Calls Azure AI Document Intelligence (prebuilt-invoice model) for real OCR */
@@ -681,16 +870,84 @@ Valor: R$ ${valor.toFixed(2)}`;
         }
     }
 
-    async reconcile(txs: AnalysisResult[], docs: AnalysisResult[]): Promise<void> {
-        logger.info(`Running reconciliation for ${txs.length} transactions and ${docs.length} documents`);
+    /**
+     * GAP #3: Smart reconciliation with composite scoring.
+     * Score = value match (50%) + date proximity (30%) + vendor/description tokens (20%)
+     * Minimum composite score threshold: 0.60
+     *
+     * @param txDescMap Optional map of txId → { descricao, data } for richer matching
+     */
+    async reconcile(
+        txs: AnalysisResult[],
+        docs: AnalysisResult[],
+        txDescMap?: Map<string, { descricao: string; data: string }>,
+        docDescMap?: Map<string, { descricao: string; data: string }>
+    ): Promise<void> {
+        logger.info(`Running smart reconciliation for ${txs.length} transactions and ${docs.length} documents`);
         const usedDocs = new Set<string>();
+        const SCORE_THRESHOLD = 0.60;
+
         for (const tx of txs) {
-            const match = docs.find(d => !usedDocs.has(d.id) && Math.abs(d.value - tx.value) < 0.01);
-            if (match) {
-                tx.matchedId = match.id;
+            let bestDoc: AnalysisResult | null = null;
+            let bestScore = 0;
+
+            const txInfo = txDescMap?.get(tx.id);
+
+            for (const doc of docs) {
+                if (usedDocs.has(doc.id)) continue;
+
+                // --- Value score (50%): exact match within R$0.01 = 1.0, within 1% = 0.5, else 0 ---
+                let valueScore = 0;
+                const valueDiff = Math.abs(doc.value - tx.value);
+                if (valueDiff < 0.01) {
+                    valueScore = 1.0;
+                } else if (tx.value > 0 && (valueDiff / tx.value) < 0.01) {
+                    valueScore = 0.5;
+                }
+                if (valueScore === 0) continue; // Value match is required
+
+                // --- Date score (30%): within ±3 days = 1.0, ±7 days = 0.5, else 0 ---
+                let dateScore = 0;
+                const docInfo = docDescMap?.get(doc.id);
+                const txDate = txInfo?.data;
+                const docDate = docInfo?.data;
+                if (txDate && docDate) {
+                    const daysDiff = Math.abs(
+                        (new Date(txDate).getTime() - new Date(docDate).getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    if (daysDiff <= 3) dateScore = 1.0;
+                    else if (daysDiff <= 7) dateScore = 0.5;
+                } else {
+                    dateScore = 0.5; // No date info available, give partial credit
+                }
+
+                // --- Vendor/description token score (20%) ---
+                let vendorScore = 0;
+                const txDesc = txInfo?.descricao || tx.classification;
+                const docDesc = docInfo?.descricao || doc.classification;
+                const txTokens = extractLearningTokens(txDesc);
+                const docTokens = extractLearningTokens(docDesc);
+                if (txTokens.length > 0 && docTokens.length > 0) {
+                    const matched = txTokens.filter(t => docTokens.includes(t));
+                    vendorScore = matched.length / Math.max(txTokens.length, docTokens.length);
+                } else {
+                    vendorScore = 0.3; // Partial credit for unknown descriptions
+                }
+
+                const compositeScore = valueScore * 0.50 + dateScore * 0.30 + vendorScore * 0.20;
+
+                if (compositeScore > bestScore) {
+                    bestScore = compositeScore;
+                    bestDoc = doc;
+                }
+            }
+
+            if (bestDoc && bestScore >= SCORE_THRESHOLD) {
+                tx.matchedId = bestDoc.id;
                 tx.suggestedAction = 'archive';
-                tx.confidence = 1.0;
-                usedDocs.add(match.id);
+                tx.confidence = Math.min(1.0, bestScore + 0.1);
+                usedDocs.add(bestDoc.id);
+                logger.info(`Reconciled: ${tx.id} ↔ ${bestDoc.id} (score=${bestScore.toFixed(2)})`);
             }
         }
     }

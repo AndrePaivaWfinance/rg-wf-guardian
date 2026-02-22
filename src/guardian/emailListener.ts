@@ -37,10 +37,17 @@ interface GraphAttachment {
     size: number;
 }
 
+/** GAP #4: Attachment with downloaded content bytes */
+interface GraphAttachmentWithContent extends GraphAttachment {
+    contentBytes?: string; // base64
+}
+
 export class EmailListener {
     private readonly tenantId = process.env.GRAPH_TENANT_ID || '';
     private readonly graphClientId = process.env.GRAPH_CLIENT_ID || '';
     private readonly graphClientSecret = process.env.GRAPH_CLIENT_SECRET || '';
+    private readonly storageConnStr = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+    private readonly blobContainer = 'mailbox';
     private token: string | null = null;
     private tokenExpires: number = 0;
 
@@ -68,15 +75,34 @@ export class EmailListener {
         for (const msg of messages) {
             if (!msg.hasAttachments) continue;
 
-            const attachments = await this.fetchAttachments(token, msg.id);
-            const docAttachments = attachments
-                .filter(a => this.isSupportedType(a.contentType))
-                .map(a => ({
-                    name: a.name,
-                    type: a.contentType,
-                    blobUrl: `https://stguardian.blob.core.windows.net/mailbox/${generateId('ATT')}_${a.name}`,
-                    size: a.size,
-                }));
+            // GAP #4: Fetch attachments WITH content bytes
+            const attachments = await this.fetchAttachmentsWithContent(token, msg.id);
+            const docAttachments: Array<{ name: string; type: string; blobUrl: string; size: number }> = [];
+
+            for (const a of attachments) {
+                if (!this.isSupportedType(a.contentType)) continue;
+
+                const blobName = `${generateId('ATT')}_${a.name}`;
+                let blobUrl: string;
+
+                // GAP #4: Upload to real Azure Blob Storage if content available
+                if (a.contentBytes && this.isBlobConfigured()) {
+                    try {
+                        blobUrl = await this.uploadToBlob(blobName, a.contentBytes, a.contentType);
+                        logger.info(`Attachment uploaded to blob: ${blobName}`);
+                    } catch (err) {
+                        logger.warn(`Blob upload failed for ${a.name}, using placeholder URL: ${err}`);
+                        blobUrl = `https://stguardian.blob.core.windows.net/${this.blobContainer}/${blobName}`;
+                    }
+                } else {
+                    blobUrl = `https://stguardian.blob.core.windows.net/${this.blobContainer}/${blobName}`;
+                    if (a.contentBytes) {
+                        logger.warn(`Blob Storage not configured — using placeholder URL for ${a.name}`);
+                    }
+                }
+
+                docAttachments.push({ name: a.name, type: a.contentType, blobUrl, size: a.size });
+            }
 
             if (docAttachments.length > 0) {
                 results.push({
@@ -134,6 +160,101 @@ export class EmailListener {
 
         const data = await this.graphGet<{ value: GraphAttachment[] }>(token, path);
         return data.value || [];
+    }
+
+    /**
+     * GAP #4: Fetch attachments WITH contentBytes from Graph API.
+     * This downloads the actual file content for each attachment.
+     */
+    private async fetchAttachmentsWithContent(token: string, messageId: string): Promise<GraphAttachmentWithContent[]> {
+        const userPrincipal = encodeURIComponent(this.email);
+        // Request contentBytes in the select to get the actual file data
+        const path = `/v1.0/users/${userPrincipal}/messages/${messageId}/attachments?$select=id,name,contentType,size,contentBytes`;
+
+        const data = await this.graphGet<{ value: GraphAttachmentWithContent[] }>(token, path);
+        return data.value || [];
+    }
+
+    /** Returns true when Azure Blob Storage is configured */
+    private isBlobConfigured(): boolean {
+        return !!(this.storageConnStr && this.storageConnStr !== 'UseDevelopmentStorage=true');
+    }
+
+    /**
+     * GAP #4: Upload base64 content to Azure Blob Storage.
+     * Uses the @azure/data-tables connection string to derive the storage account.
+     * Returns the public URL of the uploaded blob.
+     */
+    private async uploadToBlob(blobName: string, contentBase64: string, contentType: string): Promise<string> {
+        // Parse storage account from connection string
+        const accountMatch = this.storageConnStr.match(/AccountName=([^;]+)/);
+        const keyMatch = this.storageConnStr.match(/AccountKey=([^;]+)/);
+
+        if (!accountMatch || !keyMatch) {
+            throw new Error('Cannot parse storage account from connection string');
+        }
+
+        const accountName = accountMatch[1];
+        const accountKey = keyMatch[1];
+        const blobBytes = Buffer.from(contentBase64, 'base64');
+
+        // Use REST API to upload blob (avoids extra dependency on @azure/storage-blob)
+        const now = new Date().toUTCString();
+        const url = `https://${accountName}.blob.core.windows.net/${this.blobContainer}/${blobName}`;
+
+        // Create container if needed, then upload
+        // For simplicity, use shared key authentication with x-ms-version header
+        const { createHmac } = await import('crypto');
+
+        const putHeaders: Record<string, string> = {
+            'x-ms-version': '2023-01-03',
+            'x-ms-date': now,
+            'x-ms-blob-type': 'BlockBlob',
+            'Content-Type': contentType,
+            'Content-Length': String(blobBytes.length),
+        };
+
+        // Build canonical headers
+        const canonicalHeaders = Object.entries(putHeaders)
+            .filter(([k]) => k.startsWith('x-ms-'))
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => `${k}:${v}`)
+            .join('\n');
+
+        const canonicalResource = `/${accountName}/${this.blobContainer}/${blobName}`;
+        const stringToSign = `PUT\n\n\n${blobBytes.length}\n\n${contentType}\n\n\n\n\n\n\n${canonicalHeaders}\n${canonicalResource}`;
+        const signature = createHmac('sha256', Buffer.from(accountKey, 'base64'))
+            .update(stringToSign, 'utf-8')
+            .digest('base64');
+
+        putHeaders['Authorization'] = `SharedKey ${accountName}:${signature}`;
+
+        const parsedUrl = new URL(url);
+        await new Promise<void>((resolve, reject) => {
+            const req = https.request(
+                {
+                    hostname: parsedUrl.hostname,
+                    path: parsedUrl.pathname,
+                    method: 'PUT',
+                    headers: putHeaders,
+                },
+                (res) => {
+                    res.on('data', () => { /* drain */ });
+                    res.on('end', () => {
+                        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve();
+                        } else {
+                            reject(new Error(`Blob upload failed: ${res.statusCode}`));
+                        }
+                    });
+                }
+            );
+            req.on('error', reject);
+            req.write(blobBytes);
+            req.end();
+        });
+
+        return url;
     }
 
     private async markAsRead(token: string, messageId: string): Promise<void> {

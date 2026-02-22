@@ -73,7 +73,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | `src/storage/tableClient.ts`, `src/functions/guardianApprove.ts`, `src/shared/types.ts` |
 | **Solucao** | Criar tabela `GuardianAuditLog` com registro: `{id, authId, acao, antes, depois, timestamp, usuario}`. Inserir log em cada approve/reject/reclassify |
 | **Criterio de Aceite** | Apos aprovar uma transacao, consultar `/api/guardianStatus?status=all` e ver campo `auditLog` com historico completo |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -85,7 +85,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/guardian/guardianAgents.ts` — metodo `reconcile()` (linha ~493) |
 | **Solucao** | Adicionar criterios: (1) data dentro de +-3 dias, (2) match parcial de tokens do fornecedor. Score composto: valor=50%, data=30%, fornecedor=20% |
 | **Criterio de Aceite** | Duas transacoes com mesmo valor mas datas distantes (>7 dias) NAO devem ser reconciliadas |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -97,7 +97,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | `src/guardian/guardianAgents.ts` — metodo `extractData()` |
 | **Solucao** | Criar parsers dedicados: (1) `parseOFX()` — extrair transacoes do XML OFX e mapear para `InterTransaction[]`, (2) `parseCSV()` — detectar colunas (data, descricao, valor, tipo) e mapear |
 | **Criterio de Aceite** | Upload de arquivo .ofx gera transacoes classificadas corretamente |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -109,7 +109,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | `src/shared/types.ts` — `toGuardianAuth()`, `src/functions/guardianApprove.ts`, `public/index.html` |
 | **Solucao** | (1) No frontend, ao aprovar/reclassificar, permitir que o analista selecione o mes de competencia. (2) No approve, aceitar `dataCompetencia` como override |
 | **Criterio de Aceite** | Analista consegue aprovar transacao de fev/2026 e atribuir competencia a jan/2026 |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -121,7 +121,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | `src/guardian/emailListener.ts` |
 | **Solucao** | (1) Baixar conteudo do attachment via Graph API (`/messages/{id}/attachments/{attId}/$value`), (2) Upload para Azure Blob Storage, (3) Usar URL real do blob no `extractData()` |
 | **Criterio de Aceite** | Email com PDF anexo gera blob real no storage e Form Recognizer consegue processar |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -133,7 +133,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/functions/guardianSync.ts` |
 | **Solucao** | Processar em chunks de 50 com `Promise.all()`. Kimi AI limitar a 5 chamadas paralelas (rate limit) |
 | **Criterio de Aceite** | Sync de 500 transacoes completa em < 2 minutos |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 

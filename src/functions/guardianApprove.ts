@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { updateGuardianAuth, clearAllAuthorizations, getAllAuthorizations } from '../storage/tableClient';
-import { createLogger, safeErrorMessage } from '../shared/utils';
-import { GuardianAuthorization } from '../shared/types';
+import { updateGuardianAuth, clearAllAuthorizations, getAllAuthorizations, insertAuditLog } from '../storage/tableClient';
+import { createLogger, generateId, nowISO, safeErrorMessage } from '../shared/utils';
+import { GuardianAuthorization, AuditLogEntry } from '../shared/types';
 import { GuardianAgents } from '../guardian/guardianAgents';
 
 const logger = createLogger('GuardianApprove');
@@ -30,6 +30,19 @@ export async function guardianApproveHandler(
             return { status: 400, jsonBody: { error: 'Campo "action" é obrigatório.' } };
         }
 
+        // GAP #1: Helper to write audit log entry
+        async function logAudit(authId: string, acao: AuditLogEntry['acao'], antes: unknown, depois: unknown): Promise<void> {
+            await insertAuditLog({
+                id: generateId('AUD'),
+                authId,
+                acao,
+                antes: JSON.stringify(antes),
+                depois: JSON.stringify(depois),
+                timestamp: nowISO(),
+                usuario: 'analyst', // GAP #2 futuro: Azure AD user
+            });
+        }
+
         // ---- Clear all data (GAP #11: require confirm: true) ----
         if (body.action === 'clear_all') {
             if (!body.confirm) {
@@ -39,6 +52,7 @@ export async function guardianApproveHandler(
                 };
             }
             const removed = await clearAllAuthorizations();
+            await logAudit('*', 'clear_all', { totalRemoved: removed }, {});
             logger.info(`Limpeza completa: ${removed} registros removidos`);
             return {
                 status: 200,
@@ -66,11 +80,13 @@ export async function guardianApproveHandler(
         const targetAuth = allAuths.find(a => a.id === body.id);
 
         if (body.action === 'approve') {
-            await updateGuardianAuth(body.id, {
-                status: 'aprovado',
-                needsReview: false,
-                ...dateUpdates,
-            });
+            const updates = { status: 'aprovado' as const, needsReview: false, ...dateUpdates };
+            await updateGuardianAuth(body.id, updates);
+
+            // GAP #1: Audit trail
+            await logAudit(body.id, 'approve',
+                { status: targetAuth?.status, classificacao: targetAuth?.classificacao },
+                updates);
 
             // Learn: reinforce the current classification
             if (targetAuth?.descricao) {
@@ -78,23 +94,32 @@ export async function guardianApproveHandler(
             }
             logger.info(`Transação aprovada: ${body.id}`);
         } else if (body.action === 'reject') {
-            await updateGuardianAuth(body.id, {
-                status: 'rejeitado',
-                needsReview: false,
-                ...dateUpdates,
-            });
+            const updates = { status: 'rejeitado' as const, needsReview: false, ...dateUpdates };
+            await updateGuardianAuth(body.id, updates);
+
+            // GAP #1: Audit trail
+            await logAudit(body.id, 'reject',
+                { status: targetAuth?.status, classificacao: targetAuth?.classificacao },
+                updates);
+
             logger.info(`Transação rejeitada: ${body.id}`);
         } else if (body.action === 'reclassify') {
             if (!body.classificacao) {
                 return { status: 400, jsonBody: { error: 'Campo "classificacao" é obrigatório para reclassify.' } };
             }
-            await updateGuardianAuth(body.id, {
+            const updates = {
                 classificacao: body.classificacao,
-                status: 'aprovado',
+                status: 'aprovado' as const,
                 needsReview: false,
                 confianca: 1.0,
                 ...dateUpdates,
-            });
+            };
+            await updateGuardianAuth(body.id, updates);
+
+            // GAP #1: Audit trail
+            await logAudit(body.id, 'reclassify',
+                { status: targetAuth?.status, classificacao: targetAuth?.classificacao },
+                updates);
 
             // Learn: register the correction so future transactions are classified correctly
             if (targetAuth?.descricao) {

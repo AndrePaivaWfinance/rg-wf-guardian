@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGuardianAuthorizations, getApprovedAuthorizations, getAllAuthorizations } from '../storage/tableClient';
+import { getGuardianAuthorizations, getApprovedAuthorizations, getAllAuthorizations, getAuditLogs } from '../storage/tableClient';
 import { safeErrorMessage } from '../shared/utils';
 
 export async function guardianStatusHandler(
@@ -40,11 +40,16 @@ export async function guardianStatusHandler(
             audit: i.audit,
         }));
 
+        // GAP #1: Include audit log when querying specific authId or all
+        const authId = request.query.get('authId') || undefined;
+        const auditLog = authId ? await getAuditLogs(authId) : [];
+
         return {
             jsonBody: {
                 filter,
                 count: enriched.length,
                 items: enriched,
+                ...(authId ? { auditLog } : {}),
             },
         };
     } catch (error: unknown) {

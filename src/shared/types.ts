@@ -177,6 +177,28 @@ export function hydrateLearningRule(rule: LearningRule): LearningRule {
     return rule;
 }
 
+/** ============ AUDIT LOG (GAP #1) ============ */
+
+/** Acao registrada na trilha de auditoria */
+export type AuditAction = 'approve' | 'reject' | 'reclassify' | 'clear_all';
+
+/** Entrada na tabela GuardianAuditLog */
+export interface AuditLogEntry {
+    id: string;
+    /** ID da autorizacao afetada (vazio em clear_all) */
+    authId: string;
+    /** Acao realizada */
+    acao: AuditAction;
+    /** Snapshot antes da acao (JSON) */
+    antes: string;
+    /** Snapshot depois da acao (JSON) */
+    depois: string;
+    /** ISO timestamp */
+    timestamp: string;
+    /** Identificador do usuario (futuro: Azure AD, por ora "analyst") */
+    usuario: string;
+}
+
 /** Valid document types for import */
 export const VALID_DOC_TYPES = ['pdf', 'xml', 'ofx', 'csv'] as const;
 export type DocType = typeof VALID_DOC_TYPES[number];
