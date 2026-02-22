@@ -115,8 +115,9 @@ export class GuardianAgents {
      */
     async learn(descricao: string, classificacao: string): Promise<void> {
         const tokens = extractLearningTokens(descricao);
-        if (tokens.length === 0) {
-            logger.warn(`Learning skip: no significant tokens in "${descricao}"`);
+        // GAP #13: Minimum 2 tokens to avoid over-generalization
+        if (tokens.length < 2) {
+            logger.warn(`Learning skip: need >= 2 significant tokens, got ${tokens.length} in "${descricao}"`);
             return;
         }
 
@@ -490,6 +491,20 @@ Valor: R$ ${valor.toFixed(2)}`;
         return this.categoryNames!;
     }
 
+    /** Cached categories for audit budget lookup */
+    private auditCategories: Array<{ nome: string; orcamentoMensal: number }> | null = null;
+
+    /** Loads categories with budget info for audit */
+    private async loadCategoriesForAudit(): Promise<Array<{ nome: string; orcamentoMensal: number }>> {
+        if (this.auditCategories) return this.auditCategories;
+        const { getCadastroRecords } = await import('../storage/areaTableClient');
+        const categorias = await getCadastroRecords<import('../shared/areas').Categoria>('categorias');
+        this.auditCategories = categorias
+            .filter(c => c.ativa)
+            .map(c => ({ nome: c.nome, orcamentoMensal: c.orcamentoMensal }));
+        return this.auditCategories;
+    }
+
     async classifyTransaction(tx: InterTransaction): Promise<AnalysisResult> {
         logger.info(`Classifying transaction: ${tx.descricao}`);
         const desc = (tx.descricao || '').toUpperCase();
@@ -615,7 +630,8 @@ Valor: R$ ${valor.toFixed(2)}`;
     async audit(result: AnalysisResult): Promise<void> {
         logger.info(`Auditing result: ${result.classification} - R$ ${result.value}`);
 
-        const budgets: Record<string, number> = {
+        // GAP #7: Load budgets dynamically from cadastro categories
+        const FALLBACK_BUDGETS: Record<string, number> = {
             'Infraestrutura Cloud': 500.00,
             'Software ERP': 300.00,
             'Marketing Digital': 2000.00,
@@ -628,6 +644,24 @@ Valor: R$ ${valor.toFixed(2)}`;
             'Pagamentos Diversos': 1000.00,
             'Fornecedores': 2000.00,
         };
+
+        let budgets: Record<string, number> = FALLBACK_BUDGETS;
+        try {
+            const categorias = await this.loadCategoriesForAudit();
+            if (categorias.length > 0) {
+                const dynamic: Record<string, number> = {};
+                for (const cat of categorias) {
+                    if (cat.orcamentoMensal > 0) {
+                        dynamic[cat.nome] = cat.orcamentoMensal;
+                    }
+                }
+                if (Object.keys(dynamic).length > 0) {
+                    budgets = dynamic;
+                }
+            }
+        } catch {
+            // Fallback already set
+        }
 
         const limit = budgets[result.classification];
         if (limit) {

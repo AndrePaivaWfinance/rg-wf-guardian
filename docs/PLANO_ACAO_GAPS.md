@@ -23,7 +23,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/guardian/guardianAgents.ts` — metodo `audit()` (linha ~458) |
 | **Solucao** | Carregar categorias da tabela `GuardianCategorias` e montar o map de budgets dinamicamente |
 | **Criterio de Aceite** | Alterar orcamento de uma categoria via `/api/guardianCadastros/categorias` e ver o novo limite refletido na auditoria |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -35,7 +35,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/functions/guardianApprove.ts` — bloco `clear_all` (linha ~32) |
 | **Solucao** | Exigir campo `confirm: true` no body. Sem ele, retornar 400 com aviso |
 | **Criterio de Aceite** | POST sem `confirm: true` retorna erro 400; POST com `confirm: true` executa normalmente |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -47,7 +47,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/guardian/guardianAgents.ts` — metodo `learn()` (linha ~110) |
 | **Solucao** | Exigir minimo de 2 tokens significativos para criar uma regra. Se < 2, logar warning e nao criar |
 | **Criterio de Aceite** | Aprovar transacao com descricao "PIX ENVIADO" (0 tokens uteis) nao deve criar learning rule |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -59,7 +59,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/functions/guardianDashboard.ts` |
 | **Solucao** | Reduzir TTL do cache para 1 min OU invalidar cache no POST de cadastros |
 | **Criterio de Aceite** | Criar nova categoria e ver refletida no dashboard sem precisar esperar 5 min |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 

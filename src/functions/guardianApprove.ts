@@ -10,6 +10,7 @@ interface ApproveBody {
     id: string;
     action: 'approve' | 'reject' | 'reclassify' | 'clear_all';
     classificacao?: string;
+    confirm?: boolean;
     dataCompetencia?: string;
     dataVencimento?: string;
     dataPagamento?: string;
@@ -29,8 +30,14 @@ export async function guardianApproveHandler(
             return { status: 400, jsonBody: { error: 'Campo "action" é obrigatório.' } };
         }
 
-        // ---- Clear all data ----
+        // ---- Clear all data (GAP #11: require confirm: true) ----
         if (body.action === 'clear_all') {
+            if (!body.confirm) {
+                return {
+                    status: 400,
+                    jsonBody: { error: 'Acao destrutiva: envie "confirm": true para confirmar a exclusao de TODOS os registros.' },
+                };
+            }
             const removed = await clearAllAuthorizations();
             logger.info(`Limpeza completa: ${removed} registros removidos`);
             return {

@@ -7,6 +7,7 @@ import {
     updateCadastroRecord,
     deleteCadastroRecord,
 } from '../storage/areaTableClient';
+import { invalidateCategoriasCache } from './guardianDashboard';
 
 const logger = createLogger('GuardianCadastros');
 
@@ -183,6 +184,9 @@ export async function guardianCadastrosPostHandler(
                 await updateCadastroRecord(tipo, record);
             }
 
+            // GAP #12: Invalidate dashboard cache on cadastro changes
+            if (tipo === 'categorias') invalidateCategoriasCache();
+
             logger.info(`Cadastro ${tipo} ${action}: ${record.id}`);
             return { status: 200, jsonBody: { success: true, action, id: record.id } };
         }
@@ -193,6 +197,10 @@ export async function guardianCadastrosPostHandler(
                 return { status: 400, jsonBody: { error: 'Campo "id" e obrigatorio para delete.' } };
             }
             await deleteCadastroRecord(tipo, recordId);
+
+            // GAP #12: Invalidate dashboard cache on cadastro changes
+            if (tipo === 'categorias') invalidateCategoriasCache();
+
             logger.info(`Cadastro ${tipo} delete: ${recordId}`);
             return { status: 200, jsonBody: { success: true, action: 'delete', id: recordId } };
         }

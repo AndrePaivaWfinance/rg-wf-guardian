@@ -12,7 +12,8 @@ const logger = createLogger('GuardianDashboard');
 // In-memory cache for categories (rarely change, avoid re-querying Table Storage every request)
 let cachedCategorias: Categoria[] | null = null;
 let cachedCategoriasAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// GAP #12: Reduced from 5min to 1min for faster reflection of cadastro changes
+const CACHE_TTL_MS = 1 * 60 * 1000; // 1 minute
 
 export function invalidateCategoriasCache() { cachedCategorias = null; }
 
