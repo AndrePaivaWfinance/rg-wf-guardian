@@ -6,6 +6,7 @@ import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
 import { Categoria } from '../shared/areas';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianDashboard');
 
@@ -201,31 +202,73 @@ function buildDFC(
     };
 }
 
-function buildForecast(items: GuardianAuthorization[], caixaAtual: number, catMap: Map<string, { tipo: string; grupo: string }>) {
-    const receita = sumByTipo(items, catMap, 'RECEITA_DIRETA');
-    const despesas = sumByTipo(items, catMap, 'CUSTO_VARIAVEL') + sumByTipo(items, catMap, 'CUSTO_FIXO');
-    const growthRate = 0.03;
-    const months: Array<{ month: string; receita: number; despesas: number; lucroLiquido: number; caixaAcumulado: number }> = [];
+/**
+ * GAP #6: Smart forecast using moving average of historical data with 3 scenarios.
+ * Uses standard deviation for optimistic/pessimistic ranges.
+ */
+function buildForecast(
+    items: GuardianAuthorization[],
+    caixaAtual: number,
+    catMap: Map<string, { tipo: string; grupo: string }>,
+    monthlyHist?: Array<{ month: string; receita: number; despesas: number }>
+) {
     const now = new Date();
-    let caixa = caixaAtual;
+    const histReceitas: number[] = [];
+    const histDespesas: number[] = [];
 
-    for (let i = 0; i < 6; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-        const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-        const factor = Math.pow(1 + growthRate, i);
-        const mReceita = receita * factor;
-        const mDespesas = despesas * (1 + (growthRate * 0.5 * i));
-        const mLucro = mReceita - mDespesas;
-        caixa += mLucro;
-        months.push({
-            month: label,
-            receita: Math.round(mReceita * 100) / 100,
-            despesas: Math.round(mDespesas * 100) / 100,
-            lucroLiquido: Math.round(mLucro * 100) / 100,
-            caixaAcumulado: Math.round(caixa * 100) / 100,
-        });
+    if (monthlyHist && monthlyHist.length >= 2) {
+        const recent = monthlyHist.slice(-6);
+        for (const m of recent) {
+            histReceitas.push(m.receita);
+            histDespesas.push(m.despesas);
+        }
     }
-    return months;
+
+    // Fallback: use current period totals
+    if (histReceitas.length === 0) {
+        histReceitas.push(sumByTipo(items, catMap, 'RECEITA_DIRETA'));
+        histDespesas.push(sumByTipo(items, catMap, 'CUSTO_VARIAVEL') + sumByTipo(items, catMap, 'CUSTO_FIXO'));
+    }
+
+    const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const std = (arr: number[], mean: number) => arr.length > 1
+        ? Math.sqrt(arr.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / arr.length)
+        : mean * 0.10;
+
+    const avgR = avg(histReceitas);
+    const avgD = avg(histDespesas);
+    const stdR = std(histReceitas, avgR);
+    const stdD = std(histDespesas, avgD);
+
+    type FM = { month: string; receita: number; despesas: number; lucroLiquido: number; caixaAcumulado: number };
+
+    function scenario(rMult: number, dMult: number): FM[] {
+        const ms: FM[] = [];
+        let caixa = caixaAtual;
+        for (let i = 0; i < 6; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+            const trend = 1 + (0.01 * i);
+            const mR = Math.max(0, (avgR + stdR * rMult) * trend);
+            const mD = Math.max(0, (avgD + stdD * dMult) * trend);
+            const mL = mR - mD;
+            caixa += mL;
+            ms.push({
+                month: label,
+                receita: Math.round(mR * 100) / 100,
+                despesas: Math.round(mD * 100) / 100,
+                lucroLiquido: Math.round(mL * 100) / 100,
+                caixaAcumulado: Math.round(caixa * 100) / 100,
+            });
+        }
+        return ms;
+    }
+
+    return {
+        realista: scenario(0, 0),
+        otimista: scenario(1, -0.5),
+        pessimista: scenario(-1, 0.5),
+    };
 }
 
 function buildCategorized(items: GuardianAuthorization[]) {
@@ -352,6 +395,10 @@ export async function guardianDashboardHandler(
 ): Promise<HttpResponseInit> {
     context.log('BFF: Carregando dashboard completo...');
 
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     try {
         // Fetch data in parallel — categorias are cached in memory
         const [approvedItems, pendingItems, ccSaldoInicialStr, ccDataRef, categorias] = await Promise.all([
@@ -415,10 +462,11 @@ export async function guardianDashboardHandler(
         // Build financial statements using category map — ONLY approved items
         const dre = buildDRE(items, catMap);
         const dfc = buildDFC(items, caixaAtual, ccSaldoInicial, items, catMap);
-        const forecast = buildForecast(items, caixaAtual, catMap);
+        const monthlyHistory = buildMonthlyHistory(items, catMap);
+        // GAP #6: Smart forecast with 3 scenarios based on historical moving average
+        const forecast = buildForecast(items, caixaAtual, catMap, monthlyHistory);
         const categorized = buildCategorized(items);
         const insights = buildInsights(items, kpis, caixaAtual, catMap);
-        const monthlyHistory = buildMonthlyHistory(items, catMap);
 
         // Weekly breakdown (from approved only)
         const now = new Date();
@@ -474,6 +522,9 @@ export async function guardianDashboardHandler(
             dataVencimento: i.dataVencimento || '',
             dataInclusao: i.dataInclusao || '',
             dataPagamento: i.dataPagamento || '',
+            // GAP #8: project/campaign linking
+            projetoId: i.projetoId || '',
+            campanhaId: i.campanhaId || '',
             audit: i.audit,
             isTransferenciaInterna: catMap.get(i.classificacao)?.tipo === 'TRANSFERENCIA_INTERNA',
         });

@@ -148,7 +148,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Solucao** | (1) Configurar Azure AD (Entra ID) como identity provider, (2) Mudar `authLevel: 'anonymous'` para `'function'` com validacao de token, (3) No frontend, implementar login com MSAL.js |
 | **Dependencia** | `AAD_CLIENT_ID` e `AAD_CLIENT_SECRET` ja existem no `local.settings.json` (vazios) |
 | **Criterio de Aceite** | Acesso sem token retorna 401. Login com Azure AD permite acesso normal |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -160,7 +160,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivo** | `src/functions/guardianDashboard.ts` — `buildForecast()` |
 | **Solucao** | (1) Calcular media movel dos ultimos 6 meses, (2) Aplicar desvio padrao para range otimista/pessimista, (3) Opcionalmente usar Kimi para analise de tendencia |
 | **Criterio de Aceite** | Forecast mostra 3 cenarios (otimista, realista, pessimista) baseados em dados historicos |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -172,7 +172,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | `src/functions/guardianAreas.ts`, `src/functions/guardianDashboard.ts` |
 | **Solucao** | (1) Adicionar campo `projetoId` / `campanhaId` nas autorizacoes, (2) Permitir vincular transacao a projeto na aprovacao, (3) Calcular P&L por projeto/campanha no dashboard |
 | **Criterio de Aceite** | Analista vincula despesa a projeto e ve margem do projeto no painel |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 
@@ -184,7 +184,7 @@ com responsavel, arquivos impactados, criterio de aceite e status de execucao.
 | **Arquivos** | Novo arquivo `src/functions/guardianNotify.ts` |
 | **Solucao** | (1) Timer trigger diario (8h) que verifica pendencias, (2) Enviar alerta via Microsoft Teams webhook ou email (Graph API), (3) Resumo: X pendentes, Y acima do orcamento, Z nao classificadas |
 | **Criterio de Aceite** | Analista recebe mensagem no Teams as 8h com resumo de pendencias |
-| **Status** | [ ] Pendente |
+| **Status** | [x] Concluido (2026-02-22) |
 
 ---
 

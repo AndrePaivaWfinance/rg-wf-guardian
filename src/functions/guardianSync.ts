@@ -6,6 +6,7 @@ import { createGuardianAuth } from '../storage/tableClient';
 import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { toGuardianAuth } from '../shared/types';
 import { InterTransaction } from '../guardian/interConnector';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianSync');
 
@@ -44,6 +45,10 @@ export async function guardianSyncHandler(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     context.log('Iniciando Sincronização Guardian...');
+
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
 
     const inter = new InterConnector();
     const email = new EmailListener();

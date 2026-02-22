@@ -8,6 +8,7 @@ import {
     deleteCadastroRecord,
 } from '../storage/areaTableClient';
 import { invalidateCategoriasCache } from './guardianDashboard';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianCadastros');
 
@@ -131,6 +132,10 @@ export async function guardianCadastrosGetHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     const tipo = request.params.tipo as CadastroType;
 
     if (!VALID_TIPOS.includes(tipo)) {
@@ -162,6 +167,10 @@ export async function guardianCadastrosPostHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     const tipo = request.params.tipo as CadastroType;
 
     if (!VALID_TIPOS.includes(tipo)) {

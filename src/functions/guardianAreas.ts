@@ -19,6 +19,9 @@ import {
     updateAreaRecord,
     deleteAreaRecord,
 } from '../storage/areaTableClient';
+import { getApprovedAuthorizations } from '../storage/tableClient';
+import { GuardianAuthorization } from '../shared/types';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianAreas');
 
@@ -46,6 +49,47 @@ function calcOperacoesKPIs(projects: OperacoesProject[]): OperacoesKPIs {
         slaAtingido: total > 0 ? (((concluidos.length + ativos.length) / total) * 100).toFixed(1) + '%' : '0%',
         ticketMedioContrato: valores.length > 0 ? Math.round(valores.reduce((s, p) => s + p.valorContrato, 0) / valores.length) : 0,
     };
+}
+
+/**
+ * GAP #8: P&L per project — cross-references approved financial transactions
+ * linked via projetoId with the project data (valorContrato, hours, etc.)
+ */
+interface ProjectPnL {
+    projetoId: string;
+    projetoNome: string;
+    cliente: string;
+    valorContrato: number;
+    receitas: number;
+    despesas: number;
+    resultado: number;
+    margemPct: string;
+    transacoes: number;
+}
+
+function calcProjectPnL(projects: OperacoesProject[], financials: GuardianAuthorization[]): ProjectPnL[] {
+    return projects.map(p => {
+        const linked = financials.filter(f => f.projetoId === p.id);
+        const receitas = linked
+            .filter(f => f.classificacao?.includes('Receita'))
+            .reduce((s, f) => s + f.valor, 0);
+        const despesas = linked
+            .filter(f => !f.classificacao?.includes('Receita'))
+            .reduce((s, f) => s + f.valor, 0);
+        const resultado = receitas - despesas;
+        const base = receitas > 0 ? receitas : (p.valorContrato > 0 ? p.valorContrato : 1);
+        return {
+            projetoId: p.id,
+            projetoNome: p.nome,
+            cliente: p.cliente,
+            valorContrato: p.valorContrato,
+            receitas,
+            despesas,
+            resultado,
+            margemPct: ((resultado / base) * 100).toFixed(1) + '%',
+            transacoes: linked.length,
+        };
+    }).filter(p => p.transacoes > 0 || p.valorContrato > 0);
 }
 
 function calcMarketingKPIs(campaigns: MarketingCampaign[]): MarketingKPIs {
@@ -119,6 +163,10 @@ export async function guardianAreasGetHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     const area = request.params.area as AreaType;
 
     if (!VALID_AREAS.includes(area)) {
@@ -131,12 +179,28 @@ export async function guardianAreasGetHandler(
         let response: AreaResponse;
 
         if (area === 'operacoes') {
-            const projects = await getAreaRecords<OperacoesProject>(area);
-            const data: OperacoesData = { projects, kpis: calcOperacoesKPIs(projects) };
+            const [projects, financials] = await Promise.all([
+                getAreaRecords<OperacoesProject>(area),
+                getApprovedAuthorizations(),
+            ]);
+            const kpis = calcOperacoesKPIs(projects);
+            // GAP #8: P&L per project
+            const projectPnL = calcProjectPnL(projects, financials);
+            const data: OperacoesData & { projectPnL?: ProjectPnL[] } = { projects, kpis, projectPnL };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'marketing') {
-            const campaigns = await getAreaRecords<MarketingCampaign>(area);
-            const data: MarketingData = { campaigns, kpis: calcMarketingKPIs(campaigns) };
+            const [campaigns, financials] = await Promise.all([
+                getAreaRecords<MarketingCampaign>(area),
+                getApprovedAuthorizations(),
+            ]);
+            const kpis = calcMarketingKPIs(campaigns);
+            // GAP #8: Link campaign financial data
+            const campanhaFinanceiro = campaigns.map(c => {
+                const linked = financials.filter(f => f.campanhaId === c.id);
+                const gastoReal = linked.reduce((s, f) => s + f.valor, 0);
+                return { campanhaId: c.id, nome: c.nome, gastoOrcado: c.orcamento, gastoReal, transacoes: linked.length };
+            }).filter(c => c.transacoes > 0 || c.gastoOrcado > 0);
+            const data: MarketingData & { campanhaFinanceiro?: typeof campanhaFinanceiro } = { campaigns, kpis, campanhaFinanceiro };
             response = { area, generatedAt: nowISO(), data };
         } else if (area === 'comercial') {
             const deals = await getAreaRecords<ComercialDeal>(area);
@@ -157,6 +221,10 @@ export async function guardianAreasPostHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     const area = request.params.area as AreaType;
 
     if (!VALID_AREAS.includes(area)) {

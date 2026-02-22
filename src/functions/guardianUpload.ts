@@ -3,6 +3,7 @@ import { GuardianAgents, ImportedDocument } from '../guardian/guardianAgents';
 import { createGuardianAuth } from '../storage/tableClient';
 import { createLogger, nowISO, generateId, safeErrorMessage } from '../shared/utils';
 import { toGuardianAuth } from '../shared/types';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianUpload');
 
@@ -17,6 +18,10 @@ export async function guardianUploadHandler(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     context.log('Upload de documento recebido...');
+
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
 
     try {
         const body = await request.json() as UploadBody;

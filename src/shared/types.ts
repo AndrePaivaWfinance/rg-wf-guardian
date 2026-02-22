@@ -35,6 +35,10 @@ export interface GuardianAuthorization {
     dataInclusao?: string;     // Data em que foi descoberta/importada (YYYY-MM-DD)
     dataPagamento?: string;    // Data efetiva do pagamento (YYYY-MM-DD)
 
+    // GAP #8: Vinculação com projetos/campanhas
+    projetoId?: string;        // ID do projeto (OperacoesProject.id) vinculado
+    campanhaId?: string;       // ID da campanha (MarketingCampaign.id) vinculado
+
     // Sugestão da IA para revisão
     sugestaoIA?: string;       // Texto explicativo da classificação sugerida pela IA
 

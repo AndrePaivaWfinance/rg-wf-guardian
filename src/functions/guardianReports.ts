@@ -5,6 +5,7 @@ import { createLogger, nowISO, safeErrorMessage } from '../shared/utils';
 import { InterConnector } from '../guardian/interConnector';
 import { GuardianAuthorization } from '../shared/types';
 import { Categoria } from '../shared/areas';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianReports');
 
@@ -165,6 +166,10 @@ export async function guardianReportsHandler(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     context.log('Gerando Relatório Consolidado (Controladoria)...');
+
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
 
     try {
         // Fetch approved (for DRE) and pending (for review section) in parallel

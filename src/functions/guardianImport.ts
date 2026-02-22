@@ -3,6 +3,7 @@ import { GuardianAgents, ImportedDocument } from '../guardian/guardianAgents';
 import { createGuardianAuth } from '../storage/tableClient';
 import { createLogger, nowISO, generateId, safeErrorMessage, isValidUrl } from '../shared/utils';
 import { toGuardianAuth, ImportRequestBody, VALID_DOC_TYPES, DocType } from '../shared/types';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianImport');
 
@@ -11,6 +12,10 @@ export async function guardianImportHandler(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     context.log('Iniciando Importação Manual de Documento...');
+
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
 
     try {
         const body = await request.json() as ImportRequestBody;

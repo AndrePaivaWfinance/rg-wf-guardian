@@ -1,11 +1,16 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGuardianAuthorizations, getApprovedAuthorizations, getAllAuthorizations, getAuditLogs } from '../storage/tableClient';
 import { safeErrorMessage } from '../shared/utils';
+import { requireAuth } from '../shared/auth';
 
 export async function guardianStatusHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+
     try {
         const filter = request.query.get('status') || 'all';
 

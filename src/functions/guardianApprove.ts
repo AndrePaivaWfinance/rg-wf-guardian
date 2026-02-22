@@ -3,6 +3,7 @@ import { updateGuardianAuth, clearAllAuthorizations, getAllAuthorizations, inser
 import { createLogger, generateId, nowISO, safeErrorMessage } from '../shared/utils';
 import { GuardianAuthorization, AuditLogEntry } from '../shared/types';
 import { GuardianAgents } from '../guardian/guardianAgents';
+import { requireAuth } from '../shared/auth';
 
 const logger = createLogger('GuardianApprove');
 
@@ -14,6 +15,9 @@ interface ApproveBody {
     dataCompetencia?: string;
     dataVencimento?: string;
     dataPagamento?: string;
+    // GAP #8: Vinculação com projetos/campanhas
+    projetoId?: string;
+    campanhaId?: string;
 }
 
 export async function guardianApproveHandler(
@@ -21,6 +25,11 @@ export async function guardianApproveHandler(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     context.log('Processando aprovação de transação...');
+
+    // GAP #2: Authenticate
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+    const authUser = authResult.user;
 
     try {
         let body: ApproveBody;
@@ -39,7 +48,7 @@ export async function guardianApproveHandler(
                 antes: JSON.stringify(antes),
                 depois: JSON.stringify(depois),
                 timestamp: nowISO(),
-                usuario: 'analyst', // GAP #2 futuro: Azure AD user
+                usuario: authUser.email || authUser.name || 'analyst',
             });
         }
 
@@ -68,11 +77,14 @@ export async function guardianApproveHandler(
             return { status: 400, jsonBody: { error: 'Action inválida. Use: approve, reject, reclassify, clear_all' } };
         }
 
-        // Build update payload — always allow optional date overrides
+        // Build update payload — always allow optional date overrides + project/campaign links
         const dateUpdates: Partial<GuardianAuthorization> = {};
         if (body.dataCompetencia) dateUpdates.dataCompetencia = body.dataCompetencia;
         if (body.dataVencimento) dateUpdates.dataVencimento = body.dataVencimento;
         if (body.dataPagamento) dateUpdates.dataPagamento = body.dataPagamento;
+        // GAP #8: Link transaction to project/campaign
+        if (body.projetoId) dateUpdates.projetoId = body.projetoId;
+        if (body.campanhaId) dateUpdates.campanhaId = body.campanhaId;
 
         // Load the authorization to get its description for learning
         const agents = new GuardianAgents();
