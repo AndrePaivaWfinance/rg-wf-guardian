@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { updateGuardianAuth, clearAllAuthorizations } from '../storage/tableClient';
+import { updateGuardianAuth, clearAllAuthorizations, getAllAuthorizations } from '../storage/tableClient';
 import { createLogger, safeErrorMessage } from '../shared/utils';
 import { GuardianAuthorization } from '../shared/types';
+import { GuardianAgents } from '../guardian/guardianAgents';
 
 const logger = createLogger('GuardianApprove');
 
@@ -52,12 +53,22 @@ export async function guardianApproveHandler(
         if (body.dataVencimento) dateUpdates.dataVencimento = body.dataVencimento;
         if (body.dataPagamento) dateUpdates.dataPagamento = body.dataPagamento;
 
+        // Load the authorization to get its description for learning
+        const agents = new GuardianAgents();
+        const allAuths = await getAllAuthorizations();
+        const targetAuth = allAuths.find(a => a.id === body.id);
+
         if (body.action === 'approve') {
             await updateGuardianAuth(body.id, {
                 status: 'aprovado',
                 needsReview: false,
                 ...dateUpdates,
             });
+
+            // Learn: reinforce the current classification
+            if (targetAuth?.descricao) {
+                await agents.learn(targetAuth.descricao, targetAuth.classificacao);
+            }
             logger.info(`Transação aprovada: ${body.id}`);
         } else if (body.action === 'reject') {
             await updateGuardianAuth(body.id, {
@@ -77,6 +88,11 @@ export async function guardianApproveHandler(
                 confianca: 1.0,
                 ...dateUpdates,
             });
+
+            // Learn: register the correction so future transactions are classified correctly
+            if (targetAuth?.descricao) {
+                await agents.learn(targetAuth.descricao, body.classificacao);
+            }
             logger.info(`Transação reclassificada: ${body.id} → ${body.classificacao}`);
         }
 

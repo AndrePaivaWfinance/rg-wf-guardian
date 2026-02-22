@@ -98,7 +98,9 @@ export function toGuardianAuth(
         dataPagamento: dataTransacao,                            // data efetiva (para extrato bancário já é a data do pagamento)
 
         // Sugestão IA
-        sugestaoIA: `Classificado como "${res.classification}" com ${(res.confidence * 100).toFixed(0)}% de confiança. ${
+        sugestaoIA: `Classificado como "${res.classification}" com ${(res.confidence * 100).toFixed(0)}% de confiança${
+            res.confidence >= 0.80 && res.confidence <= 0.97 && res.id.startsWith('CLASS_') ? ' (aprendizado)' : ''
+        }. ${
             res.suggestedAction === 'approve' ? 'Recomendação: aprovar automaticamente.' :
             res.suggestedAction === 'investigate' ? 'Recomendação: revisar antes de aprovar.' :
             'Recomendação: arquivar (conciliado com documento).'
@@ -117,6 +119,62 @@ export function hydrateAuth(auth: GuardianAuthorization): GuardianAuthorization 
         } catch { /* ignore parse errors */ }
     }
     return auth;
+}
+
+/** ============ LEARNING ============ */
+
+/** Regra aprendida a partir de aprovações/reclassificações do usuário */
+export interface LearningRule {
+    id: string;
+    /** Tokens significativos extraídos da descrição (ex: ["MULTIDISPLAY", "COMERCIO"]) */
+    tokens: string[];
+    /** Tokens serializado como string para Azure Table Storage */
+    tokensJson: string;
+    /** Classificação correta aprendida */
+    classificacao: string;
+    /** Quantas vezes essa regra foi confirmada */
+    hits: number;
+    /** Confiança calculada: min(0.97, 0.80 + hits * 0.03) */
+    confianca: number;
+    /** Descrição original que gerou a regra (para auditoria) */
+    descricaoOriginal: string;
+    criadoEm: string;
+    atualizadoEm: string;
+}
+
+/** Tokens genéricos bancários que não são úteis para aprendizado */
+export const BANKING_STOPWORDS = new Set([
+    'PIX', 'ENVIADO', 'RECEBIDO', 'TRANSFERENCIA', 'TED', 'DOC',
+    'PAGAMENTO', 'BOLETO', 'DEBITO', 'CREDITO', 'FATURA', 'INTER',
+    'BANCO', 'CONTA', 'PARCELA', 'TAXA', 'TARIFA', 'DE', 'DO', 'DA',
+    'DOS', 'DAS', 'PARA', 'COM', 'EM', 'POR', 'AO', 'NO', 'NA',
+    'LTDA', 'EIRELI', 'MEI', 'SA', 'S/A', 'ME', 'EPP', 'SS',
+    'CNPJ', 'CPF', 'REF', 'NR', 'NUM', 'COD',
+]);
+
+/** Extrai tokens significativos de uma descrição bancária */
+export function extractLearningTokens(descricao: string): string[] {
+    return descricao
+        .toUpperCase()
+        .replace(/[^A-Z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length >= 3 && !BANKING_STOPWORDS.has(t))
+        .filter((t, i, arr) => arr.indexOf(t) === i); // unique
+}
+
+/** Calcula confiança baseada no número de hits */
+export function learningConfidence(hits: number): number {
+    return Math.min(0.97, 0.80 + hits * 0.03);
+}
+
+/** Hydrates tokens from JSON string after reading from Table Storage */
+export function hydrateLearningRule(rule: LearningRule): LearningRule {
+    if (rule.tokensJson && (!rule.tokens || rule.tokens.length === 0)) {
+        try {
+            rule.tokens = JSON.parse(rule.tokensJson) as string[];
+        } catch { rule.tokens = []; }
+    }
+    return rule;
 }
 
 /** Valid document types for import */
