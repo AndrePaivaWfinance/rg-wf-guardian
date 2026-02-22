@@ -1,12 +1,13 @@
 import { TableClient } from '@azure/data-tables';
 import { createLogger } from '../shared/utils';
-import { GuardianAuthorization, hydrateAuth } from '../shared/types';
+import { GuardianAuthorization, hydrateAuth, LearningRule, hydrateLearningRule } from '../shared/types';
 
 const logger = createLogger('TableClient');
 
 const TABLES = {
     GUARDIAN_AUTH: 'GuardianAuthorizations',
     GUARDIAN_LEDGER: 'GuardianLedger',
+    GUARDIAN_LEARNING: 'GuardianLearning',
 } as const;
 
 // In-memory fallback for local development
@@ -174,4 +175,52 @@ export async function clearAllAuthorizations(): Promise<number> {
         logger.error('Erro ao limpar autorizações', error);
     }
     return count;
+}
+
+// ============ LEARNING RULES ============
+
+const learningInMemory: LearningRule[] = [];
+
+/** Returns all learned classification rules */
+export async function getLearningRules(): Promise<LearningRule[]> {
+    const client = await getTableClient(TABLES.GUARDIAN_LEARNING);
+
+    if (!client) {
+        return learningInMemory.map(hydrateLearningRule);
+    }
+
+    const items: LearningRule[] = [];
+    try {
+        const entities = client.listEntities();
+        for await (const entity of entities) {
+            items.push(hydrateLearningRule(entity as unknown as LearningRule));
+        }
+    } catch (error) {
+        logger.error('Erro ao listar regras de aprendizado', error);
+    }
+    return items;
+}
+
+/** Creates or updates a learning rule (upsert by ID) */
+export async function upsertLearningRule(rule: LearningRule): Promise<void> {
+    const client = await getTableClient(TABLES.GUARDIAN_LEARNING);
+
+    if (!client) {
+        const idx = learningInMemory.findIndex(r => r.id === rule.id);
+        if (idx >= 0) {
+            learningInMemory[idx] = rule;
+        } else {
+            learningInMemory.push(rule);
+        }
+        logger.info(`[In-Memory] Learning rule upserted: ${rule.id} → ${rule.classificacao} (${rule.hits} hits)`);
+        return;
+    }
+
+    const { tokens, ...storableRule } = rule;
+    await client.upsertEntity({
+        partitionKey: 'LEARNING',
+        rowKey: rule.id,
+        ...storableRule,
+    });
+    logger.info(`Learning rule persisted: ${rule.id} → ${rule.classificacao} (${rule.hits} hits)`);
 }
