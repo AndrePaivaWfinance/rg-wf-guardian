@@ -40,10 +40,11 @@ export interface AuditResult {
 const AI_ENDPOINT = process.env.FORM_RECOGNIZER_ENDPOINT || '';
 const AI_KEY = process.env.FORM_RECOGNIZER_KEY || '';
 
-/** Kimi (Moonshot AI) configuration — OpenAI-compatible API */
-const KIMI_API_KEY = process.env.KIMI_API_KEY || '';
-const KIMI_BASE_URL = 'api.moonshot.ai';
-const KIMI_MODEL = 'kimi-k2';
+/** Kimi K2.5 via Azure AI (Cognitive Services) */
+const KIMI_API_KEY = process.env.AZURE_KIMI_API_KEY || '';
+const KIMI_ENDPOINT = process.env.AZURE_KIMI_ENDPOINT || '';
+const KIMI_DEPLOYMENT = 'kimi-k2-5';
+const KIMI_API_VERSION = '2024-12-01-preview';
 
 interface FormRecognizerField {
     content?: string;
@@ -356,13 +357,13 @@ export class GuardianAgents {
         return 'Despesas Administrativas';
     }
 
-    /** Returns true when Kimi AI is configured */
+    /** Returns true when Kimi K2.5 is configured on Azure AI */
     private isKimiConfigured(): boolean {
-        return !!KIMI_API_KEY;
+        return !!(KIMI_API_KEY && KIMI_ENDPOINT);
     }
 
     /**
-     * Calls Kimi AI to classify a transaction description.
+     * Calls Kimi K2.5 (Azure AI) to classify a transaction description.
      * Uses the list of available categories for structured output.
      * Returns null on error (graceful degradation).
      */
@@ -393,8 +394,10 @@ Tipo: ${tipo}
 Valor: R$ ${valor.toFixed(2)}`;
 
         try {
+            const endpoint = new URL(KIMI_ENDPOINT);
+            const apiPath = `/openai/deployments/${KIMI_DEPLOYMENT}/chat/completions?api-version=${KIMI_API_VERSION}`;
+
             const body = JSON.stringify({
-                model: KIMI_MODEL,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt },
@@ -406,11 +409,11 @@ Valor: R$ ${valor.toFixed(2)}`;
             const response = await new Promise<string>((resolve, reject) => {
                 const req = https.request(
                     {
-                        hostname: KIMI_BASE_URL,
-                        path: '/v1/chat/completions',
+                        hostname: endpoint.hostname,
+                        path: apiPath,
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${KIMI_API_KEY}`,
+                            'api-key': KIMI_API_KEY,
                             'Content-Type': 'application/json',
                             'Content-Length': Buffer.byteLength(body),
                         },
@@ -420,7 +423,8 @@ Valor: R$ ${valor.toFixed(2)}`;
                         res.on('data', (chunk: Buffer) => chunks.push(chunk));
                         res.on('end', () => {
                             if (res.statusCode !== 200) {
-                                reject(new Error(`Kimi API error: ${res.statusCode}`));
+                                const errBody = Buffer.concat(chunks).toString();
+                                reject(new Error(`Kimi API error: ${res.statusCode} — ${errBody}`));
                                 return;
                             }
                             resolve(Buffer.concat(chunks).toString());
@@ -428,7 +432,7 @@ Valor: R$ ${valor.toFixed(2)}`;
                     }
                 );
                 req.on('error', reject);
-                req.setTimeout(10000, () => { req.destroy(); reject(new Error('Kimi API timeout')); });
+                req.setTimeout(15000, () => { req.destroy(); reject(new Error('Kimi API timeout')); });
                 req.write(body);
                 req.end();
             });
@@ -452,7 +456,7 @@ Valor: R$ ${valor.toFixed(2)}`;
             }
 
             const confidence = Math.min(0.95, Math.max(0.70, result.confianca || 0.80));
-            logger.info(`Kimi classified: "${descricao}" → "${result.classificacao}" (${confidence.toFixed(2)})`);
+            logger.info(`Kimi K2.5 classified: "${descricao}" → "${result.classificacao}" (${confidence.toFixed(2)})`);
             return { classification: result.classificacao, confidence };
         } catch (error) {
             logger.warn(`Kimi classification failed (graceful degradation): ${error}`);
